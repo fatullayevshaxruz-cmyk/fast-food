@@ -1,0 +1,14 @@
+[Unit]
+Description=Fast Food Telegram Bot
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/fastfood-bot/fastfood_bot
+ExecStart=/usr/bin/python3 bot.py
+Restart=always
+EnvironmentFile=/home/ubuntu/fastfood-bot/fastfood_bot/.env
+
+[Install]
+WantedBy=multi-user.target
