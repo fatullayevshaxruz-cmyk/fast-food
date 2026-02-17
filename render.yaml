@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: fastfood-bot
+    runtime: python
+    buildCommand: pip install -r fastfood_bot/requirements.txt
+    startCommand: python3 fastfood_bot/bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
