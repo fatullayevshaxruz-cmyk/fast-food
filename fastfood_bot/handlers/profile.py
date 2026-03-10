@@ -85,7 +85,7 @@ async def contact_us(message: types.Message):
     await message.answer(contact_text, parse_mode=ParseMode.MARKDOWN)
 
 def register_profile_handlers(dp: Dispatcher):
-    dp.register_message_handler(show_profile, text="👤 Profil", state="*")
+    dp.register_message_handler(show_profile, lambda message: message.text == "👤 Profil", state="*")
     dp.register_message_handler(process_contact, content_types=types.ContentTypes.CONTACT, state=ProfileStates.waiting_for_phone)
     dp.register_message_handler(process_contact, state=ProfileStates.waiting_for_phone)
     dp.register_message_handler(show_my_orders, text="📦 Buyurtmalarim")

@@ -43,11 +43,11 @@ if __name__ == '__main__':
     
     # Register handlers
     register_start_handlers(dp)
+    register_profile_handlers(dp)
     register_menu_handlers(dp)
     register_cart_handlers(dp)
     register_order_handlers(dp)
     register_admin_handlers(dp)
-    register_profile_handlers(dp)
     
     
     # Render requires a web server to bind to a port for Web Services
