@@ -20,7 +20,7 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
     print("DEBUG: State set to waiting_for_delivery_type.")
     
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(KeyboardButton("🏠 Shu yerda"), KeyboardButton("🛵 Olib ketish"))
+    markup.add(KeyboardButton("🍽️ Shu yerda"), KeyboardButton("🛵 Olib ketish"))
     markup.add(KeyboardButton("❌ Bekor qilish"))
     
     await call.message.answer("Ajoyib! Buyurtmani qanday usulda qabul qilasiz?", reply_markup=markup)

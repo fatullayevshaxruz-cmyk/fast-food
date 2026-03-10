@@ -6,10 +6,18 @@ from aiogram import types
 async def notify_admins_new_order(bot, order_id, total_amount, user, items, phone, address, location=None):
     # 1. Notify ADMIN_ID (Just Food Items)
     items_text = "\n".join([f"▫️ {i['name']} x {i['quantity']}" for i in items])
-    admin_message = (
-        f"🆕 <b>Yangi buyurtma #{order_id}</b>\n\n"
-        f"🍛 <b>Buyurtma:</b>\n{items_text}"
-    )
+    
+    if address and "Stol raqami" in address:
+        admin_message = (
+            f"🆕 <b>Yangi buyurtma #{order_id}</b>\n"
+            f"🍽️ <b>Shu yerda:</b> {address}\n\n"
+            f"🍛 <b>Buyurtma:</b>\n{items_text}"
+        )
+    else:
+        admin_message = (
+            f"🆕 <b>Yangi buyurtma #{order_id}</b>\n\n"
+            f"🍛 <b>Buyurtma:</b>\n{items_text}"
+        )
     
     admins = ADMIN_ID.split(',')
     for admin_id in admins:
