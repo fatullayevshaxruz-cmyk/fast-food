@@ -27,7 +27,8 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
     await call.answer()
 
 async def process_delivery_type(message: types.Message, state: FSMContext):
-    if message.text == "🏠 Shu yerda":
+    text = message.text.strip()
+    if "Shu yerda" in text:
         await state.update_data(delivery_type="eat_in")
         await OrderStates.waiting_for_table_number.set()
         
@@ -35,7 +36,7 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
         markup.add(KeyboardButton("❌ Bekor qilish"))
         await message.answer("Iltimos, stol raqamini kiriting (Masalan: 12):", reply_markup=markup)
         
-    elif message.text == "🛵 Olib ketish":
+    elif "Olib ketish" in text:
         await state.update_data(delivery_type="delivery")
         await OrderStates.waiting_for_location.set()
         
@@ -48,7 +49,7 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
         await message.answer("Iltimos, pastdagi tugmalardan birini tanlang.")
 
 async def process_table_number(message: types.Message, state: FSMContext):
-    table_num = message.text
+    table_num = message.text.strip()
     # Save table number in address format for easy reuse
     await state.update_data(address=f"Stol raqami: {table_num}", lat=None, lon=None, phone=None)
     
