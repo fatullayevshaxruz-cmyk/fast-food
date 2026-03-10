@@ -15,7 +15,8 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
         )
     else:
         admin_message = (
-            f"🆕 <b>Yangi buyurtma #{order_id}</b>\n\n"
+            f"🆕 <b>Yangi buyurtma #{order_id}</b>\n"
+            f"🛵 <b>Yetkazib berish</b>\n\n"
             f"🍛 <b>Buyurtma:</b>\n{items_text}"
         )
     
