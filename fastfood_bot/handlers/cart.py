@@ -10,6 +10,54 @@ async def add_item_to_cart_handler(call: types.CallbackQuery):
     
     await add_to_cart(call.from_user.id, product_id, quantity)
     await call.answer(f"{quantity} ta mahsulot savatga qo'shildi!", show_alert=True)
+    
+    markup = call.message.reply_markup
+    if markup:
+        has_cart_btn = False
+        if markup.inline_keyboard:
+            has_cart_btn = any(btn.callback_data == "go_to_cart" for row in markup.inline_keyboard for btn in row)
+        
+        if not has_cart_btn:
+            markup.add(InlineKeyboardButton("🛒 Savatga o'tish", callback_data="go_to_cart"))
+            try:
+                await call.message.edit_reply_markup(reply_markup=markup)
+            except Exception as e:
+                print(f"Failed to add go to cart btn: {e}")
+
+async def go_to_cart_handler(call: types.CallbackQuery):
+    try:
+        await call.message.delete()
+    except:
+        pass
+        
+    user_id = call.from_user.id
+    items = await get_cart_items(user_id)
+    
+    if not items:
+        await call.message.answer("Savat bo'sh 🛒")
+        return
+        
+    total_price = 0
+    text = "🛒 **Savat**\n\n"
+    
+    markup = InlineKeyboardMarkup()
+    
+    for item in items:
+        item_total = item['price'] * item['quantity']
+        total_price += item_total
+        text += f"▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
+        markup.add(
+            InlineKeyboardButton(f"❌ {item['name']} ni o'chirish", callback_data=f"del_cart_{item['id']}")
+        )
+        
+    text += f"\n💰 **Jami: {total_price:,} so'm**"
+    
+    markup.add(
+        InlineKeyboardButton("✅ Buyurtma berish", callback_data="checkout"),
+        InlineKeyboardButton("🗑 Savatni tozalash", callback_data="clear_cart")
+    )
+    
+    await call.message.answer(text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
 
 
 async def view_cart(message: types.Message):
@@ -62,6 +110,7 @@ async def clear_cart_handler(call: types.CallbackQuery):
 
 def register_cart_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(add_item_to_cart_handler, lambda c: c.data.startswith('add_to_cart_'))
+    dp.register_callback_query_handler(go_to_cart_handler, text="go_to_cart")
     dp.register_message_handler(view_cart, text="🛒 Savat")
     dp.register_callback_query_handler(delete_cart_item, lambda c: c.data.startswith('del_cart_'))
     dp.register_callback_query_handler(clear_cart_handler, text="clear_cart")

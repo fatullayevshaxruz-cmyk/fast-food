@@ -16,16 +16,48 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
         return
 
     print(f"DEBUG: start_checkout called for {user_id}. Setting state to waiting_for_location.")
-    await OrderStates.waiting_for_location.set()
-    print("DEBUG: State set to waiting_for_location.")
+    await OrderStates.waiting_for_delivery_type.set()
+    print("DEBUG: State set to waiting_for_delivery_type.")
     
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-
-    markup.add(KeyboardButton("📍 Joylashuvni yuborish", request_location=True))
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(KeyboardButton("🏠 Shu yerda"), KeyboardButton("🛵 Olib ketish"))
     markup.add(KeyboardButton("❌ Bekor qilish"))
     
-    await call.message.answer("Iltimos, yetkazib berish manzilini yuboring yoki lokatsiyangizni ulashing.", reply_markup=markup)
+    await call.message.answer("Ajoyib! Buyurtmani qanday usulda qabul qilasiz?", reply_markup=markup)
     await call.answer()
+
+async def process_delivery_type(message: types.Message, state: FSMContext):
+    if message.text == "🏠 Shu yerda":
+        await state.update_data(delivery_type="eat_in")
+        await OrderStates.waiting_for_table_number.set()
+        
+        markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+        markup.add(KeyboardButton("❌ Bekor qilish"))
+        await message.answer("Iltimos, stol raqamini kiriting (Masalan: 12):", reply_markup=markup)
+        
+    elif message.text == "🛵 Olib ketish":
+        await state.update_data(delivery_type="delivery")
+        await OrderStates.waiting_for_location.set()
+        
+        markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+        markup.add(KeyboardButton("📍 Joylashuvni yuborish", request_location=True))
+        markup.add(KeyboardButton("❌ Bekor qilish"))
+        
+        await message.answer("Iltimos, yetkazib berish manzilini yuboring yoki lokatsiyangizni ulashing.", reply_markup=markup)
+    else:
+        await message.answer("Iltimos, pastdagi tugmalardan birini tanlang.")
+
+async def process_table_number(message: types.Message, state: FSMContext):
+    table_num = message.text
+    # Save table number in address format for easy reuse
+    await state.update_data(address=f"Stol raqami: {table_num}", lat=None, lon=None)
+    
+    await OrderStates.waiting_for_phone.set()
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True))
+    markup.add(KeyboardButton("❌ Bekor qilish"))
+    
+    await message.answer("Bog'lanish uchun telefon raqamingizni yuboring:", reply_markup=markup)
 
 async def cancel_order(message: types.Message, state: FSMContext):
     await state.finish()
@@ -168,8 +200,7 @@ async def debug_location_state(message: types.Message, state: FSMContext):
 def register_order_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(start_checkout, text="checkout")
     dp.register_message_handler(cancel_order, text="❌ Bekor qilish", state="*")
+    dp.register_message_handler(process_delivery_type, state=OrderStates.waiting_for_delivery_type)
+    dp.register_message_handler(process_table_number, state=OrderStates.waiting_for_table_number)
     dp.register_message_handler(process_location, content_types=['location', 'venue', 'text'], state=OrderStates.waiting_for_location)
     dp.register_message_handler(process_phone, content_types=['contact', 'text'], state=OrderStates.waiting_for_phone)
-
-
-
