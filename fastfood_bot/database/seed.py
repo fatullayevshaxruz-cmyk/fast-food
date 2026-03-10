@@ -40,7 +40,7 @@ async def seed_data():
         # Ichimliklar
         (9, 4, "Coca Cola 0.5L", "Muzdek Coca Cola.", 8000, "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500"),
         (10, 4, "Fanta 0.5L", "Apelsin ta'mli gazli ichimlik.", 8000, "https://images.unsplash.com/photo-1624517452488-04869289c4ca?w=500"),
-        (11, 4, "Suv 0.5L", "Gazsiz ichimlik suvi.", 3000, "https://images.unsplash.com/photo-1564419320461-6870880221ad?w=500"),
+        (11, 4, "Suv 0.5L", "Gazsiz ichimlik suvi.", 3000, "https://officemax.uz/media/uploads/cg0sh2fhgiov1qidgqm0.jpg"),
     ]
 
     async with pool.acquire() as conn:

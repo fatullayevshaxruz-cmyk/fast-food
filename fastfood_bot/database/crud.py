@@ -22,6 +22,11 @@ async def get_user(user_id):
     async with pool.acquire() as conn:
         return await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
 
+async def update_user_phone(user_id, phone_number):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", phone_number, user_id)
+
 async def get_categories():
     pool = await get_db_pool()
     async with pool.acquire() as conn:

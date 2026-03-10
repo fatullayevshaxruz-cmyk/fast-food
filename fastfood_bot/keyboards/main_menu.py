@@ -10,3 +10,11 @@ def get_main_menu():
         KeyboardButton("☎️ Biz bilan aloqa")
     )
     return markup
+
+def get_contact_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True),
+        KeyboardButton("❌ Bekor qilish")
+    )
+    return markup
