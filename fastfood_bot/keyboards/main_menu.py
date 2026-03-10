@@ -5,7 +5,6 @@ def get_main_menu():
     markup.add(
         KeyboardButton("🍽 Menu"),
         KeyboardButton("🛒 Savat"),
-        KeyboardButton("👤 Profil"),
         KeyboardButton("📦 Buyurtmalarim"),
         KeyboardButton("☎️ Biz bilan aloqa")
     )
