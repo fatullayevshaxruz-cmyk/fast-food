@@ -50,14 +50,10 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
 async def process_table_number(message: types.Message, state: FSMContext):
     table_num = message.text
     # Save table number in address format for easy reuse
-    await state.update_data(address=f"Stol raqami: {table_num}", lat=None, lon=None)
+    await state.update_data(address=f"Stol raqami: {table_num}", lat=None, lon=None, phone=None)
     
-    await OrderStates.waiting_for_phone.set()
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True))
-    markup.add(KeyboardButton("❌ Bekor qilish"))
-    
-    await message.answer("Bog'lanish uchun telefon raqamingizni yuboring:", reply_markup=markup)
+    # Skip phone completely for Eat In, directly finish order
+    await finish_order(message, state)
 
 async def cancel_order(message: types.Message, state: FSMContext):
     await state.finish()
@@ -174,15 +170,23 @@ async def finish_order(message: types.Message, state: FSMContext):
             location={'lat': lat, 'lon': lon}
         ))
         
-        await message.answer(
-            f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-            f"🛵 Yetkazib beruvchimiz manzilingizga yetib borganda siz bilan bog'lanadi.\n\n"
-            f"💴 <b>To'lov miqdori: {total_amount:,} so'm</b>\n"
-            f"<i>(To'lovni mahsulotni qabul qilib olganda to'laysiz)</i>\n\n"
-            "Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋",
-            reply_markup=get_main_menu(),
-            parse_mode="HTML"
-        )
+        delivery_type = data.get('delivery_type', 'delivery')
+        if delivery_type == "eat_in":
+            success_text = (
+                f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
+                f"🍖 Buyurtmangiz tayyor bo'lishi bilan Ofitsantimiz sizga olib kelib beradi\n\n"
+                f"Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋"
+            )
+        else:
+            success_text = (
+                f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
+                f"🛵 Yetkazib beruvchimiz manzilingizga yetib borganda siz bilan bog'lanadi.\n\n"
+                f"💴 <b>To'lov miqdori: {total_amount:,} so'm</b>\n"
+                f"<i>(To'lovni mahsulotni qabul qilib olganda to'laysiz)</i>\n\n"
+                "Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋"
+            )
+            
+        await message.answer(success_text, reply_markup=get_main_menu(), parse_mode="HTML")
     except Exception as e:
         import traceback
         traceback.print_exc()
