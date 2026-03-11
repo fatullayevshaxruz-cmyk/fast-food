@@ -7,38 +7,34 @@ class SQLitePool:
         self._conn = None
 
     async def init(self):
-        pass # aiosqlite connects per query or we can keep one connection? 
-        # aiosqlite typically used with 'async with connect...'
-        # But we need to mimic a pool that can be acquired.
-        pass
+        self._conn = await aiosqlite.connect(self.db_path)
+        self._conn.row_factory = aiosqlite.Row
 
     def acquire(self):
-        return SQLiteConnectionContext(self.db_path)
+        return SQLiteConnectionContext(self._conn)
 
     async def close(self):
-        pass
+        if self._conn:
+            await self._conn.close()
 
     async def fetchval(self, query, *args):
-        async with SQLiteConnectionContext(self.db_path) as conn:
+        async with self.acquire() as conn:
             return await conn.fetchval(query, *args)
             
     async def fetch(self, query, *args):
-        async with SQLiteConnectionContext(self.db_path) as conn:
+        async with self.acquire() as conn:
             return await conn.fetch(query, *args)
 
 class SQLiteConnectionContext:
-    def __init__(self, db_path):
-        self.db_path = db_path
-        self.conn = None
+    def __init__(self, conn):
+        self.conn = conn
 
     async def __aenter__(self):
-        self.conn = await aiosqlite.connect(self.db_path)
-        self.conn.row_factory = aiosqlite.Row
         return SQLiteConnection(self.conn)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.conn:
-            await self.conn.close()
+        # We don't close the shared connection here
+        pass
 
 class SQLiteConnection:
     def __init__(self, conn):
