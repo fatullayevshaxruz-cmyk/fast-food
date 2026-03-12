@@ -19,6 +19,7 @@ from handlers.menu import register_menu_handlers
 from handlers.cart import register_cart_handlers
 from handlers.order import register_order_handlers
 from handlers.admin import register_admin_handlers
+from handlers.profile import register_profile_handlers
 
 async def on_startup(dp):
     await init_db_pool()
@@ -45,6 +46,7 @@ if __name__ == '__main__':
     register_cart_handlers(dp)
     register_order_handlers(dp)
     register_admin_handlers(dp)
+    register_profile_handlers(dp)
     
     
     # Render requires a web server to bind to a port for Web Services
