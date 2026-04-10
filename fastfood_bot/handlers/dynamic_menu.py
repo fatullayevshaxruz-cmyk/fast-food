@@ -47,12 +47,22 @@ def _is_admin(user_id: int) -> bool:
 
 async def user_show_dynamic_menu(message: types.Message):
     """
-    Har qanday foydalanuvchi "📋 Dinamik Menyu" tugmasini bosganida
-    eng so'nggi narxlar bilan menyu ko'rsatiladi.
+    '🛠 Admin menu' tugmasi bosilganda xuddi mijoz menuday
+    kategoriyalar inline tugmalar bilan ko'rsatiladi.
     """
-    items = await dm_get_all_items()
-    text = format_menu_text(items)
-    await message.answer(text, parse_mode="HTML")
+    from database.crud import get_categories
+    from keyboards.product_keyboard import get_categories_markup
+
+    categories = await get_categories()
+    if not categories:
+        await message.answer("⚠️ Menyu bo'sh.")
+        return
+
+    await message.answer(
+        "🍽 <b>Menyu</b>\nQuyidagi kategoriyalardan birini tanlang:",
+        reply_markup=get_categories_markup(categories),
+        parse_mode="HTML"
+    )
 
 
 # ─────────────────────────────────────────────
@@ -347,7 +357,7 @@ def register_dynamic_menu_handlers(dp: Dispatcher):
     # ── Foydalanuvchi ──────────────────────────────────────────────
     dp.register_message_handler(
         user_show_dynamic_menu,
-        Text(equals="📋 Dinamik Menyu"),
+        Text(equals="🛠 Admin menu"),
         state="*"
     )
 
