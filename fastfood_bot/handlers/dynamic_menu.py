@@ -28,7 +28,7 @@ from keyboards.admin_keyboard import (
     get_dynamic_menu_admin_keyboard,
     get_items_inline_keyboard,
 )
-from utils.states import DynamicMenuAdminStates
+from utils.states import DynamicMenuAdminStates, AdminProductStates
 
 
 # ─────────────────────────────────────────────
@@ -47,11 +47,10 @@ def _is_admin(user_id: int) -> bool:
 
 async def user_show_dynamic_menu(message: types.Message):
     """
-    '🛠 Admin menu' tugmasi bosilganda xuddi mijoz menuday
-    kategoriyalar inline tugmalar bilan ko'rsatiladi.
+    '🛠 Admin menu' tugmasi bosilganda kategoriyalar admin_cat_ callbacklari bilan chiqadi.
     """
     from database.crud import get_categories
-    from keyboards.product_keyboard import get_categories_markup
+    from keyboards.product_keyboard import get_admin_categories_markup
 
     categories = await get_categories()
     if not categories:
@@ -60,7 +59,7 @@ async def user_show_dynamic_menu(message: types.Message):
 
     await message.answer(
         "🍽 <b>Menyu</b>\nQuyidagi kategoriyalardan birini tanlang:",
-        reply_markup=get_categories_markup(categories),
+        reply_markup=get_admin_categories_markup(categories),
         parse_mode="HTML"
     )
 
@@ -345,23 +344,185 @@ async def admin_cancel_callback(call: types.CallbackQuery, state: FSMContext):
 
 
 # ─────────────────────────────────────────────
+# ADMIN MENYU: kategoriya → mahsulot (narx o'zgartirish)
+# ─────────────────────────────────────────────
+
+async def admin_show_category_products(call: types.CallbackQuery):
+    """admin_cat_{id} — adminning kategoriya tanlashi."""
+    if not _is_admin(call.from_user.id):
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+
+    from database.crud import get_products_by_category
+    from keyboards.product_keyboard import get_admin_product_markup
+
+    category_id = int(call.data.split("_")[2])
+    products = await get_products_by_category(category_id)
+
+    if not products:
+        await call.answer("Bu kategoriyada mahsulotlar yo'q.", show_alert=True)
+        return
+
+    await call.message.delete()
+    await _send_admin_product_page(call, products[0], category_id, 0, len(products))
+    await call.answer()
+
+
+async def admin_paginate_products(call: types.CallbackQuery):
+    """admin_paginate_{cat_id}_{index} — admin mahsulot sahifalash."""
+    if not _is_admin(call.from_user.id):
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+
+    from database.crud import get_products_by_category
+
+    parts = call.data.split("_")
+    category_id = int(parts[2])
+    index = int(parts[3])
+
+    products = await get_products_by_category(category_id)
+    if not products or index < 0 or index >= len(products):
+        await call.answer("Boshqa mahsulot yo'q.")
+        return
+
+    await _send_admin_product_page(call, products[index], category_id, index, len(products), is_edit=True)
+    await call.answer()
+
+
+async def admin_back_to_categories(call: types.CallbackQuery):
+    """admin_back_to_cats — adminni kategoriyalar ro'yxatiga qaytarish."""
+    if not _is_admin(call.from_user.id):
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+
+    from database.crud import get_categories
+    from keyboards.product_keyboard import get_admin_categories_markup
+
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+
+    categories = await get_categories()
+    await call.message.answer(
+        "🍽 <b>Menyu</b>\nQuyidagi kategoriyalardan birini tanlang:",
+        reply_markup=get_admin_categories_markup(categories),
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+
+async def _send_admin_product_page(call, product, category_id, index, total, is_edit=False):
+    """Admin mahsulot sahifasini yuboradi yoki tahrirlaydi."""
+    from keyboards.product_keyboard import get_admin_product_markup
+
+    caption = (
+        f"<b>{product['name']}</b>\n\n"
+        f"{product['description'] or ''}\n\n"
+        f"💵 Narxi: <b>{product['price']:,} so'm</b>\n"
+        f"<i>({index + 1}/{total})</i>"
+    )
+    markup = get_admin_product_markup(product['id'], category_id, index, total)
+
+    if is_edit:
+        try:
+            if product['image_url']:
+                media = types.InputMediaPhoto(media=product['image_url'], caption=caption, parse_mode="HTML")
+                await call.message.edit_media(media, reply_markup=markup)
+            else:
+                await call.message.edit_text(caption, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            try:
+                await call.message.delete()
+            except Exception:
+                pass
+            if product['image_url']:
+                await call.message.answer_photo(photo=product['image_url'], caption=caption, reply_markup=markup, parse_mode="HTML")
+            else:
+                await call.message.answer(caption, reply_markup=markup, parse_mode="HTML")
+    else:
+        if product['image_url']:
+            try:
+                await call.message.answer_photo(photo=product['image_url'], caption=caption, reply_markup=markup, parse_mode="HTML")
+            except Exception:
+                await call.message.answer(caption, reply_markup=markup, parse_mode="HTML")
+        else:
+            await call.message.answer(caption, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_inline_price_start(call: types.CallbackQuery, state: FSMContext):
+    """admin_price_{product_id} — narx o'zgartirish boshlash."""
+    if not _is_admin(call.from_user.id):
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+
+    from database.crud import get_product
+    product_id = int(call.data.split("_")[2])
+    product = await get_product(product_id)
+
+    if not product:
+        await call.answer("Mahsulot topilmadi.", show_alert=True)
+        return
+
+    await state.update_data(admin_price_product_id=product_id)
+    await AdminProductStates.waiting_new_price_inline.set()
+    await call.message.answer(
+        f"✏️ <b>{product['name']}</b>\n"
+        f"Hozirgi narxi: <b>{product['price']:,} so'm</b>\n\n"
+        f"Yangi narxni yozing (faqat son):",
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+
+async def admin_inline_price_receive(message: types.Message, state: FSMContext):
+    """Yangi narxni qabul qilib bazada yangilaydi."""
+    try:
+        new_price = int(message.text.strip().replace(" ", "").replace(",", ""))
+        if new_price <= 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("⚠️ Faqat musbat son yozing:")
+        return
+
+    data = await state.get_data()
+    product_id = data["admin_price_product_id"]
+
+    from database.crud import get_product
+    from database.connection import get_db_pool
+    product = await get_product(product_id)
+
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE products SET price = $1 WHERE id = $2",
+            new_price, product_id
+        )
+
+    await state.finish()
+    await message.answer(
+        f"✅ <b>{product['name']}</b> narxi yangilandi!\n"
+        f"Eski narx: <s>{product['price']:,} so'm</s>\n"
+        f"Yangi narx: <b>{new_price:,} so'm</b>",
+        parse_mode="HTML"
+    )
+    logging.info(f"Admin {message.from_user.id} #{product_id} mahsulot narxini {new_price} ga o'zgartirdi")
+
+
+# ─────────────────────────────────────────────
 # Handler ro'yxatdan o'tkazish
 # ─────────────────────────────────────────────
 
 def register_dynamic_menu_handlers(dp: Dispatcher):
-    """
-    Barcha dinamik menyu handlerlarini Dispatcher ga ro'yxatdan o'tkazadi.
-    Boshqa handlerlarga hech qanday ta'siri yo'q.
-    """
 
-    # ── Foydalanuvchi ──────────────────────────────────────────────
+    # ── Admin menu / Menyuni ko'rish tugmalari ─────────────────────
     dp.register_message_handler(
         user_show_dynamic_menu,
         Text(equals="🛠 Admin menu"),
         state="*"
     )
 
-    # ── Admin panel ────────────────────────────────────────────────
+    # ── Admin panel (Menyu boshqaruvi) ─────────────────────────────
     dp.register_message_handler(
         admin_open_dynamic_panel,
         Text(equals="🛠 Menyu boshqaruvi"),
@@ -397,7 +558,7 @@ def register_dynamic_menu_handlers(dp: Dispatcher):
         state=DynamicMenuAdminStates.waiting_item_description
     )
 
-    # ── Narx o'zgartirish ──────────────────────────────────────────
+    # ── Narx o'zgartirish (menyu boshqaruvi) ──────────────────────
     dp.register_message_handler(
         admin_start_change_price,
         Text(equals="💰 Narx o'zgartirish"),
@@ -430,4 +591,30 @@ def register_dynamic_menu_handlers(dp: Dispatcher):
         admin_cancel_callback,
         lambda c: c.data == "dm_cancel",
         state="*"
+    )
+
+    # ── Admin menyu ichidan: kategoriya → mahsulot → narx ─────────
+    dp.register_callback_query_handler(
+        admin_show_category_products,
+        lambda c: c.data and c.data.startswith("admin_cat_"),
+        state="*"
+    )
+    dp.register_callback_query_handler(
+        admin_paginate_products,
+        lambda c: c.data and c.data.startswith("admin_paginate_"),
+        state="*"
+    )
+    dp.register_callback_query_handler(
+        admin_back_to_categories,
+        lambda c: c.data == "admin_back_to_cats",
+        state="*"
+    )
+    dp.register_callback_query_handler(
+        admin_inline_price_start,
+        lambda c: c.data and c.data.startswith("admin_price_"),
+        state="*"
+    )
+    dp.register_message_handler(
+        admin_inline_price_receive,
+        state=AdminProductStates.waiting_new_price_inline
     )
