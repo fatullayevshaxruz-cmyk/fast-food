@@ -86,53 +86,24 @@ async def admin_back_from_dynamic_panel(message: types.Message, state: FSMContex
 # ─────────────────────────────────────────────
 
 async def admin_view_dynamic_menu(message: types.Message):
-    """Admin '📝 Menyuni ko'rish' — mijozlardagi kabi rasm+nom+narx ko'rinishida."""
+    """Admin '📝 Menyuni ko'rish' — xuddi mijoz menuday kategoriyalar inline bilan."""
     if not _is_admin(message.from_user.id):
         await message.answer("❌ Ruxsat yo'q.")
         return
 
-    from database.crud import get_categories, get_products_by_category
+    from database.crud import get_categories
+    from keyboards.product_keyboard import get_categories_markup
 
     categories = await get_categories()
     if not categories:
-        await message.answer("⚠️ Kategoriyalar topilmadi.", reply_markup=get_dynamic_menu_admin_keyboard())
+        await message.answer("⚠️ Menyu bo'sh.", reply_markup=get_dynamic_menu_admin_keyboard())
         return
 
     await message.answer(
-        "🛠 <b>Admin — Menyu ko'rinishi</b>\n"
-        "Quyida barcha kategoriya va mahsulotlar — rasm, narx bilan:",
-        parse_mode="HTML",
-        reply_markup=get_dynamic_menu_admin_keyboard()
+        "🍽 <b>Menyu</b>\nQuyidagi kategoriyalardan birini tanlang:",
+        reply_markup=get_categories_markup(categories),
+        parse_mode="HTML"
     )
-
-    for cat in categories:
-        await message.answer(
-            f"{cat['emoji']} <b>{cat['name']}</b>",
-            parse_mode="HTML"
-        )
-
-        products = await get_products_by_category(cat['id'])
-        if not products:
-            await message.answer("  — mahsulotlar yo'q")
-            continue
-
-        for p in products:
-            caption = (
-                f"🍽 <b>{p['name']}</b>\n"
-                f"📝 {p['description'] or '—'}\n"
-                f"💰 <b>{p['price']:,} so'm</b>"
-            )
-            if p['image_url']:
-                try:
-                    await message.answer_photo(
-                        photo=p['image_url'],
-                        caption=caption,
-                        parse_mode="HTML"
-                    )
-                except Exception:
-                    await message.answer(caption, parse_mode="HTML")
-            else:
-                await message.answer(caption, parse_mode="HTML")
 
 
 # ─────────────────────────────────────────────
