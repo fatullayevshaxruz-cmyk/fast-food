@@ -11,6 +11,7 @@ async def init_database():
         for alter in [
             "ALTER TABLE products ADD COLUMN old_price INTEGER",
             "ALTER TABLE orders ADD COLUMN note TEXT",
+            "ALTER TABLE orders ADD COLUMN delivery_type VARCHAR(20) DEFAULT 'delivery'",
             "ALTER TABLE users ADD COLUMN default_address TEXT",
         ]:
             try:
@@ -120,14 +121,18 @@ async def remove_from_cart(cart_item_id):
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM cart_items WHERE id = $1", int(cart_item_id))
 
-async def create_order(user_id, total_amount, address, payment_method, latitude=None, longitude=None, phone_number=None, note=None):
+async def create_order(user_id, total_amount, address, payment_method,
+                       latitude=None, longitude=None, phone_number=None,
+                       note=None, delivery_type="delivery"):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("""
-            INSERT INTO orders (user_id, total_amount, delivery_address, payment_method, latitude, longitude, phone_number, note)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
+                                latitude, longitude, phone_number, note, delivery_type)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id
-        """, user_id, total_amount, address, payment_method, latitude, longitude, phone_number, note)
+        """, user_id, total_amount, address, payment_method,
+             latitude, longitude, phone_number, note, delivery_type)
         return row['id']
 
 async def add_order_items(order_id, cart_items):
@@ -336,10 +341,25 @@ async def get_promo_code(code):
     async with pool.acquire() as conn:
         return await conn.fetchrow("SELECT * FROM promo_codes WHERE code = $1 AND is_active = TRUE", code.upper())
 
-async def use_promo_code(code):
+async def check_user_promo_used(user_id, code):
+    """Foydalanuvchi bu promo kodni avval ishlatganmi?"""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        r = await conn.fetchval(
+            "SELECT COUNT(*) FROM promo_code_uses WHERE user_id = $1 AND promo_code = $2",
+            user_id, code.upper()
+        )
+        return (r or 0) > 0
+
+async def use_promo_code(code, user_id=None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         await conn.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = $1", code.upper())
+        if user_id:
+            await conn.execute(
+                "INSERT INTO promo_code_uses (user_id, promo_code) VALUES ($1, $2)",
+                user_id, code.upper()
+            )
 
 async def get_all_promo_codes():
     pool = await get_db_pool()

@@ -42,7 +42,7 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
     await OrderStates.waiting_for_delivery_type.set()
     
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(KeyboardButton("🍽️ Shu yerda"), KeyboardButton("🛵 Olib ketish"))
+    markup.add(KeyboardButton("🍽️ Shu yerda"), KeyboardButton("🛵 Yetkazib berish"))
     markup.add(KeyboardButton("❌ Bekor qilish"))
     
     await call.message.answer("Ajoyib! Buyurtmani qanday usulda qabul qilasiz?", reply_markup=markup)
@@ -60,14 +60,14 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
         markup.add(KeyboardButton("❌ Bekor qilish"))
         await message.answer("Iltimos, stol raqamini kiriting (Masalan: 12):", reply_markup=markup)
         
-    elif "Olib ketish" in text:
-        # Minimal summa tekshiruvi (faqat yetkazish uchun)
+    elif "Yetkazib berish" in text:
+        # Minimal summa tekshiruvi — faqat yetkazib berish uchun
         items = await get_cart_items(user_id)
         total = sum(item['price'] * item['quantity'] for item in items) if items else 0
         if total < MIN_ORDER_AMOUNT:
             diff = MIN_ORDER_AMOUNT - total
             await message.answer(
-                f"⚠️ <b>Yetkazish uchun minimal summa: {MIN_ORDER_AMOUNT:,} so'm</b>\n\n"
+                f"⚠️ <b>Yetkazib berish uchun minimal summa: {MIN_ORDER_AMOUNT:,} so'm</b>\n\n"
                 f"Sizning savatda: <b>{total:,} so'm</b>\n"
                 f"Yana <b>{diff:,} so'm</b> lik mahsulot qo'shing.\n\n"
                 f"Yoki <b>\"🍽️ Shu yerda\"</b> ni tanlang — minimal summa talab qilinmaydi.",
@@ -94,6 +94,7 @@ async def process_table_number(message: types.Message, state: FSMContext):
     await _ask_for_note(message, state)
 
 async def cancel_order(message: types.Message, state: FSMContext):
+    # Savat tozalanmaydi — foydalanuvchi buyurtmani bekor qilsa savat saqlanib qoladi
     await state.finish()
     await message.answer("❌ Buyurtma bekor qilindi.", reply_markup=_get_menu_for_user(message.from_user.id))
 
@@ -188,7 +189,7 @@ async def _ask_for_promo(message: types.Message, state: FSMContext):
 
 async def process_promo(message: types.Message, state: FSMContext):
     """Promo kodni tekshirish va qo'llash."""
-    from database.crud import get_promo_code, use_promo_code
+    from database.crud import get_promo_code, use_promo_code, check_user_promo_used
 
     if message.text.strip() == "⏭ O'tkazib yuborish":
         await state.update_data(promo_code=None, discount_percent=0)
@@ -205,8 +206,14 @@ async def process_promo(message: types.Message, state: FSMContext):
     if promo['max_uses'] > 0 and promo['used_count'] >= promo['max_uses']:
         await message.answer("⚠️ Bu promo kod allaqachon tugagan. Boshqa kod yozing yoki o'tkazib yuboring.")
         return
+
+    # Foydalanuvchi bu kodni avval ishlatganmi?
+    already_used = await check_user_promo_used(message.from_user.id, code)
+    if already_used:
+        await message.answer("⚠️ Siz bu promo kodni allaqachon ishlatgansiz. Boshqa kod yozing yoki o'tkazib yuboring.")
+        return
     
-    await use_promo_code(code)
+    await use_promo_code(code, user_id=message.from_user.id)
     await state.update_data(promo_code=code, discount_percent=promo['discount_percent'])
     await message.answer(
         f"✅ Promo kod <b>{code}</b> qo'llandi!\n"
@@ -243,7 +250,7 @@ async def finish_order(message: types.Message, state: FSMContext):
             discount_amount = int(items_total * discount_percent / 100)
         items_after_discount = items_total - discount_amount
         
-        # Yetkazish narxi (faqat delivery uchun)
+        # Yetkazish narxi — faqat delivery uchun
         delivery_fee = DELIVERY_FEE if delivery_type == "delivery" else 0
         total_amount = items_after_discount + delivery_fee
         
@@ -255,7 +262,8 @@ async def finish_order(message: types.Message, state: FSMContext):
             latitude=lat,
             longitude=lon,
             phone_number=phone,
-            note=note
+            note=note,
+            delivery_type=delivery_type
         )
         
         await add_order_items(order_id, items)
@@ -277,7 +285,8 @@ async def finish_order(message: types.Message, state: FSMContext):
             phone=phone,
             address=address,
             location={'lat': lat, 'lon': lon},
-            note=note
+            note=note,
+            delivery_type=delivery_type
         ))
         
         note_text = f"\n  📝 <i>{note}</i>" if note else ""
@@ -291,18 +300,20 @@ async def finish_order(message: types.Message, state: FSMContext):
                 total_line = f"  💰 Mahsulotlar: <s>{items_total:,}</s> → <b>{items_after_discount:,} so'm</b>"
             success_text = (
                 f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-                f"📋 <b>Buyurtma #{order_id}</b>\n\n"
+                f"📋 <b>Buyurtma #{order_id}</b>\n"
+                f"🍽️ <b>Shu yerda</b> | {address}\n\n"
                 f"{receipt_text}"
                 f"{discount_text}\n"
                 f"{total_line}"
                 f"{note_text}\n\n"
-                f"🍖 Buyurtmangiz tayyor bo'lganda ofitsant olib keladi.\n\n"
+                f"🍖 Buyurtmangiz tayyor bo'lganda ofitsiant olib keladi.\n\n"
                 f"Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋"
             )
         else:
             success_text = (
                 f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-                f"📋 <b>Buyurtma #{order_id}</b>\n\n"
+                f"📋 <b>Buyurtma #{order_id}</b>\n"
+                f"🛵 <b>Yetkazib berish</b>\n\n"
                 f"{receipt_text}"
                 f"{discount_text}\n"
                 f"  🛵 Yetkazish: <b>{delivery_fee:,} so'm</b>\n"

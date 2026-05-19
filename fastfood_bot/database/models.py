@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS orders (
     longitude FLOAT,
     phone_number VARCHAR(20),
     payment_method VARCHAR(50),
+    delivery_type VARCHAR(20) DEFAULT 'delivery',
     status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     delivered_at TIMESTAMP
@@ -91,8 +92,15 @@ ALL_TABLES = [
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );""",
+    """CREATE TABLE IF NOT EXISTS promo_code_uses (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        promo_code VARCHAR(50) NOT NULL,
+        used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );""",
     "CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);",
     "CREATE INDEX IF NOT EXISTS idx_cart_user ON cart_items(user_id);",
     "CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);",
-    "CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);"
+    "CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);",
+    "CREATE INDEX IF NOT EXISTS idx_promo_uses ON promo_code_uses(user_id, promo_code);"
 ]

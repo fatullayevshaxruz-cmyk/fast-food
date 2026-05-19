@@ -35,11 +35,12 @@ async def stats_handler(message: types.Message):
     if not _is_admin(message.from_user.id):
         return
 
+    from database.crud import get_today_stats, get_top_products
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         users_count = await conn.fetchval("SELECT COUNT(*) FROM users")
         orders_count = await conn.fetchval("SELECT COUNT(*) FROM orders")
-        pending = await conn.fetchval("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
+        pending = await conn.fetchval("SELECT COUNT(*) FROM orders WHERE status = $1", "pending")
 
     today_orders, today_revenue = await get_today_stats()
     top = await get_top_products(5)

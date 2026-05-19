@@ -64,16 +64,14 @@ async def _show_cart(message, user_id):
         )
         
     text += f"\n  💰 <b>Mahsulotlar: {total_price:,} so'm</b>\n"
-    text += f"  🛵 Yetkazish: <b>{DELIVERY_FEE:,} so'm</b>\n"
     text += f"  ━━━━━━━━━━━━━━━\n"
-    text += f"  💵 <b>Jami (yetkazish bilan): {total_price + DELIVERY_FEE:,} so'm</b>\n"
+    text += f"  🍽️ <b>Shu yerda:</b> {total_price:,} so'm <i>(yetkazish bepul)</i>\n"
+    text += f"  🛵 <b>Yetkazib berish:</b> {total_price + DELIVERY_FEE:,} so'm <i>(+{DELIVERY_FEE:,} yetkazish)</i>\n"
 
     if total_price < MIN_ORDER_AMOUNT:
         diff = MIN_ORDER_AMOUNT - total_price
-        text += f"\n  ⚠️ <i>Yetkazish uchun min: {MIN_ORDER_AMOUNT:,} so'm (yana {diff:,} kerak)</i>\n"
+        text += f"\n  ⚠️ <i>Yetkazib berish uchun minimal: {MIN_ORDER_AMOUNT:,} so'm (yana {diff:,} so'm kerak)</i>\n"
     
-    text += f"\n  <i>🍽 Shu yerda — yetkazish bepul</i>"
-
     markup.add(
         InlineKeyboardButton("✅ Buyurtma berish", callback_data="checkout"),
         InlineKeyboardButton("🗑 Savatni tozalash", callback_data="confirm_clear_cart")
