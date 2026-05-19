@@ -12,7 +12,7 @@ def get_categories_markup(categories):
     return markup
 
 
-def get_product_markup(product_id, category_id, current_index, total_products, quantity=1):
+def get_product_markup(product_id, category_id, current_index, total_products, quantity=1, is_favorite=False):
     markup = InlineKeyboardMarkup()
 
     markup.row(
@@ -20,10 +20,14 @@ def get_product_markup(product_id, category_id, current_index, total_products, q
         InlineKeyboardButton(f"{quantity} dona", callback_data="noop"),
         InlineKeyboardButton("➕", callback_data=f"plus_{product_id}_{quantity}_{category_id}_{current_index}")
     )
-    markup.add(
+    markup.row(
         InlineKeyboardButton(
             text="🛒 Savatga qo'shish",
             callback_data=f"add_to_cart_{product_id}_{quantity}"
+        ),
+        InlineKeyboardButton(
+            text="💔" if is_favorite else "❤️",
+            callback_data=f"fav_{product_id}_{category_id}_{current_index}"
         )
     )
 
@@ -59,17 +63,27 @@ def get_admin_categories_markup(categories):
     return markup
 
 
-def get_admin_product_markup(product_id, category_id, current_index, total_products):
-    """Admin mahsulot sahifasi — 'Savatga qo'shish' o'rniga 'Narx o'zgartirish'."""
+def get_admin_product_markup(product_id, category_id, current_index, total_products, is_active=True, has_discount=False):
+    """Admin mahsulot sahifasi — boshqaruv tugmalari bilan."""
     markup = InlineKeyboardMarkup()
 
-    markup.add(
+    # Boshqaruv tugmalari
+    markup.row(
+        InlineKeyboardButton("💰 Narx", callback_data=f"admin_price_{product_id}"),
+        InlineKeyboardButton("🖼 Rasm", callback_data=f"admin_image_{product_id}"),
+    )
+    markup.row(
         InlineKeyboardButton(
-            text="💰 Narx o'zgartirish",
-            callback_data=f"admin_price_{product_id}"
-        )
+            "🏷 Chegirmani olish" if has_discount else "🏷 Chegirma",
+            callback_data=f"admin_discount_{product_id}"
+        ),
+        InlineKeyboardButton(
+            "👁 Ko'rsatish" if not is_active else "🙈 Yashirish",
+            callback_data=f"admin_toggle_{product_id}"
+        ),
     )
 
+    # Navigatsiya
     nav_buttons = []
     if current_index > 0:
         nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f"admin_paginate_{category_id}_{current_index - 1}"))

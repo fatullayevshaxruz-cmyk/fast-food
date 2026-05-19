@@ -19,3 +19,15 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 
 PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN") # Click or Payme token
+
+# ── Yangi sozlamalar ─────────────────────────────────────────────────
+
+# Ish vaqti (soat)
+WORKING_HOURS_START = int(os.getenv("WORKING_HOURS_START", "9"))   # 09:00
+WORKING_HOURS_END   = int(os.getenv("WORKING_HOURS_END", "23"))    # 23:00
+
+# Yetkazish narxi (so'mda)
+DELIVERY_FEE = int(os.getenv("DELIVERY_FEE", "10000"))             # 10,000 so'm
+
+# Minimal buyurtma summasi (yetkazish uchun)
+MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm

@@ -1,11 +1,26 @@
 from aiogram import types, Dispatcher
 import asyncio
+from datetime import datetime
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ContentTypes
 from database.crud import get_cart_items, create_order, add_order_items, clear_cart
 from utils.states import OrderStates
-from keyboards.main_menu import get_main_menu
+from keyboards.main_menu import get_user_main_menu, get_admin_main_menu
 from utils.helpers import notify_admins_new_order
+from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
+
+
+def _get_menu_for_user(user_id):
+    """Foydalanuvchi admin bo'lsa admin menyu, aks holda oddiy menyu qaytaradi."""
+    is_admin = str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
+    return get_admin_main_menu() if is_admin else get_user_main_menu()
+
+
+def _is_working_hours() -> bool:
+    """Hozir ish vaqti ekanligini tekshirish (UTC+5 O'zbekiston)."""
+    now = datetime.utcnow()
+    uz_hour = (now.hour + 5) % 24
+    return WORKING_HOURS_START <= uz_hour < WORKING_HOURS_END
 
 
 async def start_checkout(call: types.CallbackQuery, state: FSMContext):
@@ -13,6 +28,15 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
     items = await get_cart_items(user_id)
     if not items:
         await call.answer("Savatingiz bo'sh!", show_alert=True)
+        return
+
+    # Ish vaqti tekshiruvi
+    if not _is_working_hours():
+        await call.answer(
+            f"⏰ Kechirasiz, biz {WORKING_HOURS_START:02d}:00 dan {WORKING_HOURS_END:02d}:00 gacha ishlaymiz.\n"
+            "Ertaga kutamiz! 😊",
+            show_alert=True
+        )
         return
 
     await OrderStates.waiting_for_delivery_type.set()
@@ -26,6 +50,8 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
 
 async def process_delivery_type(message: types.Message, state: FSMContext):
     text = message.text.strip()
+    user_id = message.from_user.id
+
     if "Shu yerda" in text:
         await state.update_data(delivery_type="eat_in")
         await OrderStates.waiting_for_table_number.set()
@@ -35,6 +61,20 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
         await message.answer("Iltimos, stol raqamini kiriting (Masalan: 12):", reply_markup=markup)
         
     elif "Olib ketish" in text:
+        # Minimal summa tekshiruvi (faqat yetkazish uchun)
+        items = await get_cart_items(user_id)
+        total = sum(item['price'] * item['quantity'] for item in items) if items else 0
+        if total < MIN_ORDER_AMOUNT:
+            diff = MIN_ORDER_AMOUNT - total
+            await message.answer(
+                f"⚠️ <b>Yetkazish uchun minimal summa: {MIN_ORDER_AMOUNT:,} so'm</b>\n\n"
+                f"Sizning savatda: <b>{total:,} so'm</b>\n"
+                f"Yana <b>{diff:,} so'm</b> lik mahsulot qo'shing.\n\n"
+                f"Yoki <b>\"🍽️ Shu yerda\"</b> ni tanlang — minimal summa talab qilinmaydi.",
+                parse_mode="HTML"
+            )
+            return
+
         await state.update_data(delivery_type="delivery")
         await OrderStates.waiting_for_location.set()
         
@@ -48,22 +88,20 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
 
 async def process_table_number(message: types.Message, state: FSMContext):
     table_num = message.text.strip()
-    # Save table number in address format for easy reuse
     await state.update_data(address=f"Stol raqami: {table_num}", lat=None, lon=None, phone=None)
     
-    # Skip phone completely for Eat In, directly finish order
-    await finish_order(message, state)
+    # Izoh so'rash
+    await _ask_for_note(message, state)
 
 async def cancel_order(message: types.Message, state: FSMContext):
     await state.finish()
-    await message.answer("Buyurtma bekor qilindi.", reply_markup=get_main_menu())
+    await message.answer("❌ Buyurtma bekor qilindi.", reply_markup=_get_menu_for_user(message.from_user.id))
 
 async def process_location(message: types.Message, state: FSMContext):
     try:
-        # Check if message is a command or menu button
         if message.text and (message.text.startswith("/") or message.text in ["🍽 Menu", "🛒 Savat", "ℹ️ Biz haqimizda", "📞 Bog'lanish"]):
             await state.finish()
-            await message.answer("Buyurtma jarayoni bekor qilindi. Iltimos, menudan foydalaning.", reply_markup=get_main_menu())
+            await message.answer("Buyurtma jarayoni bekor qilindi.", reply_markup=_get_menu_for_user(message.from_user.id))
             return
 
         lat, lon, address = None, None, None
@@ -102,10 +140,80 @@ async def process_phone(message: types.Message, state: FSMContext):
             
         await state.update_data(phone=phone)
         
-        # Skip payment selection, go directly to finish
-        await finish_order(message, state)
+        # Izoh so'rash
+        await _ask_for_note(message, state)
     except Exception as e:
         await message.answer(f"Xatolik yuz berdi: {e}")
+
+
+async def _ask_for_note(message: types.Message, state: FSMContext):
+    """Buyurtmaga izoh qo'shish."""
+    await OrderStates.waiting_for_note.set()
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(KeyboardButton("⏭ O'tkazib yuborish"))
+    markup.add(KeyboardButton("❌ Bekor qilish"))
+    await message.answer(
+        "📝 <b>Buyurtmangizga izoh yozmoqchimisiz?</b>\n\n"
+        "Masalan: <i>\"sous ko'proq\", \"achchiq qilmang\"</i>\n"
+        "Bo'lmasa <b>⏭ O'tkazib yuborish</b> tugmasini bosing.",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+
+
+async def process_note(message: types.Message, state: FSMContext):
+    """Izohni qabul qilish."""
+    if message.text.strip() == "⏭ O'tkazib yuborish":
+        await state.update_data(note=None)
+    else:
+        await state.update_data(note=message.text.strip())
+    
+    # Promo kod so'rash
+    await _ask_for_promo(message, state)
+
+
+async def _ask_for_promo(message: types.Message, state: FSMContext):
+    """Promo kod so'rash."""
+    await OrderStates.waiting_for_promo.set()
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(KeyboardButton("⏭ O'tkazib yuborish"))
+    markup.add(KeyboardButton("❌ Bekor qilish"))
+    await message.answer(
+        "🎟 <b>Promo kodingiz bormi?</b>\n\n"
+        "Kodni yozing yoki <b>⏭ O'tkazib yuborish</b> tugmasini bosing.",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+
+
+async def process_promo(message: types.Message, state: FSMContext):
+    """Promo kodni tekshirish va qo'llash."""
+    from database.crud import get_promo_code, use_promo_code
+
+    if message.text.strip() == "⏭ O'tkazib yuborish":
+        await state.update_data(promo_code=None, discount_percent=0)
+        await finish_order(message, state)
+        return
+
+    code = message.text.strip().upper()
+    promo = await get_promo_code(code)
+    
+    if not promo:
+        await message.answer("❌ Bunday promo kod topilmadi. Qaytadan yozing yoki o'tkazib yuboring.")
+        return
+    
+    if promo['max_uses'] > 0 and promo['used_count'] >= promo['max_uses']:
+        await message.answer("⚠️ Bu promo kod allaqachon tugagan. Boshqa kod yozing yoki o'tkazib yuboring.")
+        return
+    
+    await use_promo_code(code)
+    await state.update_data(promo_code=code, discount_percent=promo['discount_percent'])
+    await message.answer(
+        f"✅ Promo kod <b>{code}</b> qo'llandi!\n"
+        f"💰 Chegirma: <b>{promo['discount_percent']}%</b>",
+        parse_mode="HTML"
+    )
+    await finish_order(message, state)
 
 
 async def finish_order(message: types.Message, state: FSMContext):
@@ -116,17 +224,29 @@ async def finish_order(message: types.Message, state: FSMContext):
         address = data.get('address')
         lat = data.get('lat')
         lon = data.get('lon')
+        note = data.get('note')
+        delivery_type = data.get('delivery_type', 'delivery')
+        discount_percent = data.get('discount_percent', 0)
+        promo_code = data.get('promo_code')
         
-        # Calculate Total
         items = await get_cart_items(user_id)
         if not items:
-            await message.answer("Savat bo'shab qoldi!", reply_markup=get_main_menu())
+            await message.answer("Savat bo'shab qoldi!", reply_markup=_get_menu_for_user(user_id))
             await state.finish()
             return
     
-        total_amount = sum(item['price'] * item['quantity'] for item in items)
+        items_total = sum(item['price'] * item['quantity'] for item in items)
         
-        # Create Order in DB (Default to 'cash' or 'pay_on_delivery')
+        # Promo chegirma
+        discount_amount = 0
+        if discount_percent > 0:
+            discount_amount = int(items_total * discount_percent / 100)
+        items_after_discount = items_total - discount_amount
+        
+        # Yetkazish narxi (faqat delivery uchun)
+        delivery_fee = DELIVERY_FEE if delivery_type == "delivery" else 0
+        total_amount = items_after_discount + delivery_fee
+        
         order_id = await create_order(
             user_id=user_id,
             total_amount=total_amount,
@@ -134,24 +254,20 @@ async def finish_order(message: types.Message, state: FSMContext):
             payment_method="Naqd (Yetkazib berilganda)",
             latitude=lat,
             longitude=lon,
-            phone_number=phone
+            phone_number=phone,
+            note=note
         )
         
-        # Add items
         await add_order_items(order_id, items)
-        
-        # Clear Cart
         await clear_cart(user_id)
         
-        # Create receipt text
         receipt_text = ""
         for item in items:
             item_total = item['price'] * item['quantity']
-            receipt_text += f"▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
+            receipt_text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
     
         await state.finish()
         
-        # Run notification in background to avoid blocking the user response
         asyncio.create_task(notify_admins_new_order(
             bot=message.bot,
             order_id=order_id,
@@ -160,26 +276,45 @@ async def finish_order(message: types.Message, state: FSMContext):
             items=items,
             phone=phone,
             address=address,
-            location={'lat': lat, 'lon': lon}
+            location={'lat': lat, 'lon': lon},
+            note=note
         ))
         
-        delivery_type = data.get('delivery_type', 'delivery')
+        note_text = f"\n  📝 <i>{note}</i>" if note else ""
+        discount_text = ""
+        if discount_amount > 0:
+            discount_text = f"\n  🎟 Promo ({promo_code}): <b>-{discount_amount:,} so'm</b>"
+        
         if delivery_type == "eat_in":
+            total_line = f"  💰 <b>Jami: {items_after_discount:,} so'm</b>"
+            if discount_amount > 0:
+                total_line = f"  💰 Mahsulotlar: <s>{items_total:,}</s> → <b>{items_after_discount:,} so'm</b>"
             success_text = (
                 f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-                f"🍖 Buyurtmangiz tayyor bo'lishi bilan Ofitsantimiz sizga olib kelib beradi\n\n"
+                f"📋 <b>Buyurtma #{order_id}</b>\n\n"
+                f"{receipt_text}"
+                f"{discount_text}\n"
+                f"{total_line}"
+                f"{note_text}\n\n"
+                f"🍖 Buyurtmangiz tayyor bo'lganda ofitsant olib keladi.\n\n"
                 f"Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋"
             )
         else:
             success_text = (
                 f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-                f"🛵 Yetkazib beruvchimiz manzilingizga yetib borganda siz bilan bog'lanadi.\n\n"
-                f"💴 <b>To'lov miqdori: {total_amount:,} so'm</b>\n"
+                f"📋 <b>Buyurtma #{order_id}</b>\n\n"
+                f"{receipt_text}"
+                f"{discount_text}\n"
+                f"  🛵 Yetkazish: <b>{delivery_fee:,} so'm</b>\n"
+                f"  ━━━━━━━━━━━━━━━\n"
+                f"  💰 <b>Jami: {total_amount:,} so'm</b>"
+                f"{note_text}\n\n"
+                f"🛵 Yetkazib beruvchimiz manzilingizga yetib borganda siz bilan bog'lanadi.\n"
                 f"<i>(To'lovni mahsulotni qabul qilib olganda to'laysiz)</i>\n\n"
                 "Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋"
             )
             
-        await message.answer(success_text, reply_markup=get_main_menu(), parse_mode="HTML")
+        await message.answer(success_text, reply_markup=_get_menu_for_user(user_id), parse_mode="HTML")
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -193,3 +328,5 @@ def register_order_handlers(dp: Dispatcher):
     dp.register_message_handler(process_table_number, state=OrderStates.waiting_for_table_number)
     dp.register_message_handler(process_location, content_types=['location', 'venue', 'text'], state=OrderStates.waiting_for_location)
     dp.register_message_handler(process_phone, content_types=['contact', 'text'], state=OrderStates.waiting_for_phone)
+    dp.register_message_handler(process_note, state=OrderStates.waiting_for_note)
+    dp.register_message_handler(process_promo, state=OrderStates.waiting_for_promo)

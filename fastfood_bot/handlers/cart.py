@@ -2,14 +2,14 @@ from aiogram import types, Dispatcher
 from database.crud import add_to_cart, get_cart_items, clear_cart, remove_from_cart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 
+
 async def add_item_to_cart_handler(call: types.CallbackQuery):
-    # data: add_to_cart_{id}_{quantity}
     parts = call.data.split("_")
     product_id = int(parts[3])
     quantity = int(parts[4])
     
     await add_to_cart(call.from_user.id, product_id, quantity)
-    await call.answer(f"{quantity} ta mahsulot savatga qo'shildi!", show_alert=True)
+    await call.answer(f"✅ {quantity} ta mahsulot savatga qo'shildi!", show_alert=True)
     
     markup = call.message.reply_markup
     if markup:
@@ -21,47 +21,29 @@ async def add_item_to_cart_handler(call: types.CallbackQuery):
             markup.add(InlineKeyboardButton("🛒 Savatga o'tish", callback_data="go_to_cart"))
             try:
                 await call.message.edit_reply_markup(reply_markup=markup)
-            except Exception as e:
-                print(f"Failed to add go to cart btn: {e}")
+            except Exception:
+                pass
+
 
 async def go_to_cart_handler(call: types.CallbackQuery):
     try:
         await call.message.delete()
-    except:
+    except Exception:
         pass
-        
+    
+    # call.from_user.id dan foydalanamiz (call.message.from_user emas!)
     user_id = call.from_user.id
-    items = await get_cart_items(user_id)
-    
-    if not items:
-        await call.message.answer("Savat bo'sh 🛒")
-        return
-        
-    total_price = 0
-    text = "🛒 **Savat**\n\n"
-    
-    markup = InlineKeyboardMarkup()
-    
-    for item in items:
-        item_total = item['price'] * item['quantity']
-        total_price += item_total
-        text += f"▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
-        markup.add(
-            InlineKeyboardButton(f"❌ {item['name']} ni o'chirish", callback_data=f"del_cart_{item['id']}")
-        )
-        
-    text += f"\n💰 **Jami: {total_price:,} so'm**"
-    
-    markup.add(
-        InlineKeyboardButton("✅ Buyurtma berish", callback_data="checkout"),
-        InlineKeyboardButton("🗑 Savatni tozalash", callback_data="clear_cart")
-    )
-    
-    await call.message.answer(text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
+    await _show_cart(call.message, user_id)
 
 
 async def view_cart(message: types.Message):
     user_id = message.from_user.id
+    await _show_cart(message, user_id)
+
+
+async def _show_cart(message, user_id):
+    """Savat ko'rsatish — umumiy funksiya."""
+    from config import DELIVERY_FEE, MIN_ORDER_AMOUNT
     items = await get_cart_items(user_id)
     
     if not items:
@@ -69,48 +51,90 @@ async def view_cart(message: types.Message):
         return
     
     total_price = 0
-    text = "🛒 **Savat**\n\n"
+    text = "🛒 <b>Savat</b>\n\n"
     
     markup = InlineKeyboardMarkup()
     
     for item in items:
         item_total = item['price'] * item['quantity']
         total_price += item_total
-        text += f"▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
+        text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
         markup.add(
-            InlineKeyboardButton(f"❌ {item['name']} ni o'chirish", callback_data=f"del_cart_{item['id']}")
+            InlineKeyboardButton(f"❌ {item['name']} ni o'chirish", callback_data=f"del_cart_{item['id']}_{user_id}")
         )
         
-    text += f"\n💰 **Jami: {total_price:,} so'm**"
+    text += f"\n  💰 <b>Mahsulotlar: {total_price:,} so'm</b>\n"
+    text += f"  🛵 Yetkazish: <b>{DELIVERY_FEE:,} so'm</b>\n"
+    text += f"  ━━━━━━━━━━━━━━━\n"
+    text += f"  💵 <b>Jami (yetkazish bilan): {total_price + DELIVERY_FEE:,} so'm</b>\n"
+
+    if total_price < MIN_ORDER_AMOUNT:
+        diff = MIN_ORDER_AMOUNT - total_price
+        text += f"\n  ⚠️ <i>Yetkazish uchun min: {MIN_ORDER_AMOUNT:,} so'm (yana {diff:,} kerak)</i>\n"
     
+    text += f"\n  <i>🍽 Shu yerda — yetkazish bepul</i>"
+
     markup.add(
         InlineKeyboardButton("✅ Buyurtma berish", callback_data="checkout"),
-        InlineKeyboardButton("🗑 Savatni tozalash", callback_data="clear_cart")
+        InlineKeyboardButton("🗑 Savatni tozalash", callback_data="confirm_clear_cart")
     )
     
-    await message.answer(text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
 
 async def delete_cart_item(call: types.CallbackQuery):
-    item_id = int(call.data.split("_")[2])
+    parts = call.data.split("_")
+    item_id = int(parts[2])
+    user_id = int(parts[3])  # Saqlangan user_id
+    
     await remove_from_cart(item_id)
-    await call.answer("Mahsulot o'chirildi")
-    # Refresh cart view (simplification: just send new message or edit)
-    # Ideally edit, but for now we can just call view_cart with message object mock or edit text
-    # Let's try to re-render. Since view_cart expects message, we need to adapt.
-    # Simpler: just delete the message and send new cart view?
-    # Or just edit the text.
-    await call.message.delete()
-    # Mocking message to reuse view_cart functionality
-    await view_cart(call.message)
+    await call.answer("✅ Mahsulot o'chirildi")
+    
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+    
+    await _show_cart(call.message, user_id)
 
-async def clear_cart_handler(call: types.CallbackQuery):
+
+async def confirm_clear_cart(call: types.CallbackQuery):
+    """Savat tozalash tasdiqlash."""
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("✅ Ha, tozalash", callback_data="clear_cart_yes"),
+        InlineKeyboardButton("❌ Yo'q", callback_data="clear_cart_no")
+    )
+    await call.message.edit_text(
+        "⚠️ <b>Haqiqatan savatni tozalaysizmi?</b>\n"
+        "Bu amalni ortga qaytarib bo'lmaydi!",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+
+async def clear_cart_yes(call: types.CallbackQuery):
     await clear_cart(call.from_user.id)
-    await call.answer("Savat tozalandi")
-    await call.message.edit_text("Savat bo'sh 🛒")
+    await call.answer("✅ Savat tozalandi")
+    await call.message.edit_text("🛒 Savat tozalandi!")
+
+
+async def clear_cart_no(call: types.CallbackQuery):
+    """Bekor qilish — savatni qayta ko'rsatish."""
+    await call.answer()
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+    await _show_cart(call.message, call.from_user.id)
+
 
 def register_cart_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(add_item_to_cart_handler, lambda c: c.data.startswith('add_to_cart_'))
     dp.register_callback_query_handler(go_to_cart_handler, text="go_to_cart")
     dp.register_message_handler(view_cart, text="🛒 Savat")
     dp.register_callback_query_handler(delete_cart_item, lambda c: c.data.startswith('del_cart_'))
-    dp.register_callback_query_handler(clear_cart_handler, text="clear_cart")
+    dp.register_callback_query_handler(confirm_clear_cart, text="confirm_clear_cart")
+    dp.register_callback_query_handler(clear_cart_yes, text="clear_cart_yes")
+    dp.register_callback_query_handler(clear_cart_no, text="clear_cart_no")

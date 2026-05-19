@@ -353,11 +353,13 @@ async def admin_show_category_products(call: types.CallbackQuery):
         await call.answer("❌ Ruxsat yo'q.", show_alert=True)
         return
 
-    from database.crud import get_products_by_category
+    from database.connection import get_db_pool
     from keyboards.product_keyboard import get_admin_product_markup
 
     category_id = int(call.data.split("_")[2])
-    products = await get_products_by_category(category_id)
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        products = await conn.fetch("SELECT * FROM products WHERE category_id = $1 ORDER BY id", int(category_id))
 
     if not products:
         await call.answer("Bu kategoriyada mahsulotlar yo'q.", show_alert=True)
@@ -374,13 +376,15 @@ async def admin_paginate_products(call: types.CallbackQuery):
         await call.answer("❌ Ruxsat yo'q.", show_alert=True)
         return
 
-    from database.crud import get_products_by_category
+    from database.connection import get_db_pool
 
     parts = call.data.split("_")
     category_id = int(parts[2])
     index = int(parts[3])
 
-    products = await get_products_by_category(category_id)
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        products = await conn.fetch("SELECT * FROM products WHERE category_id = $1 ORDER BY id", int(category_id))
     if not products or index < 0 or index >= len(products):
         await call.answer("Boshqa mahsulot yo'q.")
         return
@@ -416,13 +420,32 @@ async def _send_admin_product_page(call, product, category_id, index, total, is_
     """Admin mahsulot sahifasini yuboradi yoki tahrirlaydi."""
     from keyboards.product_keyboard import get_admin_product_markup
 
-    caption = (
-        f"<b>{product['name']}</b>\n\n"
-        f"{product['description'] or ''}\n\n"
-        f"💵 Narxi: <b>{product['price']:,} so'm</b>\n"
-        f"<i>({index + 1}/{total})</i>"
-    )
-    markup = get_admin_product_markup(product['id'], category_id, index, total)
+    # Chegirma va holat
+    old_price = None
+    is_active = True
+    try:
+        old_price = product['old_price']
+    except (KeyError, IndexError):
+        pass
+    try:
+        is_active = product['is_active']
+    except (KeyError, IndexError):
+        pass
+
+    has_discount = bool(old_price and old_price > product['price'])
+
+    caption = f"<b>{product['name']}</b>\n\n"
+    if product['description']:
+        caption += f"{product['description']}\n\n"
+    if has_discount:
+        caption += f"💵 <s>{old_price:,} so'm</s> → <b>{product['price']:,} so'm</b> 🏷\n"
+    else:
+        caption += f"💵 Narxi: <b>{product['price']:,} so'm</b>\n"
+    if not is_active:
+        caption += "🙈 <i>(Yashirilgan — foydalanuvchilarga ko'rinmaydi)</i>\n"
+    caption += f"<i>({index + 1}/{total})</i>"
+
+    markup = get_admin_product_markup(product['id'], category_id, index, total, is_active=is_active, has_discount=has_discount)
 
     if is_edit:
         try:
@@ -436,18 +459,20 @@ async def _send_admin_product_page(call, product, category_id, index, total, is_
                 await call.message.delete()
             except Exception:
                 pass
-            if product['image_url']:
-                await call.message.answer_photo(photo=product['image_url'], caption=caption, reply_markup=markup, parse_mode="HTML")
-            else:
-                await call.message.answer(caption, reply_markup=markup, parse_mode="HTML")
+            await _safe_send_product(call.message, product, caption, markup)
     else:
-        if product['image_url']:
-            try:
-                await call.message.answer_photo(photo=product['image_url'], caption=caption, reply_markup=markup, parse_mode="HTML")
-            except Exception:
-                await call.message.answer(caption, reply_markup=markup, parse_mode="HTML")
-        else:
-            await call.message.answer(caption, reply_markup=markup, parse_mode="HTML")
+        await _safe_send_product(call.message, product, caption, markup)
+
+
+async def _safe_send_product(message, product, caption, markup):
+    """Xavfsiz mahsulot yuborish — rasm xatosi bo'lsa matn yuboradi."""
+    if product['image_url']:
+        try:
+            await message.answer_photo(photo=product['image_url'], caption=caption, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            await message.answer(caption, reply_markup=markup, parse_mode="HTML")
+    else:
+        await message.answer(caption, reply_markup=markup, parse_mode="HTML")
 
 
 async def admin_inline_price_start(call: types.CallbackQuery, state: FSMContext):

@@ -1,7 +1,10 @@
 .DS_Store
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 __pycache__/
 .env
 venv/
 ENV/
+*.log

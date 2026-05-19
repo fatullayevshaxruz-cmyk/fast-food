@@ -5,6 +5,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from database.connection import init_db_pool, close_db_pool
 from database.crud import init_database
 from database.seed import seed_data
+from database.db_manager import init_dynamic_menu_db
 from config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO)
@@ -20,11 +21,13 @@ from handlers.cart import register_cart_handlers
 from handlers.order import register_order_handlers
 from handlers.admin import register_admin_handlers
 from handlers.profile import register_profile_handlers
+from handlers.dynamic_menu import register_dynamic_menu_handlers
 
 async def on_startup(dp):
     await init_db_pool()
     await init_database()
     await seed_data()
+    await init_dynamic_menu_db()
     logging.info("Database initialized, connected, and seeded.")
 
 
@@ -47,6 +50,7 @@ if __name__ == '__main__':
     register_order_handlers(dp)
     register_admin_handlers(dp)
     register_profile_handlers(dp)
+    register_dynamic_menu_handlers(dp)
     
     
     # Render requires a web server to bind to a port for Web Services

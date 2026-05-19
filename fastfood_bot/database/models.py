@@ -75,6 +75,22 @@ ALL_TABLES = [
     CREATE_ORDERS_TABLE,
     CREATE_ORDER_ITEMS_TABLE,
     CREATE_CART_ITEMS_TABLE,
+    """CREATE TABLE IF NOT EXISTS favorites (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT,
+        product_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );""",
+    """CREATE TABLE IF NOT EXISTS promo_codes (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(50) NOT NULL,
+        discount_percent INTEGER NOT NULL,
+        max_uses INTEGER DEFAULT 0,
+        used_count INTEGER DEFAULT 0,
+        min_order_amount INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );""",
     "CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);",
     "CREATE INDEX IF NOT EXISTS idx_cart_user ON cart_items(user_id);",
     "CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);",

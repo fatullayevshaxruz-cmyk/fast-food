@@ -3,14 +3,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 def get_main_menu():
     """Eski funksiya — mavjud kod bilan moslik uchun saqlanadi."""
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        KeyboardButton("🍽 Menu"),
-        KeyboardButton("🛒 Savat"),
-        KeyboardButton("📦 Buyurtmalarim"),
-        KeyboardButton("☎️ Biz bilan aloqa")
-    )
-    return markup
+    return get_user_main_menu()
 
 
 def get_contact_keyboard():
@@ -22,8 +15,6 @@ def get_contact_keyboard():
     return markup
 
 
-# ── Dinamik menyu uchun yangi klaviaturalar ──────────────────────────────────
-
 def get_user_main_menu() -> ReplyKeyboardMarkup:
     """Oddiy foydalanuvchi uchun asosiy menyu."""
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -32,11 +23,15 @@ def get_user_main_menu() -> ReplyKeyboardMarkup:
         KeyboardButton("🛒 Savat"),
     )
     markup.add(
-        KeyboardButton("🛠 Admin menu"),
-        KeyboardButton("📦 Buyurtmalarim"),
+        KeyboardButton("🔍 Izlash"),
+        KeyboardButton("❤️ Sevimlilar"),
     )
     markup.add(
-        KeyboardButton("☎️ Biz bilan aloqa")
+        KeyboardButton("📦 Buyurtmalarim"),
+        KeyboardButton("👤 Profil"),
+    )
+    markup.add(
+        KeyboardButton("☎️ Biz bilan aloqa"),
     )
     return markup
 
@@ -50,10 +45,17 @@ def get_admin_main_menu() -> ReplyKeyboardMarkup:
     )
     markup.add(
         KeyboardButton("🛠 Admin menu"),
-        KeyboardButton("📦 Buyurtmalarim"),
+        KeyboardButton("🛠 Menyu boshqaruvi"),
     )
     markup.add(
-        KeyboardButton("🛠 Menyu boshqaruvi"),
+        KeyboardButton("🔍 Izlash"),
+        KeyboardButton("❤️ Sevimlilar"),
+    )
+    markup.add(
+        KeyboardButton("📦 Buyurtmalarim"),
+        KeyboardButton("👤 Profil"),
+    )
+    markup.add(
         KeyboardButton("☎️ Biz bilan aloqa"),
     )
     return markup

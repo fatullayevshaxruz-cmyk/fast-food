@@ -1,6 +1,7 @@
 import aiosqlite
 import re
 
+
 class SQLitePool:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -9,6 +10,13 @@ class SQLitePool:
     async def init(self):
         self._conn = await aiosqlite.connect(self.db_path)
         self._conn.row_factory = aiosqlite.Row
+        # ── Tezlik optimizatsiyasi ────────────────────────────────
+        await self._conn.execute("PRAGMA journal_mode=WAL")      # WAL — yozish tezroq
+        await self._conn.execute("PRAGMA synchronous=NORMAL")     # Normal sync — xavfsiz + tez
+        await self._conn.execute("PRAGMA cache_size=-8000")       # 8MB kesh
+        await self._conn.execute("PRAGMA temp_store=MEMORY")      # Temp ma'lumotlar RAM da
+        await self._conn.execute("PRAGMA mmap_size=67108864")     # 64MB memory-mapped I/O
+        await self._conn.commit()
 
     def acquire(self):
         return SQLiteConnectionContext(self._conn)
@@ -25,6 +33,7 @@ class SQLitePool:
         async with self.acquire() as conn:
             return await conn.fetch(query, *args)
 
+
 class SQLiteConnectionContext:
     def __init__(self, conn):
         self.conn = conn
@@ -33,45 +42,27 @@ class SQLiteConnectionContext:
         return SQLiteConnection(self.conn)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        # We don't close the shared connection here
         pass
+
 
 class SQLiteConnection:
     def __init__(self, conn):
         self.conn = conn
 
     def _convert_query(self, query):
-        # Convert $1, $2... to ?
-        # Handle "ON CONFLICT" since sqlite uses "ON CONFLICT" differently or "INSERT OR REPLACE"
-        # Ideally we'd need more complex logic.
-        # But for this simple bot:
-        # 1. users table: INSERT ... ON CONFLICT (...) DO UPDATE ...
-        # SQLite: INSERT OR REPLACE INTO ... (if unique key matches)
-        # OR: INSERT INTO ... ON CONFLICT(...) DO UPDATE SET ... (SQLite 3.24+)
-        
-        # Replace $num with ?
         new_query = re.sub(r'\$\d+', '?', query)
-        
-        # Fix Serial types in create table? No, they are text in queries so it's fine.
-        # But schema creation queries use SERIAL, which sqlite doesn't like (uses INTEGER PRIMARY KEY AUTOINCREMENT).
-        # We might need to handle schema creation separately.
         return new_query
 
     async def execute(self, query, *args):
         q = self._convert_query(query)
-        # Handle SERIAL -> INTEGER PRIMARY KEY replacement for Create Table
         if "SERIAL PRIMARY KEY" in q:
             q = q.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-        
-        # Handle integer cast
         if "::integer" in q:
             q = q.replace("::integer", "")
-            
         try:
             await self.conn.execute(q, args)
             await self.conn.commit()
         except Exception as e:
-            # Ignore some specific sqlite errors if needed?
             raise e
 
     async def fetch(self, query, *args):
@@ -114,6 +105,7 @@ class SQLiteConnection:
     def transaction(self):
         return TransactionContext(self.conn)
 
+
 class TransactionContext:
     def __init__(self, conn):
         self.conn = conn
@@ -126,4 +118,3 @@ class TransactionContext:
             await self.conn.rollback()
         else:
             await self.conn.commit()
-
