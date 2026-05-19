@@ -3,6 +3,23 @@ services:
     name: fastfood-bot
     runtime: python
     plan: free
-    buildCommand: pip install -r fastfood_bot/requirements.txt
-    startCommand: python3 fastfood_bot/bot.py
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: cd fastfood_bot && python3 bot.py
     autoDeploy: true
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: ADMIN_CHANNEL_ID
+        sync: false
+      - key: WORKING_HOURS_START
+        value: "9"
+      - key: WORKING_HOURS_END
+        value: "23"
+      - key: DELIVERY_FEE
+        value: "10000"
+      - key: MIN_ORDER_AMOUNT
+        value: "30000"
+      - key: PYTHON_VERSION
+        value: "3.9.0"
