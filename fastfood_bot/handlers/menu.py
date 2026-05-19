@@ -123,8 +123,10 @@ async def change_quantity(call: types.CallbackQuery):
             new_qty -= 1
             
     if new_qty != current_qty:
+        # Sevimlilar holatini DB dan tekshiramiz
+        fav = await check_is_favorite(call.from_user.id, product_id)
         await call.message.edit_reply_markup(
-            reply_markup=get_product_markup(product_id, category_id, current_index, total_products, new_qty)
+            reply_markup=get_product_markup(product_id, category_id, current_index, total_products, new_qty, is_favorite=fav)
         )
     
     await call.answer()

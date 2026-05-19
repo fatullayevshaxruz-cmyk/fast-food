@@ -76,6 +76,7 @@ async def start_broadcast(message: types.Message):
 async def send_broadcast(message: types.Message, state: FSMContext):
     text = message.text or message.caption
     photo = message.photo[-1].file_id if message.photo else None
+    entities = message.entities or message.caption_entities
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         users = await conn.fetch("SELECT user_id FROM users")
@@ -83,9 +84,13 @@ async def send_broadcast(message: types.Message, state: FSMContext):
     for i, user in enumerate(users):
         try:
             if photo:
-                await message.bot.send_photo(user['user_id'], photo, caption=text)
+                await message.bot.send_photo(
+                    user['user_id'], photo, caption=text, parse_mode="HTML"
+                )
             else:
-                await message.bot.send_message(user['user_id'], text)
+                await message.bot.send_message(
+                    user['user_id'], text, parse_mode="HTML"
+                )
             count += 1
         except Exception:
             pass
@@ -202,12 +207,28 @@ async def admin_change_order_status(call: types.CallbackQuery):
     order = await get_order_by_id(order_id)
     if order:
         user_id = order['user_id']
-        status_messages = {
-            "preparing":  f"🍳 <b>Buyurtma #{order_id}</b> tayyorlanmoqda!\nBiroz kuting...",
-            "delivering": f"🚗 <b>Buyurtma #{order_id}</b> yo'lda!\nYetkazib beruvchimiz yaqin orada yetib boradi.",
-            "completed":  f"✅ <b>Buyurtma #{order_id}</b> yetkazildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
-            "cancelled":  f"❌ <b>Buyurtma #{order_id}</b> bekor qilindi.\nSavollar uchun: ☎️ +998943265755",
-        }
+        # Buyurtma turini aniqlash (eat_in yoki delivery)
+        is_eat_in = False
+        try:
+            is_eat_in = order.get('delivery_type') == 'eat_in' or \
+                        (order.get('delivery_address') and 'Stol raqami' in str(order.get('delivery_address', '')))
+        except Exception:
+            pass
+
+        if is_eat_in:
+            status_messages = {
+                "preparing":  f"🍳 <b>Buyurtma #{order_id}</b> tayyorlanmoqda!\nBiroz kuting, ofitsiant olib keladi...",
+                "delivering": f"🍽️ <b>Buyurtma #{order_id}</b> tayyor!\nOfitsiant stol raqamingizga olib keladi.",
+                "completed":  f"✅ <b>Buyurtma #{order_id}</b> xizmat ko'rsatildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
+                "cancelled":  f"❌ <b>Buyurtma #{order_id}</b> bekor qilindi.\nSavollar uchun: ☎️ +998943265755",
+            }
+        else:
+            status_messages = {
+                "preparing":  f"🍳 <b>Buyurtma #{order_id}</b> tayyorlanmoqda!\nBiroz kuting...",
+                "delivering": f"🚗 <b>Buyurtma #{order_id}</b> yo'lda!\nYetkazib beruvchimiz yaqin orada yetib boradi.",
+                "completed":  f"✅ <b>Buyurtma #{order_id}</b> yetkazildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
+                "cancelled":  f"❌ <b>Buyurtma #{order_id}</b> bekor qilindi.\nSavollar uchun: ☎️ +998943265755",
+            }
         msg = status_messages.get(new_status)
         if msg:
             try:

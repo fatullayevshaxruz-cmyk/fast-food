@@ -87,10 +87,15 @@ async def process_delivery_type(message: types.Message, state: FSMContext):
         await message.answer("Iltimos, pastdagi tugmalardan birini tanlang.")
 
 async def process_table_number(message: types.Message, state: FSMContext):
-    table_num = message.text.strip()
-    await state.update_data(address=f"Stol raqami: {table_num}", lat=None, lon=None, phone=None)
-    
-    # Izoh so'rash
+    text = message.text.strip()
+    # Faqat raqam qabul qilinadi
+    if not text.isdigit() or int(text) <= 0:
+        await message.answer(
+            "⚠️ Iltimos, faqat <b>stol raqamini</b> yozing (masalan: 5, 12).",
+            parse_mode="HTML"
+        )
+        return
+    await state.update_data(address=f"Stol raqami: {text}", lat=None, lon=None, phone=None)
     await _ask_for_note(message, state)
 
 async def cancel_order(message: types.Message, state: FSMContext):

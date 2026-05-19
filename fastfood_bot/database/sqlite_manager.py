@@ -26,12 +26,14 @@ class SQLitePool:
             await self._conn.close()
 
     async def fetchval(self, query, *args):
-        async with self.acquire() as conn:
-            return await conn.fetchval(query, *args)
+        """Pool darajasida fetchval — to'g'ridan-to'g'ri connection orqali."""
+        conn = SQLiteConnection(self._conn)
+        return await conn.fetchval(query, *args)
             
     async def fetch(self, query, *args):
-        async with self.acquire() as conn:
-            return await conn.fetch(query, *args)
+        """Pool darajasida fetch — to'g'ridan-to'g'ri connection orqali."""
+        conn = SQLiteConnection(self._conn)
+        return await conn.fetch(query, *args)
 
 
 class SQLiteConnectionContext:

@@ -44,4 +44,3 @@ class PromoCodeStates(StatesGroup):
     waiting_code            = State()
     waiting_discount        = State()
     waiting_max_uses        = State()
-    waiting_min_order       = State()
