@@ -173,9 +173,14 @@ async def process_note(message: types.Message, state: FSMContext):
         await state.update_data(note=None)
     else:
         await state.update_data(note=message.text.strip())
-    
-    # Promo kod so'rash
-    await _ask_for_promo(message, state)
+
+    data = await state.get_data()
+    # Shu yerda (eat_in) uchun promo kod so'ralmaydi
+    if data.get('delivery_type') == 'eat_in':
+        await state.update_data(promo_code=None, discount_percent=0)
+        await finish_order(message, state)
+    else:
+        await _ask_for_promo(message, state)
 
 
 async def _ask_for_promo(message: types.Message, state: FSMContext):
