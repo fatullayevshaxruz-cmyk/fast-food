@@ -22,12 +22,27 @@ async def init_database():
 async def create_user(user_id, username, full_name):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO users (user_id, username, full_name)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id) DO UPDATE 
-            SET username = EXCLUDED.username, full_name = EXCLUDED.full_name
-        """, user_id, username, full_name)
+        # PostgreSQL: ON CONFLICT, SQLite: INSERT OR REPLACE
+        try:
+            await conn.execute("""
+                INSERT INTO users (user_id, username, full_name)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id) DO UPDATE 
+                SET username = EXCLUDED.username, full_name = EXCLUDED.full_name
+            """, user_id, username, full_name)
+        except Exception:
+            # SQLite fallback
+            existing = await conn.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
+            if existing:
+                await conn.execute(
+                    "UPDATE users SET username = $1, full_name = $2 WHERE user_id = $3",
+                    username, full_name, user_id
+                )
+            else:
+                await conn.execute(
+                    "INSERT INTO users (user_id, username, full_name) VALUES ($1, $2, $3)",
+                    user_id, username, full_name
+                )
 
 async def get_user(user_id):
     pool = await get_db_pool()
@@ -83,7 +98,11 @@ async def get_products_by_category(category_id):
         return cached
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        result = await conn.fetch("SELECT * FROM products WHERE category_id = $1 AND is_active = TRUE", int(category_id))
+        # is_active TRUE ham 1 ham TRUE qabul qiladi (PostgreSQL va SQLite)
+        result = await conn.fetch(
+            "SELECT * FROM products WHERE category_id = $1 AND is_active != 0 AND is_active != 'false'",
+            int(category_id)
+        )
         _set_cache(key, result)
         return result
 
@@ -378,6 +397,11 @@ async def update_user_name(user_id, name):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE users SET full_name = $1 WHERE user_id = $2", name, user_id)
 
+async def update_user_phone(user_id, phone):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", phone, user_id)
+
 async def update_user_address(user_id, address):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
@@ -419,7 +443,8 @@ async def get_orders_for_export():
     async with pool.acquire() as conn:
         return await conn.fetch("""
             SELECT o.id, u.full_name, u.phone_number as user_phone, o.total_amount,
-                   o.delivery_address, o.phone_number as order_phone, o.status, o.created_at
-            FROM orders o JOIN users u ON o.user_id = u.user_id
+                   o.delivery_address, o.phone_number as order_phone,
+                   o.delivery_type, o.note, o.status, o.created_at
+            FROM orders o LEFT JOIN users u ON o.user_id = u.user_id
             ORDER BY o.created_at DESC
         """)

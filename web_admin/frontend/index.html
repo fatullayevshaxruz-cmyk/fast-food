@@ -1,84 +1,348 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fast Food Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Fast Food — Admin Panel</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#0f0f1a;color:#e2e8f0;min-height:100vh}
+.sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:#1a1a2e;border-right:1px solid #2d2d44;padding:20px 0;z-index:100}
+.logo{padding:0 20px 20px;border-bottom:1px solid #2d2d44;margin-bottom:20px}
+.logo h2{font-size:18px;color:#f97316;font-weight:700}
+.logo p{font-size:12px;color:#64748b;margin-top:4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;cursor:pointer;color:#94a3b8;transition:.2s;font-size:14px}
+.nav-item:hover,.nav-item.active{background:#0f172a;color:#f97316;border-right:3px solid #f97316}
+.main{margin-left:220px;padding:24px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.header h1{font-size:22px;font-weight:700}
+.badge{background:#f97316;color:#fff;padding:4px 10px;border-radius:20px;font-size:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.card{background:#1a1a2e;border:1px solid #2d2d44;border-radius:12px;padding:20px}
+.card .label{font-size:12px;color:#64748b;margin-bottom:8px}
+.card .value{font-size:28px;font-weight:700;color:#f97316}
+.card .sub{font-size:12px;color:#475569;margin-top:4px}
+.section{background:#1a1a2e;border:1px solid #2d2d44;border-radius:12px;padding:20px;margin-bottom:20px}
+.section h3{font-size:16px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th{text-align:left;padding:10px 12px;color:#64748b;border-bottom:1px solid #2d2d44;font-weight:500}
+.table td{padding:10px 12px;border-bottom:1px solid #1e293b}
+.table tr:hover td{background:#0f172a}
+.status{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.s-pending{background:#422006;color:#fb923c}
+.s-preparing{background:#1a2e05;color:#86efac}
+.s-delivering{background:#0c1a2e;color:#93c5fd}
+.s-completed{background:#052e16;color:#4ade80}
+.s-cancelled{background:#2e0505;color:#f87171}
+.btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:.2s}
+.btn-primary{background:#f97316;color:#fff}
+.btn-primary:hover{background:#ea6c0e}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-green{background:#16a34a;color:#fff}
+.btn-red{background:#dc2626;color:#fff}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:7px 16px;border-radius:8px;border:1px solid #2d2d44;cursor:pointer;font-size:13px;color:#94a3b8;background:#0f172a;transition:.2s}
+.tab.active,.tab:hover{background:#f97316;color:#fff;border-color:#f97316}
+.modal{display:none;position:fixed;inset:0;background:#000a;z-index:999;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.modal-box{background:#1a1a2e;border:1px solid #2d2d44;border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto}
+.modal-box h3{margin-bottom:16px;font-size:17px}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e293b;font-size:13px}
+.info-row .lbl{color:#64748b}
+.select-status{background:#0f172a;color:#e2e8f0;border:1px solid #2d2d44;padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+input,select{background:#0f172a;color:#e2e8f0;border:1px solid #2d2d44;padding:8px 12px;border-radius:8px;font-size:13px;width:100%;margin-bottom:10px}
+.loading{text-align:center;color:#475569;padding:40px}
+.refresh-btn{background:#1e293b;color:#94a3b8;border:1px solid #2d2d44;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+.refresh-btn:hover{color:#f97316}
+.page{display:none}.page.active{display:block}
+</style>
 </head>
-<body class="bg-gray-100 p-8">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8">Fast Food Admin Panel</h1>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-gray-500">Foydalanuvchilar</h3>
-                <p class="text-3xl font-bold" id="users-count">-</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-gray-500">Buyurtmalar</h3>
-                <p class="text-3xl font-bold" id="orders-count">-</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-gray-500">Daromad</h3>
-                <p class="text-3xl font-bold" id="revenue">-</p>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h2 class="text-xl font-bold mb-4">Oxirgi buyurtmalar</h2>
-            <div id="orders-list" class="space-y-4">
-                Loading...
-            </div>
-        </div>
-    </div>
+<body>
+<div class="sidebar">
+  <div class="logo"><h2>🍔 Fast Food</h2><p>Admin Panel</p></div>
+  <div class="nav-item active" onclick="showPage('dashboard',this)">📊 Dashboard</div>
+  <div class="nav-item" onclick="showPage('orders',this)">📦 Buyurtmalar</div>
+  <div class="nav-item" onclick="showPage('products',this)">🍽 Mahsulotlar</div>
+  <div class="nav-item" onclick="showPage('users',this)">👤 Foydalanuvchilar</div>
+  <div class="nav-item" onclick="showPage('analytics',this)">📈 Analitika</div>
+</div>
 
-    <script>
-        async function fetchData() {
-            try {
-                // Fetch Stats
-                const statsRes = await fetch('/api/stats');
-                const stats = await statsRes.json();
-                document.getElementById('users-count').innerText = stats.users;
-                document.getElementById('orders-count').innerText = stats.orders;
-                document.getElementById('revenue').innerText = stats.revenue.toLocaleString() + " so'm";
-                
-                // Fetch Orders
-                const ordersRes = await fetch('/api/orders');
-                const orders = await ordersRes.json();
-                const list = document.getElementById('orders-list');
-                list.innerHTML = '';
-                
-                orders.forEach(order => {
-                    const div = document.createElement('div');
-                    div.className = "border-b pb-2 flex justify-between";
-                    div.innerHTML = `
-                        <div>
-                            <p class="font-bold">#${order.id}</p>
-                            <p class="text-sm text-gray-500">${new Date(order.created_at).toLocaleString()}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold">${order.total_amount.toLocaleString()} so'm</p>
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${order.status}</span>
-                        </div>
-                    `;
-                    list.appendChild(div);
-                });
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        
-        // Mock fetch if running file directly without backend
-        if (location.protocol === 'file:') {
-            document.getElementById('users-count').innerText = "150";
-            document.getElementById('orders-count').innerText = "43";
-            document.getElementById('revenue').innerText = "2,500,000 so'm";
-            document.getElementById('orders-list').innerHTML = "<p>Backend not connected (File Mode)</p>";
-        } else {
-            fetchData();
-            setInterval(fetchData, 30000);
-        }
-    </script>
+<div class="main">
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="header">
+    <h1>📊 Dashboard</h1>
+    <button class="refresh-btn" onclick="loadDashboard()">🔄 Yangilash</button>
+  </div>
+  <div class="cards" id="stat-cards"><div class="loading">Yuklanmoqda...</div></div>
+  <div class="section">
+    <h3>📦 Oxirgi buyurtmalar</h3>
+    <table class="table"><thead><tr><th>#</th><th>Mijoz</th><th>Summa</th><th>Turi</th><th>Holat</th><th>Vaqt</th><th></th></tr></thead>
+    <tbody id="recent-orders"><tr><td colspan="7" class="loading">Yuklanmoqda...</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- ORDERS -->
+<div class="page" id="page-orders">
+  <div class="header"><h1>📦 Buyurtmalar</h1><button class="refresh-btn" onclick="loadOrders()">🔄 Yangilash</button></div>
+  <div class="tabs">
+    <div class="tab active" onclick="filterOrders('all',this)">Barchasi</div>
+    <div class="tab" onclick="filterOrders('pending',this)">⏳ Kutilmoqda</div>
+    <div class="tab" onclick="filterOrders('preparing',this)">🍳 Tayyorlanmoqda</div>
+    <div class="tab" onclick="filterOrders('delivering',this)">🚗 Yetkazilmoqda</div>
+    <div class="tab" onclick="filterOrders('completed',this)">✅ Tugallangan</div>
+    <div class="tab" onclick="filterOrders('cancelled',this)">❌ Bekor</div>
+  </div>
+  <div class="section">
+    <table class="table"><thead><tr><th>#</th><th>Mijoz</th><th>Telefon</th><th>Summa</th><th>Turi</th><th>Holat</th><th>Vaqt</th><th></th></tr></thead>
+    <tbody id="orders-tbody"><tr><td colspan="8" class="loading">Yuklanmoqda...</td></tr></tbody></table>
+  </div>
+  <div id="orders-pages" style="display:flex;gap:8px;margin-top:12px"></div>
+</div>
+
+<!-- PRODUCTS -->
+<div class="page" id="page-products">
+  <div class="header"><h1>🍽 Mahsulotlar</h1><button class="refresh-btn" onclick="loadProducts()">🔄 Yangilash</button></div>
+  <div class="tabs" id="cat-tabs"></div>
+  <div class="section">
+    <table class="table"><thead><tr><th>ID</th><th>Nomi</th><th>Narxi</th><th>Holat</th><th></th></tr></thead>
+    <tbody id="products-tbody"><tr><td colspan="5" class="loading">Yuklanmoqda...</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- USERS -->
+<div class="page" id="page-users">
+  <div class="header"><h1>👤 Foydalanuvchilar</h1><button class="refresh-btn" onclick="loadUsers()">🔄 Yangilash</button></div>
+  <div class="section">
+    <table class="table"><thead><tr><th>ID</th><th>Ism</th><th>Username</th><th>Telefon</th><th>Buyurtmalar</th><th>Qo'shilgan</th></tr></thead>
+    <tbody id="users-tbody"><tr><td colspan="6" class="loading">Yuklanmoqda...</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="page" id="page-analytics">
+  <div class="header"><h1>📈 Analitika</h1><button class="refresh-btn" onclick="loadAnalytics()">🔄 Yangilash</button></div>
+  <div class="section"><h3>🏆 Top mahsulotlar</h3>
+    <table class="table"><thead><tr><th>#</th><th>Mahsulot</th><th>Sotilgan</th><th>Daromad</th></tr></thead>
+    <tbody id="top-products"><tr><td colspan="4" class="loading">Yuklanmoqda...</td></tr></tbody></table>
+  </div>
+</div>
+</div>
+
+<!-- ORDER MODAL -->
+<div class="modal" id="order-modal">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3>📋 Buyurtma tafsiloti</h3>
+      <button class="btn btn-sm" onclick="closeModal()" style="background:#1e293b;color:#94a3b8">✕</button>
+    </div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let currentOrderFilter = 'all';
+let currentPage = 0;
+const PAGE_SIZE = 20;
+
+const STATUS_LABELS = {
+  pending:'⏳ Kutilmoqda', preparing:'🍳 Tayyorlanmoqda',
+  delivering:'🚗 Yetkazilmoqda', completed:'✅ Tugallandi', cancelled:'❌ Bekor'
+};
+const STATUS_CLASS = {
+  pending:'s-pending', preparing:'s-preparing',
+  delivering:'s-delivering', completed:'s-completed', cancelled:'s-cancelled'
+};
+
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='dashboard') loadDashboard();
+  else if(name==='orders') loadOrders();
+  else if(name==='products') loadProducts();
+  else if(name==='users') loadUsers();
+  else if(name==='analytics') loadAnalytics();
+}
+
+async function apiFetch(url) {
+  try {
+    const r = await fetch(API+url);
+    if(!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch(e) {
+    console.error(url, e);
+    return null;
+  }
+}
+
+async function loadDashboard() {
+  const s = await apiFetch('/api/stats');
+  if(!s) return;
+  document.getElementById('stat-cards').innerHTML = `
+    <div class="card"><div class="label">👤 Foydalanuvchilar</div><div class="value">${s.users}</div></div>
+    <div class="card"><div class="label">📦 Jami buyurtmalar</div><div class="value">${s.orders_total}</div><div class="sub">Bugun: ${s.orders_today}</div></div>
+    <div class="card"><div class="label">⏳ Kutilayotgan</div><div class="value" style="color:#fb923c">${s.pending}</div><div class="sub">🍳 Tayyorlanmoqda: ${s.preparing}</div></div>
+    <div class="card"><div class="label">💰 Umumiy daromad</div><div class="value" style="color:#4ade80">${(s.revenue_total||0).toLocaleString()}</div><div class="sub">Bugun: ${(s.revenue_today||0).toLocaleString()} so'm</div></div>
+  `;
+  const d = await apiFetch('/api/orders?limit=10');
+  if(!d) return;
+  document.getElementById('recent-orders').innerHTML = d.orders.map(o => `
+    <tr onclick="openOrder(${o.id})" style="cursor:pointer">
+      <td><b>#${o.id}</b></td>
+      <td>${o.full_name||'—'}</td>
+      <td><b>${(o.total_amount||0).toLocaleString()} so'm</b></td>
+      <td>${o.delivery_type==='eat_in'?'🍽️ Shu yerda':'🛵 Yetkazish'}</td>
+      <td><span class="status ${STATUS_CLASS[o.status]||'s-pending'}">${STATUS_LABELS[o.status]||o.status}</span></td>
+      <td style="color:#64748b">${(o.created_at||'').slice(0,16)}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openOrder(${o.id})">Ko'rish</button></td>
+    </tr>`).join('');
+}
+
+async function loadOrders() {
+  const d = await apiFetch(`/api/orders?limit=${PAGE_SIZE}&offset=${currentPage*PAGE_SIZE}&status=${currentOrderFilter}`);
+  if(!d) return;
+  document.getElementById('orders-tbody').innerHTML = d.orders.map(o=>`
+    <tr onclick="openOrder(${o.id})" style="cursor:pointer">
+      <td><b>#${o.id}</b></td>
+      <td>${o.full_name||'—'}</td>
+      <td>${o.phone_number||'—'}</td>
+      <td><b>${(o.total_amount||0).toLocaleString()} so'm</b></td>
+      <td>${o.delivery_type==='eat_in'?'🍽️':'🛵'}</td>
+      <td><span class="status ${STATUS_CLASS[o.status]||'s-pending'}">${STATUS_LABELS[o.status]||o.status}</span></td>
+      <td style="color:#64748b">${(o.created_at||'').slice(0,16)}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openOrder(${o.id})">Ko'rish</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#475569;padding:20px">Buyurtmalar yo\'q</td></tr>';
+  const pages = document.getElementById('orders-pages');
+  const total = d.total || 0;
+  const maxPage = Math.ceil(total/PAGE_SIZE);
+  pages.innerHTML = '';
+  for(let i=0;i<maxPage;i++){
+    const btn = document.createElement('button');
+    btn.className='tab'+(i===currentPage?' active':'');
+    btn.textContent=i+1;
+    btn.onclick=()=>{currentPage=i;loadOrders()};
+    pages.appendChild(btn);
+  }
+}
+
+function filterOrders(status, el) {
+  currentOrderFilter = status;
+  currentPage = 0;
+  document.querySelectorAll('#page-orders .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  loadOrders();
+}
+
+let allProducts = [], allCats = [];
+async function loadProducts() {
+  allCats = await apiFetch('/api/categories') || [];
+  allProducts = await apiFetch('/api/products') || [];
+  const tabs = document.getElementById('cat-tabs');
+  tabs.innerHTML = '<div class="tab active" onclick="filterProducts(0,this)">Barchasi</div>' +
+    allCats.map(c=>`<div class="tab" onclick="filterProducts(${c.id},this)">${c.emoji||'🍽'} ${c.name}</div>`).join('');
+  renderProducts(allProducts);
+}
+
+function filterProducts(catId, el) {
+  document.querySelectorAll('#page-products .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderProducts(catId===0 ? allProducts : allProducts.filter(p=>p.category_id===catId));
+}
+
+function renderProducts(products) {
+  document.getElementById('products-tbody').innerHTML = products.map(p=>`
+    <tr>
+      <td>${p.id}</td>
+      <td><b>${p.name}</b>${p.description?`<br><small style="color:#64748b">${p.description.slice(0,50)}</small>`:''}</td>
+      <td><b>${(p.price||0).toLocaleString()} so'm</b>${p.old_price&&p.old_price>p.price?`<br><s style="color:#64748b;font-size:11px">${(p.old_price||0).toLocaleString()}</s>`:''}</td>
+      <td><span class="status ${p.is_active!==false?'s-completed':'s-cancelled'}">${p.is_active!==false?'✅ Faol':'🙈 Yashirilgan'}</span></td>
+      <td>
+        <button class="btn btn-sm" style="background:#1e293b;color:#94a3b8" onclick="toggleProduct(${p.id},${p.is_active!==false})">
+          ${p.is_active!==false?'Yashirish':'Ko\'rsatish'}
+        </button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#475569;padding:20px">Mahsulotlar yo\'q</td></tr>';
+}
+
+async function toggleProduct(id, isActive) {
+  const r = await fetch(`${API}/api/products/${id}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({is_active: !isActive})
+  });
+  if(r.ok) loadProducts();
+}
+
+async function loadUsers() {
+  const d = await apiFetch('/api/users?limit=50') || {};
+  const users = d.users || [];
+  document.getElementById('users-tbody').innerHTML = users.map(u=>`
+    <tr>
+      <td>${u.user_id}</td>
+      <td><b>${u.full_name||'—'}</b></td>
+      <td style="color:#94a3b8">${u.username?'@'+u.username:'—'}</td>
+      <td>${u.phone_number||'—'}</td>
+      <td><span class="badge">${u.orders_count||0}</span></td>
+      <td style="color:#64748b">${(u.created_at||'').slice(0,10)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#475569;padding:20px">Foydalanuvchilar yo\'q</td></tr>';
+}
+
+async function loadAnalytics() {
+  const top = await apiFetch('/api/top-products?limit=15') || [];
+  document.getElementById('top-products').innerHTML = top.map((p,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><b>${p.name}</b></td>
+      <td>${(p.total_qty||0).toLocaleString()} ta</td>
+      <td style="color:#4ade80"><b>${(p.total_revenue||0).toLocaleString()} so'm</b></td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#475569;padding:20px">Ma\'lumot yo\'q</td></tr>';
+}
+
+async function openOrder(id) {
+  const o = await apiFetch(`/api/orders/${id}`);
+  if(!o) return;
+  const items = (o.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1e293b;font-size:13px">
+    <span>${i.name} x ${i.quantity}</span>
+    <span>${((i.price_at_time||0)*i.quantity).toLocaleString()} so'm</span></div>`).join('');
+  document.getElementById('modal-content').innerHTML = `
+    <div class="info-row"><span class="lbl">Buyurtma</span><b>#${o.id}</b></div>
+    <div class="info-row"><span class="lbl">Mijoz</span>${o.full_name||'—'} ${o.username?'(@'+o.username+')':''}</div>
+    <div class="info-row"><span class="lbl">Telefon</span>${o.phone_number||o.user_phone||'—'}</div>
+    <div class="info-row"><span class="lbl">Turi</span>${o.delivery_type==='eat_in'?'🍽️ Shu yerda':'🛵 Yetkazib berish'}</div>
+    <div class="info-row"><span class="lbl">Manzil</span>${o.delivery_address||'—'}</div>
+    ${o.note?`<div class="info-row"><span class="lbl">Izoh</span><i>${o.note}</i></div>`:''}
+    <div class="info-row"><span class="lbl">Vaqt</span>${(o.created_at||'').slice(0,16)}</div>
+    <div style="margin:14px 0 8px;font-weight:600">🍛 Tarkibi:</div>
+    ${items}
+    <div class="info-row" style="margin-top:8px"><span class="lbl">Jami</span><b style="color:#f97316">${(o.total_amount||0).toLocaleString()} so'm</b></div>
+    <div style="margin-top:16px">
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">Holatni o'zgartirish:</div>
+      <select id="new-status-${o.id}" class="select-status">
+        ${['pending','preparing','delivering','completed','cancelled'].map(s=>
+          `<option value="${s}" ${o.status===s?'selected':''}>${STATUS_LABELS[s]}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="changeStatus(${o.id})">✅ Saqlash</button>
+    </div>`;
+  document.getElementById('order-modal').classList.add('open');
+}
+
+async function changeStatus(id) {
+  const sel = document.getElementById(`new-status-${id}`);
+  const r = await fetch(`${API}/api/orders/${id}/status`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({status: sel.value})
+  });
+  if(r.ok) { closeModal(); loadDashboard(); if(document.getElementById('page-orders').classList.contains('active')) loadOrders(); }
+}
+
+function closeModal() { document.getElementById('order-modal').classList.remove('open'); }
+document.getElementById('order-modal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+// Auto-refresh har 30 soniyada
+setInterval(()=>{ if(document.getElementById('page-dashboard').classList.contains('active')) loadDashboard(); }, 30000);
+window.addEventListener('load', loadDashboard);
+</script>
 </body>
 </html>

@@ -569,16 +569,19 @@ async def admin_csv_export(message: types.Message):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID", "Mijoz", "Telefon", "Summa", "Manzil", "Holat", "Sana"])
+    writer.writerow(["ID", "Mijoz", "Telefon", "Summa", "Turi", "Manzil", "Izoh", "Holat", "Sana"])
     for o in orders:
         created = o['created_at']
         date_str = created.strftime('%Y-%m-%d %H:%M') if hasattr(created, 'strftime') else str(created)[:16]
+        d_type = "Shu yerda" if o.get('delivery_type') == 'eat_in' else "Yetkazib berish"
         writer.writerow([
             o['id'],
             o['full_name'] or '—',
-            o['order_phone'] or o['user_phone'] or '—',
+            o.get('order_phone') or o.get('user_phone') or '—',
             o['total_amount'],
+            d_type,
             o['delivery_address'] or '—',
+            o.get('note') or '—',
             STATUS_LABELS.get(o['status'] or 'pending', o['status']),
             date_str
         ])
