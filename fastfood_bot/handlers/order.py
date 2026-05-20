@@ -103,6 +103,18 @@ async def cancel_order(message: types.Message, state: FSMContext):
     await state.finish()
     await message.answer("❌ Buyurtma bekor qilindi.", reply_markup=_get_menu_for_user(message.from_user.id))
 
+# ── O'zbekiston geografik chegaralari (taxminiy) ─────────────────────
+_UZ_LAT_MIN = 37.18
+_UZ_LAT_MAX = 45.60
+_UZ_LON_MIN = 55.99
+_UZ_LON_MAX = 73.15
+
+def _is_in_uzbekistan(lat: float, lon: float) -> bool:
+    """Koordinatlar O'zbekiston hududida ekanligini tekshiradi."""
+    return (_UZ_LAT_MIN <= lat <= _UZ_LAT_MAX and
+            _UZ_LON_MIN <= lon <= _UZ_LON_MAX)
+
+
 async def process_location(message: types.Message, state: FSMContext):
     try:
         if message.text and (message.text.startswith("/") or message.text in ["🍽 Menu", "🛒 Savat", "ℹ️ Biz haqimizda", "📞 Bog'lanish"]):
@@ -121,16 +133,35 @@ async def process_location(message: types.Message, state: FSMContext):
             lon = message.venue.location.longitude
             address = message.venue.address or message.venue.title
         else:
+            # Matn manzil — tekshiruvsiz qabul qilinadi
             address = message.text
-            
+            await state.update_data(address=address, lat=None, lon=None)
+            await OrderStates.waiting_for_phone.set()
+            markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            markup.add(KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True))
+            markup.add(KeyboardButton("❌ Bekor qilish"))
+            await message.answer("Bog'lanish uchun telefon raqamingizni yuboring:", reply_markup=markup)
+            return
+
+        # ── O'zbekiston chegarasi tekshiruvi ─────────────────────────
+        if lat is not None and lon is not None and not _is_in_uzbekistan(lat, lon):
+            await message.answer(
+                "🌍 <b>Kechirasiz!</b>\n\n"
+                "Bu kafe faqat <b>O'zbekiston</b> hududida xizmat ko'rsatadi.\n"
+                "Sizning joylashuvingiz O'zbekiston chegarasidan tashqarida.\n\n"
+                "Agar siz O'zbekistonda bo'lsangiz, iltimos manzilni <b>matn</b> ko'rinishida yuboring.",
+                parse_mode="HTML"
+            )
+            return   # State o'zgarmaydi — foydalanuvchi qaytadan yuborishi mumkin
+
         await state.update_data(address=address, lat=lat, lon=lon)
 
         await OrderStates.waiting_for_phone.set()
         markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.add(KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True))
         markup.add(KeyboardButton("❌ Bekor qilish"))
-        
         await message.answer("Bog'lanish uchun telefon raqamingizni yuboring:", reply_markup=markup)
+
     except Exception as e:
         import traceback
         traceback.print_exc()
