@@ -170,9 +170,10 @@ async def add_product(category_id: int, name: str, price: int, description: str 
     async with pool.acquire() as conn:
         row = await conn.fetchrow("""
             INSERT INTO products (category_id, name, description, price, image_url, is_active)
-            VALUES ($1, $2, $3, $4, $5, TRUE)
+            VALUES ($1, $2, $3, $4, $5, 1)
             RETURNING id
         """, category_id, name, description, price, image_url)
+        clear_cache("products_cat_")
         return row['id']
 
 async def get_user_orders(user_id, limit=10):
@@ -193,11 +194,11 @@ async def get_all_orders(status=None, limit=20):
     async with pool.acquire() as conn:
         if status:
             return await conn.fetch(
-                "SELECT o.*, u.full_name, u.username FROM orders o JOIN users u ON o.user_id = u.user_id WHERE o.status = $1 ORDER BY o.created_at DESC LIMIT $2",
+                "SELECT o.*, u.full_name, u.username FROM orders o LEFT JOIN users u ON o.user_id = u.user_id WHERE o.status = $1 ORDER BY o.created_at DESC LIMIT $2",
                 status, limit
             )
         return await conn.fetch(
-            "SELECT o.*, u.full_name, u.username FROM orders o JOIN users u ON o.user_id = u.user_id ORDER BY o.created_at DESC LIMIT $1",
+            "SELECT o.*, u.full_name, u.username FROM orders o LEFT JOIN users u ON o.user_id = u.user_id ORDER BY o.created_at DESC LIMIT $1",
             limit
         )
 
@@ -206,7 +207,7 @@ async def get_order_by_id(order_id):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         return await conn.fetchrow(
-            "SELECT o.*, u.full_name, u.username FROM orders o JOIN users u ON o.user_id = u.user_id WHERE o.id = $1",
+            "SELECT o.*, u.full_name, u.username FROM orders o LEFT JOIN users u ON o.user_id = u.user_id WHERE o.id = $1",
             int(order_id)
         )
 
@@ -248,7 +249,7 @@ async def search_products(query):
     search = f"%{query.lower()}%"
     async with pool.acquire() as conn:
         return await conn.fetch(
-            "SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE LOWER(p.name) LIKE $1 AND p.is_active = TRUE LIMIT 10",
+            "SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE LOWER(p.name) LIKE $1 AND p.is_active != 0 LIMIT 10",
             search
         )
 
@@ -341,7 +342,7 @@ async def get_favorites(user_id):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         return await conn.fetch(
-            "SELECT p.*, c.name as category_name FROM favorites f JOIN products p ON f.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE f.user_id = $1 AND p.is_active = TRUE ORDER BY f.created_at DESC",
+            "SELECT p.*, c.name as category_name FROM favorites f JOIN products p ON f.product_id = p.id LEFT JOIN categories c ON p.category_id = c.id WHERE f.user_id = $1 AND p.is_active != 0 ORDER BY f.created_at DESC",
             user_id
         )
 

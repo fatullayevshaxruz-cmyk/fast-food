@@ -10,23 +10,35 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     if delivery_type == "eat_in" or (address and "Stol raqami" in str(address)):
         order_type_emoji = "🍽️"
         order_type_label = "Shu yerda"
-        address_label = address or "—"
     else:
         order_type_emoji = "🛵"
         order_type_label = "Yetkazib berish"
-        address_label = address or "—"
+
+    address_label = address or "—"
 
     # ── Mahsulotlar ──────────────────────────────────────────────────
     items_text = ""
     items_with_price_text = ""
+    photo_file_ids = []
+
     for i in items:
-        qty = i['quantity']
-        price = i['price']
-        name = i['name']
-        items_text += f"▫️ {name} x {qty}\n"
+        try:
+            qty   = i['quantity']
+            price = i['price']
+            name  = i['name']
+            # Rasm ID — asyncpg.Record va aiosqlite.Row ikkalasi ham ['key'] ni qo'llab-quvvatlaydi
+            image_url = i['image_url']
+        except Exception:
+            qty, price, name, image_url = 1, 0, "Mahsulot", None
+
+        items_text            += f"▫️ {name} x {qty}\n"
         items_with_price_text += f"  ▫️ {name} x {qty} = {price * qty:,} so'm\n"
 
-    note_text = f"\n📝 <b>Izoh:</b> <i>{note}</i>" if note else ""
+        # Faqat Telegram file_id bo'lsa qo'shish (URL emas)
+        if image_url and not str(image_url).startswith('http'):
+            photo_file_ids.append(image_url)
+
+    note_text     = f"\n📝 <b>Izoh:</b> <i>{note}</i>" if note else ""
     phone_display = phone or "ko'rsatilmagan"
 
     # ── 1. Admin shaxsiga yuborish (qisqa) ──────────────────────────
@@ -64,35 +76,25 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     )
 
     try:
-        # Rasmlarni yig'ish — faqat fayl ID bo'lsa to'g'ridan-to'g'ri yuborish
-        photo_file_ids = []
-        for item in items:
-            image_url = item.get('image_url') if isinstance(item, dict) else None
-            if image_url and not image_url.startswith('http'):
-                # Bu Telegram file_id — URL emas
-                photo_file_ids.append(image_url)
-
         if photo_file_ids:
-            # Birinchi rasmni caption bilan yuborish
             media = types.MediaGroup()
-            for idx, fid in enumerate(photo_file_ids[:10]):  # Max 10 rasm
+            for idx, fid in enumerate(photo_file_ids[:10]):
                 if idx == 0:
                     media.attach_photo(fid, caption=full_message, parse_mode="HTML")
                 else:
                     media.attach_photo(fid)
             await bot.send_media_group(ADMIN_CHANNEL_ID, media=media)
         else:
-            # Rasm yo'q — oddiy xabar
             await bot.send_message(ADMIN_CHANNEL_ID, full_message, parse_mode="HTML")
 
-        # Lokatsiya yuborish (faqat yetkazib berish uchun)
+        # Lokatsiya — faqat yetkazib berish uchun
         if delivery_type == "delivery" and location and location.get('lat') and location.get('lon'):
             await bot.send_location(ADMIN_CHANNEL_ID,
                                     latitude=location['lat'],
                                     longitude=location['lon'])
 
-    except Exception as e:
-        # Rasmlar ishlamasa — oddiy xabar yuborish
+    except Exception:
+        # Rasmlar ishlamasa — oddiy xabar
         try:
             await bot.send_message(ADMIN_CHANNEL_ID, full_message, parse_mode="HTML")
             if delivery_type == "delivery" and location and location.get('lat') and location.get('lon'):
