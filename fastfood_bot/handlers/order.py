@@ -35,10 +35,22 @@ def _is_in_uzbekistan(lat: float, lon: float) -> bool:
 _GEO_CACHE: dict = {}
 _GEO_CACHE_TTL = 30 * 60  # 30 daqiqa
 
+# Shahar/mamlakat darajasidagi so'zlar — bularni manzil sifatida ko'rsatmaymiz
+_SKIP_WORDS = {
+    "toshkent", "samarqand", "buxoro", "namangan", "andijon",
+    "farg'ona", "nukus", "qarshi", "termiz", "jizzax", "navoiy",
+    "o'zbekiston", "uzbekistan", "uzbekiston", "republic", "viloyat",
+    "tuman", "district", "region", "city", "shahar"
+}
+
 
 async def _reverse_geocode(lat: float, lon: float) -> str:
-    """Koordinatlardan faqat ko'cha yoki mahalla nomini olish."""
+    """
+    Koordinatlardan faqat ko'cha yoki mahalla nomini olish.
+    O'zbekiston uchun optimallashtirilgan Nominatim parser.
+    """
     import aiohttp
+
     cache_key = f"{lat:.4f},{lon:.4f}"
     now = _time.time()
     if cache_key in _GEO_CACHE:
@@ -49,29 +61,55 @@ async def _reverse_geocode(lat: float, lon: float) -> str:
     url = (
         f"https://nominatim.openstreetmap.org/reverse"
         f"?format=json&lat={lat}&lon={lon}"
-        f"&zoom=17&addressdetails=1&accept-language=uz,ru,en"
+        f"&zoom=17&addressdetails=1&accept-language=uz,ru"
     )
     headers = {"User-Agent": "FastFoodBot/2.0 (food delivery uzbekistan)"}
     result = None
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=6)) as resp:
+                                   timeout=aiohttp.ClientTimeout(total=5)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     addr = data.get("address", {})
-                    for key in ["road", "pedestrian", "footway",
-                                "neighbourhood", "suburb", "quarter",
-                                "residential", "city_district"]:
-                        val = addr.get(key)
-                        if val:
+
+                    # 1️⃣ address dict dan aniq maydonlar (ustunlik tartibi)
+                    for key in [
+                        "road", "pedestrian", "footway", "path",
+                        "neighbourhood", "quarter", "residential",
+                        "suburb", "hamlet", "village", "city_district"
+                    ]:
+                        val = addr.get(key, "").strip()
+                        if val and val.lower() not in _SKIP_WORDS:
                             result = val
                             break
+
+                    # 2️⃣ Agar topilmasa — display_name dan aqlli parsing
+                    if not result:
+                        display = data.get("display_name", "")
+                        parts = [p.strip() for p in display.split(",")]
+                        for part in parts:
+                            # Raqam, bo'sh yoki shahar nomi bo'lsa o'tkazib yubor
+                            if (not part
+                                    or part.isdigit()
+                                    or any(skip in part.lower() for skip in _SKIP_WORDS)):
+                                continue
+                            result = part
+                            break
+
+                    # 3️⃣ Nominatim top-level "name" maydoni (do'kon, bino nomi)
+                    if not result:
+                        top_name = data.get("name", "").strip()
+                        if top_name and top_name.lower() not in _SKIP_WORDS:
+                            result = top_name
+
     except Exception:
         pass
 
     if not result:
         result = f"({lat:.4f}, {lon:.4f})"
+
     _GEO_CACHE[cache_key] = (result, now)
     return result
 
