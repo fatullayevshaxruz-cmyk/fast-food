@@ -115,6 +115,34 @@ def _is_in_uzbekistan(lat: float, lon: float) -> bool:
             _UZ_LON_MIN <= lon <= _UZ_LON_MAX)
 
 
+async def _reverse_geocode(lat: float, lon: float) -> str:
+    """Koordinatlardan aniq ko'cha/mahalla nomini olish (Nominatim)."""
+    import aiohttp
+    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&accept-language=uz,ru"
+    headers = {"User-Agent": "FastFoodBot/1.0"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    addr = data.get("address", {})
+                    # Ko'cha, mahalla, tuman, shahar — mavjudini oladi
+                    parts = []
+                    for key in ["road", "neighbourhood", "suburb", "quarter",
+                                "city_district", "district", "county", "city", "town"]:
+                        val = addr.get(key)
+                        if val:
+                            parts.append(val)
+                        if len(parts) >= 3:  # Ko'cha + mahalla + shahar yetarli
+                            break
+                    if parts:
+                        return ", ".join(parts)
+    except Exception:
+        pass
+    # Fallback: koordinatlar
+    return f"({lat:.5f}, {lon:.5f})"
+
+
 async def process_location(message: types.Message, state: FSMContext):
     try:
         if message.text and (message.text.startswith("/") or message.text in ["🍽 Menu", "🛒 Savat", "ℹ️ Biz haqimizda", "📞 Bog'lanish"]):
@@ -127,7 +155,6 @@ async def process_location(message: types.Message, state: FSMContext):
         if message.location:
             lat = message.location.latitude
             lon = message.location.longitude
-            address = f"Lat: {lat}, Lon: {lon}"
         elif message.venue:
             lat = message.venue.location.latitude
             lon = message.venue.location.longitude
@@ -152,7 +179,12 @@ async def process_location(message: types.Message, state: FSMContext):
                 "Agar siz O'zbekistonda bo'lsangiz, iltimos manzilni <b>matn</b> ko'rinishida yuboring.",
                 parse_mode="HTML"
             )
-            return   # State o'zgarmaydi — foydalanuvchi qaytadan yuborishi mumkin
+            return
+
+        # ── GPS lokatsiyadan aniq manzil olish ───────────────────────
+        if lat is not None and lon is not None and address is None:
+            await message.answer("📍 Manzil aniqlanmoqda...")
+            address = await _reverse_geocode(lat, lon)
 
         await state.update_data(address=address, lat=lat, lon=lon)
 
@@ -160,7 +192,12 @@ async def process_location(message: types.Message, state: FSMContext):
         markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.add(KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True))
         markup.add(KeyboardButton("❌ Bekor qilish"))
-        await message.answer("Bog'lanish uchun telefon raqamingizni yuboring:", reply_markup=markup)
+        await message.answer(
+            f"✅ Manzil aniqlandi: <b>{address}</b>\n\n"
+            "Bog'lanish uchun telefon raqamingizni yuboring:",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
 
     except Exception as e:
         import traceback
