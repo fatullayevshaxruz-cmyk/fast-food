@@ -10,12 +10,27 @@ class SQLitePool:
     async def init(self):
         self._conn = await aiosqlite.connect(self.db_path)
         self._conn.row_factory = aiosqlite.Row
-        # ── Tezlik optimizatsiyasi ────────────────────────────────
+        # ── Tezlik optimizatsiyasi ──────────────────────────────
         await self._conn.execute("PRAGMA journal_mode=WAL")      # WAL — yozish tezroq
-        await self._conn.execute("PRAGMA synchronous=NORMAL")     # Normal sync — xavfsiz + tez
-        await self._conn.execute("PRAGMA cache_size=-8000")       # 8MB kesh
-        await self._conn.execute("PRAGMA temp_store=MEMORY")      # Temp ma'lumotlar RAM da
-        await self._conn.execute("PRAGMA mmap_size=67108864")     # 64MB memory-mapped I/O
+        await self._conn.execute("PRAGMA synchronous=NORMAL")     # Normal sync
+        await self._conn.execute("PRAGMA cache_size=-16000")      # 16MB kesh
+        await self._conn.execute("PRAGMA temp_store=MEMORY")      # Temp RAM da
+        await self._conn.execute("PRAGMA mmap_size=134217728")    # 128MB memory-mapped I/O
+        await self._conn.execute("PRAGMA busy_timeout=5000")      # Lock bo'lsa 5s kutadi
+        await self._conn.execute("PRAGMA foreign_keys=ON")        # FK tekshiruvi
+        # ── Tez qidiruv uchun indekslar ───────────────────────────
+        for idx_sql in [
+            "CREATE INDEX IF NOT EXISTS idx_cart_user   ON cart_items(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_orders_stat ON orders(status)",
+            "CREATE INDEX IF NOT EXISTS idx_oi_order    ON order_items(order_id)",
+            "CREATE INDEX IF NOT EXISTS idx_prod_cat    ON products(category_id, is_active)",
+            "CREATE INDEX IF NOT EXISTS idx_fav_user    ON favorites(user_id)",
+        ]:
+            try:
+                await self._conn.execute(idx_sql)
+            except Exception:
+                pass
         await self._conn.commit()
 
     def acquire(self):

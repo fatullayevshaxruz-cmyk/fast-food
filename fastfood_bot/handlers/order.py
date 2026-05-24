@@ -115,33 +115,62 @@ def _is_in_uzbekistan(lat: float, lon: float) -> bool:
             _UZ_LON_MIN <= lon <= _UZ_LON_MAX)
 
 
+# Geocoding keshi — bir manzilni qayta so'ramaslik uchun
+import time as _time
+_GEO_CACHE: dict = {}
+_GEO_CACHE_TTL = 30 * 60  # 30 daqiqa
+
+
 async def _reverse_geocode(lat: float, lon: float) -> str:
-    """Koordinatlardan aniq ko'cha/mahalla nomini olish (Nominatim)."""
+    """Koordinatlardan faqat ko'cha yoki mahalla nomini olish (Nominatim)."""
     import aiohttp
-    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&accept-language=uz,ru"
-    headers = {"User-Agent": "FastFoodBot/1.0"}
+
+    # Koordinatni 4 xonaga yaxlitlash — bir xil joylar uchun kesh
+    cache_key = f"{lat:.4f},{lon:.4f}"
+    now = _time.time()
+    if cache_key in _GEO_CACHE:
+        val, ts = _GEO_CACHE[cache_key]
+        if now - ts < _GEO_CACHE_TTL:
+            return val
+
+    url = (
+        f"https://nominatim.openstreetmap.org/reverse"
+        f"?format=json&lat={lat}&lon={lon}"
+        f"&zoom=17"          # 17 = ko'cha darajasi (shahar emas)
+        f"&addressdetails=1"
+        f"&accept-language=uz,ru,en"
+    )
+    headers = {"User-Agent": "FastFoodBot/2.0 (food delivery uzbekistan)"}
+
+    result = None
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+            async with session.get(
+                url, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=6)
+            ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     addr = data.get("address", {})
-                    # Ko'cha, mahalla, tuman, shahar — mavjudini oladi
-                    parts = []
-                    for key in ["road", "neighbourhood", "suburb", "quarter",
-                                "city_district", "district", "county", "city", "town"]:
+
+                    # Faqat eng aniq joy: ko'cha → mahalla → tuman (shahar emas)
+                    for key in [
+                        "road", "pedestrian", "footway",
+                        "neighbourhood", "suburb", "quarter",
+                        "residential", "city_district"
+                    ]:
                         val = addr.get(key)
                         if val:
-                            parts.append(val)
-                        if len(parts) >= 3:  # Ko'cha + mahalla + shahar yetarli
+                            result = val
                             break
-                    if parts:
-                        return ", ".join(parts)
     except Exception:
         pass
-    # Fallback: koordinatlar
-    return f"({lat:.5f}, {lon:.5f})"
 
+    if not result:
+        result = f"({lat:.4f}, {lon:.4f})"
+
+    _GEO_CACHE[cache_key] = (result, now)
+    return result
 
 async def process_location(message: types.Message, state: FSMContext):
     try:
