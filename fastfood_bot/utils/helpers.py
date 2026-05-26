@@ -1,13 +1,18 @@
 import os
+import asyncio
 from config import ADMIN_CHANNEL_ID
 from aiogram import types
 
 # Yetkazib berish uchun alohida kanal
 DELIVERY_CHANNEL_ID = os.getenv("DELIVERY_CHANNEL_ID", "-1003943860489")
 
+# Kanal xabarlarini yuborishga max vaqt (sekund)
+_CHANNEL_TIMEOUT = 8
+
 
 async def notify_admins_new_order(bot, order_id, total_amount, user, items, phone, address,
-                                   location=None, note=None, delivery_type="delivery"):
+                                   location=None, note=None, delivery_type="delivery",
+                                   payment_method="Naqd (Yetkazib berilganda)"):
     """
     Buyurtma haqida kanalga xabar yuborish:
       - ADMIN_CHANNEL_ID  : barcha buyurtmalar (eat_in + delivery), lokatsiyasiz
@@ -60,6 +65,15 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     phone_display = phone or "ko'rsatilmagan"
     username_text = f"(@{user.username})" if user.username else ""
 
+    # ── To'lov usuli belgisi ─────────────────────────────────────────
+    is_online = payment_method and "Online" in str(payment_method)
+    if is_online:
+        payment_emoji = "💳"
+        payment_label = "Karta orqali to'landi (Click/Payme)"
+    else:
+        payment_emoji = "💵"
+        payment_label = "Naqd pul (Yetkazib berilganda)"
+
     # ── 1. ESKI KANAL: barcha buyurtmalar, lokatsiyasiz ──────────────
     if ADMIN_CHANNEL_ID:
         old_channel_msg = (
@@ -70,14 +84,18 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
             f"📍 <b>Manzil:</b> {address_label}"
             f"{note_text}\n\n"
             f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}\n"
-            f"💰 <b>Umumiy summa:</b> {total_amount:,} so'm"
+            f"💰 <b>Umumiy summa:</b> {total_amount:,} so'm\n"
+            f"{payment_emoji} <b>To'lov:</b> {payment_label}"
         )
         try:
-            await _send_to_channel(
-                bot, ADMIN_CHANNEL_ID,
-                old_channel_msg,
-                unique_photos,
-                send_location=False   # Eski kanalga lokatsiya YUBORILMAYDI
+            await asyncio.wait_for(
+                _send_to_channel(
+                    bot, ADMIN_CHANNEL_ID,
+                    old_channel_msg,
+                    unique_photos,
+                    send_location=False
+                ),
+                timeout=_CHANNEL_TIMEOUT
             )
         except Exception:
             pass
@@ -91,18 +109,22 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
             f"📍 <b>Manzil:</b> {address_label}"
             f"{note_text}\n\n"
             f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}\n"
-            f"💰 <b>Umumiy summa:</b> {total_amount:,} so'm"
+            f"💰 <b>Umumiy summa:</b> {total_amount:,} so'm\n"
+            f"{payment_emoji} <b>To'lov:</b> {payment_label}"
         )
         lat = location.get('lat') if location else None
         lon = location.get('lon') if location else None
         try:
-            await _send_to_channel(
-                bot, DELIVERY_CHANNEL_ID,
-                delivery_msg,
-                unique_photos,
-                send_location=True,
-                lat=lat,
-                lon=lon
+            await asyncio.wait_for(
+                _send_to_channel(
+                    bot, DELIVERY_CHANNEL_ID,
+                    delivery_msg,
+                    unique_photos,
+                    send_location=True,
+                    lat=lat,
+                    lon=lon
+                ),
+                timeout=_CHANNEL_TIMEOUT
             )
         except Exception:
             pass

@@ -307,6 +307,7 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             location={"lat": lat, "lon": lon},
             note=note,
             delivery_type=delivery_type,
+            payment_method="Online (Click/Payme)",
         ))
 
         # Chek matni
