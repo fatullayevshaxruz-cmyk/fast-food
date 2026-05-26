@@ -152,9 +152,10 @@ async def process_payment_online(message: types.Message, state: FSMContext):
             await state.finish()
             return
 
-        # Telegram Invoice narxi tiyin/kopeykada bo'ladi.
-        # UZS uchun Telegram 1 so'm = 1 birlik deb qabul qiladi.
-        prices = [LabeledPrice(label="Buyurtma", amount=total_amount)]
+        # Telegram Payments UZS uchun summani TIYIN da qabul qiladi.
+        # 1 so'm = 100 tiyin, shuning uchun × 100 qilamiz.
+        # Misol: 50,000 so'm → 5,000,000 tiyin → Telegram "50,000 so'm" ko'rsatadi.
+        prices = [LabeledPrice(label="Buyurtma", amount=total_amount * 100)]
 
         payload = _build_payload(user_id, data)
 
@@ -257,8 +258,9 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
         lat            = state_data.get("lat")
         lon            = state_data.get("lon")
 
-        # Telegram to'lov summasini olish (tiyin birligida keladi)
-        total_amount = payment.total_amount  # UZS uchun to'g'ridan so'm
+        # Telegram payment.total_amount ni TIYIN da beradi (UZS: ×100 qilingan edi).
+        # Bazaga SO'MDA yozish uchun ÷100 qilamiz.
+        total_amount = payment.total_amount // 100
 
         # Agar state allaqachon tozalangan bo'lsa — savat ma'lumotlaridan olamiz
         items = await get_cart_items(user_id)
