@@ -9,6 +9,7 @@ from utils.states import OrderStates
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu
 from utils.helpers import notify_admins_new_order
 from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
+# To'lov handler — aylanma importdan qochish uchun ichida import qilinadi
 
 
 def _get_menu_for_user(user_id):
@@ -297,10 +298,11 @@ async def process_note(message: types.Message, state: FSMContext):
     await state.update_data(note=note)
 
     data = await state.get_data()
-    # Shu yerda (eat_in) uchun promo kod so'ralmaydi
+    # Shu yerda (eat_in) uchun ham to'lov usuli so'raladi
     if data.get('delivery_type') == 'eat_in':
         await state.update_data(promo_code=None, discount_percent=0)
-        await finish_order(message, state)
+        from handlers.payment import ask_payment_method
+        await ask_payment_method(message, state)
     else:
         await _ask_for_promo(message, state)
 
@@ -320,10 +322,11 @@ async def _ask_for_promo(message: types.Message, state: FSMContext):
 
 async def process_promo(message: types.Message, state: FSMContext):
     from database.crud import get_promo_code, use_promo_code, check_user_promo_used
+    from handlers.payment import ask_payment_method
 
     if message.text.strip() == "⏭ O'tkazib yuborish":
         await state.update_data(promo_code=None, discount_percent=0)
-        await finish_order(message, state)
+        await ask_payment_method(message, state)
         return
 
     code = message.text.strip().upper()
@@ -346,10 +349,12 @@ async def process_promo(message: types.Message, state: FSMContext):
         f"💰 Chegirma: <b>{promo['discount_percent']}%</b>",
         parse_mode="HTML"
     )
-    await finish_order(message, state)
+    # To'lov usulini tanlashga o'tamiz
+    await ask_payment_method(message, state)
 
 
-async def finish_order(message: types.Message, state: FSMContext):
+async def finish_order(message: types.Message, state: FSMContext,
+                       payment_method: str = "Naqd (Yetkazib berilganda)"):
     try:
         data = await state.get_data()
         user_id = message.from_user.id
@@ -376,7 +381,7 @@ async def finish_order(message: types.Message, state: FSMContext):
 
         order_id = await create_order(
             user_id=user_id, total_amount=total_amount,
-            address=address, payment_method="Naqd (Yetkazib berilganda)",
+            address=address, payment_method=payment_method,
             latitude=lat, longitude=lon, phone_number=phone,
             note=note, delivery_type=delivery_type
         )

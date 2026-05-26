@@ -7,7 +7,8 @@ class OrderStates(StatesGroup):
     waiting_for_phone = State()
     waiting_for_payment = State()
     waiting_for_note = State()
-    waiting_for_promo = State()       # Promo kod
+    waiting_for_promo = State()           # Promo kod
+    waiting_for_payment_method = State()  # To'lov usuli (naqd / online)
     confirm_order = State()
 
 class AdminStates(StatesGroup):
