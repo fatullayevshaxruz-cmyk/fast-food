@@ -429,6 +429,294 @@ TRANSLATIONS = {
         "ru": "Пожалуйста, выберите один из вариантов ниже.",
         "en": "Please choose one of the options below.",
     },
+
+    # ── Menyu ─────────────────────────────────────────────────────
+    "menu_empty": {
+        "uz": "Hozircha menyu bo'sh.",
+        "ru": "Меню пока пусто.",
+        "en": "The menu is currently empty.",
+    },
+    "menu_title": {
+        "uz": "🍽 <b>Menuimiz</b>\nQuyidagi kategoriyalardan birini tanlang:",
+        "ru": "🍽 <b>Наше меню</b>\nВыберите категорию:",
+        "en": "🍽 <b>Our Menu</b>\nChoose a category:",
+    },
+    "category_empty": {
+        "uz": "Bu kategoriyada mahsulotlar yo'q.",
+        "ru": "В этой категории нет товаров.",
+        "en": "No products in this category.",
+    },
+    "no_more_products": {
+        "uz": "Boshqa mahsulot yo'q",
+        "ru": "Больше товаров нет",
+        "en": "No more products",
+    },
+    "price_label": {
+        "uz": "💵 Narxi: <b>{price:,} so'm</b>",
+        "ru": "💵 Цена: <b>{price:,} сум</b>",
+        "en": "💵 Price: <b>{price:,} sum</b>",
+    },
+    "fav_added": {
+        "uz": "❤️ Sevimlilarga qo'shildi!",
+        "ru": "❤️ Добавлено в избранное!",
+        "en": "❤️ Added to favorites!",
+    },
+    "fav_removed": {
+        "uz": "💔 Sevimlilardan olib tashlandi.",
+        "ru": "💔 Удалено из избранного.",
+        "en": "💔 Removed from favorites.",
+    },
+
+    # ── Qidiruv ───────────────────────────────────────────────────
+    "search_ask": {
+        "uz": "🔍 <b>Mahsulot izlash</b>\n\nMahsulot nomini yozing:\n<i>(Bekor qilish: /bekor)</i>",
+        "ru": "🔍 <b>Поиск блюда</b>\n\nВведите название блюда:\n<i>(Отмена: /bekor)</i>",
+        "en": "🔍 <b>Search dish</b>\n\nType the dish name:\n<i>(Cancel: /bekor)</i>",
+    },
+    "search_cancelled": {
+        "uz": "❌ Qidiruv bekor qilindi.",
+        "ru": "❌ Поиск отменён.",
+        "en": "❌ Search cancelled.",
+    },
+    "search_no_results": {
+        "uz": "😔 <b>\"{query}\"</b> bo'yicha hech narsa topilmadi.\nBoshqa nom bilan qaytadan izlab ko'ring.",
+        "ru": "😔 По запросу <b>\"{query}\"</b> ничего не найдено.\nПопробуйте другое название.",
+        "en": "😔 Nothing found for <b>\"{query}\"</b>.\nTry a different name.",
+    },
+    "search_results": {
+        "uz": "🔍 <b>\"{query}\"</b> bo'yicha <b>{count}</b> ta natija:\n",
+        "ru": "🔍 По запросу <b>\"{query}\"</b> найдено <b>{count}</b> результат(а):\n",
+        "en": "🔍 Found <b>{count}</b> result(s) for <b>\"{query}\"</b>:\n",
+    },
+    "product_not_found": {
+        "uz": "Mahsulot topilmadi.",
+        "ru": "Товар не найден.",
+        "en": "Product not found.",
+    },
+
+    # ── Savat ─────────────────────────────────────────────────────
+    "cart_is_empty": {
+        "uz": "Savat bo'sh 🛒",
+        "ru": "Корзина пуста 🛒",
+        "en": "Cart is empty 🛒",
+    },
+    "cart_title": {
+        "uz": "🛒 <b>Savat</b>",
+        "ru": "🛒 <b>Корзина</b>",
+        "en": "🛒 <b>Cart</b>",
+    },
+    "cart_item_added": {
+        "uz": "✅ {qty} ta mahsulot savatga qo'shildi!",
+        "ru": "✅ {qty} шт. добавлено в корзину!",
+        "en": "✅ {qty} item(s) added to cart!",
+    },
+    "btn_go_to_cart": {
+        "uz": "🛒 Savatga o'tish",
+        "ru": "🛒 Перейти в корзину",
+        "en": "🛒 Go to Cart",
+    },
+    "cart_remove_item": {
+        "uz": "❌ {name} ni o'chirish",
+        "ru": "❌ Удалить {name}",
+        "en": "❌ Remove {name}",
+    },
+    "cart_products_total": {
+        "uz": "  💰 <b>Mahsulotlar: {total:,} so'm</b>",
+        "ru": "  💰 <b>Товары: {total:,} сум</b>",
+        "en": "  💰 <b>Products: {total:,} sum</b>",
+    },
+    "cart_dine_in_line": {
+        "uz": "  🍽️ <b>Shu yerda:</b> {price:,} so'm <i>(yetkazish bepul)</i>",
+        "ru": "  🍽️ <b>На месте:</b> {price:,} сум <i>(доставка бесплатно)</i>",
+        "en": "  🍽️ <b>Dine In:</b> {price:,} sum <i>(no delivery fee)</i>",
+    },
+    "cart_delivery_line": {
+        "uz": "  🛵 <b>Yetkazib berish:</b> {price:,} so'm <i>(+{fee:,} yetkazish)</i>",
+        "ru": "  🛵 <b>Доставка:</b> {price:,} сум <i>(+{fee:,} доставка)</i>",
+        "en": "  🛵 <b>Delivery:</b> {price:,} sum <i>(+{fee:,} delivery)</i>",
+    },
+    "cart_min_order_note": {
+        "uz": "\n  ⚠️ <i>Yetkazib berish uchun minimal: {min:,} so'm (yana {diff:,} so'm kerak)</i>",
+        "ru": "\n  ⚠️ <i>Мин. для доставки: {min:,} сум (не хватает {diff:,} сум)</i>",
+        "en": "\n  ⚠️ <i>Min. for delivery: {min:,} sum ({diff:,} sum more needed)</i>",
+    },
+    "btn_checkout": {
+        "uz": "✅ Buyurtma berish",
+        "ru": "✅ Оформить заказ",
+        "en": "✅ Place Order",
+    },
+    "btn_clear_cart": {
+        "uz": "🗑 Savatni tozalash",
+        "ru": "🗑 Очистить корзину",
+        "en": "🗑 Clear Cart",
+    },
+    "item_removed": {
+        "uz": "✅ Mahsulot o'chirildi",
+        "ru": "✅ Товар удалён",
+        "en": "✅ Item removed",
+    },
+    "confirm_clear_cart": {
+        "uz": "⚠️ <b>Haqiqatan savatni tozalaysizmi?</b>\nBu amalni ortga qaytarib bo'lmaydi!",
+        "ru": "⚠️ <b>Вы уверены, что хотите очистить корзину?</b>\nЭто действие нельзя отменить!",
+        "en": "⚠️ <b>Are you sure you want to clear the cart?</b>\nThis action cannot be undone!",
+    },
+    "btn_yes_clear": {
+        "uz": "✅ Ha, tozalash",
+        "ru": "✅ Да, очистить",
+        "en": "✅ Yes, clear",
+    },
+    "btn_no": {
+        "uz": "❌ Yo'q",
+        "ru": "❌ Нет",
+        "en": "❌ No",
+    },
+    "cart_cleared": {
+        "uz": "🛒 Savat tozalandi!",
+        "ru": "🛒 Корзина очищена!",
+        "en": "🛒 Cart cleared!",
+    },
+
+    # ── Profil ────────────────────────────────────────────────────
+    "no_orders_yet": {
+        "uz": "📦 Sizda hali buyurtmalar yo'q.",
+        "ru": "📦 У вас пока нет заказов.",
+        "en": "📦 You have no orders yet.",
+    },
+    "orders_title": {
+        "uz": "📦 <b>Sizning buyurtmalaringiz:</b>\n\n",
+        "ru": "📦 <b>Ваши заказы:</b>\n\n",
+        "en": "📦 <b>Your orders:</b>\n\n",
+    },
+    "order_row": {
+        "uz": "📋 <b>#{id}</b> | {status} | {amount:,} so'm\n   📅 {date}\n\n",
+        "ru": "📋 <b>#{id}</b> | {status} | {amount:,} сум\n   📅 {date}\n\n",
+        "en": "📋 <b>#{id}</b> | {status} | {amount:,} sum\n   📅 {date}\n\n",
+    },
+    "btn_order_detail": {
+        "uz": "📋 #{id} tafsilot",
+        "ru": "📋 #{id} подробнее",
+        "en": "📋 #{id} details",
+    },
+    "order_not_found": {
+        "uz": "Buyurtma topilmadi.",
+        "ru": "Заказ не найден.",
+        "en": "Order not found.",
+    },
+    "order_detail_title": {
+        "uz": "📋 <b>Buyurtma #{id}</b>\n\n",
+        "ru": "📋 <b>Заказ #{id}</b>\n\n",
+        "en": "📋 <b>Order #{id}</b>\n\n",
+    },
+    "order_detail_body": {
+        "uz": "📅 {date}\nHolat: {status}\n📍 {address}\n📞 {phone}\n",
+        "ru": "📅 {date}\nСтатус: {status}\n📍 {address}\n📞 {phone}\n",
+        "en": "📅 {date}\nStatus: {status}\n📍 {address}\n📞 {phone}\n",
+    },
+    "order_items_title": {
+        "uz": "\n🍛 <b>Tarkibi:</b>\n",
+        "ru": "\n🍛 <b>Состав:</b>\n",
+        "en": "\n🍛 <b>Contents:</b>\n",
+    },
+    "order_total": {
+        "uz": "\n💰 <b>Jami: {total:,} so'm</b>",
+        "ru": "\n💰 <b>Итого: {total:,} сум</b>",
+        "en": "\n💰 <b>Total: {total:,} sum</b>",
+    },
+    "btn_repeat_order": {
+        "uz": "🔄 Qaytadan buyurtma",
+        "ru": "🔄 Повторить заказ",
+        "en": "🔄 Repeat Order",
+    },
+    "btn_back": {
+        "uz": "⬅️ Orqaga",
+        "ru": "⬅️ Назад",
+        "en": "⬅️ Back",
+    },
+    "repeat_success": {
+        "uz": "✅ {count} ta mahsulot savatga qo'shildi!",
+        "ru": "✅ {count} товар(а) добавлено в корзину!",
+        "en": "✅ {count} item(s) added to cart!",
+    },
+    "no_items_in_order": {
+        "uz": "Buyurtmada mahsulotlar topilmadi.",
+        "ru": "В заказе не найдено товаров.",
+        "en": "No products found in this order.",
+    },
+    "no_favorites": {
+        "uz": "❤️ Sevimlilar ro'yxati bo'sh.\n\nMahsulot kartochkasidagi ❤️ tugmasini bosib qo'shing!",
+        "ru": "❤️ Список избранного пуст.\n\nНажмите ❤️ на карточке товара, чтобы добавить!",
+        "en": "❤️ Your favorites list is empty.\n\nPress ❤️ on a product card to add it!",
+    },
+    "favorites_title": {
+        "uz": "❤️ <b>Sevimli mahsulotlaringiz:</b>\n\n",
+        "ru": "❤️ <b>Ваши избранные товары:</b>\n\n",
+        "en": "❤️ <b>Your favorite products:</b>\n\n",
+    },
+    "profile_not_found": {
+        "uz": "Profil topilmadi. /start buyrug'ini yuboring.",
+        "ru": "Профиль не найден. Введите /start.",
+        "en": "Profile not found. Please send /start.",
+    },
+    "profile_title": {
+        "uz": "👤 <b>Sizning profilingiz</b>\n\n📛 Ism: <b>{name}</b>\n📞 Telefon: <b>{phone}</b>\n📍 Manzil: <b>{address}</b>\n",
+        "ru": "👤 <b>Ваш профиль</b>\n\n📛 Имя: <b>{name}</b>\n📞 Телефон: <b>{phone}</b>\n📍 Адрес: <b>{address}</b>\n",
+        "en": "👤 <b>Your Profile</b>\n\n📛 Name: <b>{name}</b>\n📞 Phone: <b>{phone}</b>\n📍 Address: <b>{address}</b>\n",
+    },
+    "btn_edit_name": {
+        "uz": "✏️ Ismni o'zgartirish",
+        "ru": "✏️ Изменить имя",
+        "en": "✏️ Edit Name",
+    },
+    "btn_edit_phone": {
+        "uz": "📞 Telefonni o'zgartirish",
+        "ru": "📞 Изменить телефон",
+        "en": "📞 Edit Phone",
+    },
+    "btn_edit_address": {
+        "uz": "📍 Manzilni o'zgartirish",
+        "ru": "📍 Изменить адрес",
+        "en": "📍 Edit Address",
+    },
+    "ask_new_name": {
+        "uz": "✏️ Yangi ismingizni yozing:",
+        "ru": "✏️ Введите новое имя:",
+        "en": "✏️ Enter your new name:",
+    },
+    "name_too_short": {
+        "uz": "⚠️ Ism kamida 2 harf bo'lishi kerak.",
+        "ru": "⚠️ Имя должно содержать минимум 2 буквы.",
+        "en": "⚠️ Name must be at least 2 characters.",
+    },
+    "name_updated": {
+        "uz": "✅ Ism o'zgartirildi: <b>{name}</b>",
+        "ru": "✅ Имя изменено: <b>{name}</b>",
+        "en": "✅ Name updated: <b>{name}</b>",
+    },
+    "ask_new_phone": {
+        "uz": "📞 Yangi telefon raqamingizni yozing:",
+        "ru": "📞 Введите новый номер телефона:",
+        "en": "📞 Enter your new phone number:",
+    },
+    "phone_updated": {
+        "uz": "✅ Telefon o'zgartirildi: <b>{phone}</b>",
+        "ru": "✅ Телефон изменён: <b>{phone}</b>",
+        "en": "✅ Phone updated: <b>{phone}</b>",
+    },
+    "ask_new_address": {
+        "uz": "📍 Yangi manzilingizni yozing:",
+        "ru": "📍 Введите новый адрес:",
+        "en": "📍 Enter your new address:",
+    },
+    "address_updated": {
+        "uz": "✅ Manzil saqlandi: <b>{address}</b>",
+        "ru": "✅ Адрес сохранён: <b>{address}</b>",
+        "en": "✅ Address saved: <b>{address}</b>",
+    },
+    "contact_text": {
+        "uz": "📞 <b>Biz bilan bog'lanish:</b>\n\n📞 <b>+998943265755</b>",
+        "ru": "📞 <b>Связаться с нами:</b>\n\n📞 <b>+998943265755</b>",
+        "en": "📞 <b>Contact Us:</b>\n\n📞 <b>+998943265755</b>",
+    },
 }
 
 
