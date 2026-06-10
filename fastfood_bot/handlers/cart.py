@@ -131,7 +131,9 @@ async def clear_cart_no(call: types.CallbackQuery):
 def register_cart_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(add_item_to_cart_handler, lambda c: c.data.startswith('add_to_cart_'))
     dp.register_callback_query_handler(go_to_cart_handler, text="go_to_cart")
-    dp.register_message_handler(view_cart, text="🛒 Savat")
+    # Savat tugmasi — 3 tilda
+    _CART_TEXTS = ["🛒 Savat", "🛒 Корзина", "🛒 Cart"]
+    dp.register_message_handler(view_cart, lambda m: m.text in _CART_TEXTS)
     dp.register_callback_query_handler(delete_cart_item, lambda c: c.data.startswith('del_cart_'))
     dp.register_callback_query_handler(confirm_clear_cart, text="confirm_clear_cart")
     dp.register_callback_query_handler(clear_cart_yes, text="clear_cart_yes")

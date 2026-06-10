@@ -87,7 +87,9 @@ async def admin_back_from_dynamic_panel(message: types.Message, state: FSMContex
         return
     await state.finish()
     from keyboards.main_menu import get_admin_main_menu
-    await message.answer("Admin paneliga qaytdingiz.", reply_markup=get_admin_main_menu())
+    from database.crud import get_user_language
+    lang = await get_user_language(message.from_user.id)
+    await message.answer("Admin paneliga qaytdingiz.", reply_markup=get_admin_main_menu(lang))
 
 
 # ─────────────────────────────────────────────
@@ -541,16 +543,18 @@ async def admin_inline_price_receive(message: types.Message, state: FSMContext):
 def register_dynamic_menu_handlers(dp: Dispatcher):
 
     # ── Admin menu / Menyuni ko'rish tugmalari ─────────────────────
+    _ADMIN_MENU_TEXTS = ["🛠 Admin menu", "🛠 Admin menyu", "🛠 Меню админа", "🛠 Admin Menu"]
     dp.register_message_handler(
         user_show_dynamic_menu,
-        Text(equals="🛠 Admin menu"),
+        lambda m: m.text in _ADMIN_MENU_TEXTS,
         state="*"
     )
 
     # ── Admin panel (Menyu boshqaruvi) ─────────────────────────────
+    _MENU_MGMT_TEXTS = ["🛠 Menyu boshqaruvi", "🛠 Управление меню", "🛠 Menu Management"]
     dp.register_message_handler(
         admin_open_dynamic_panel,
-        Text(equals="🛠 Menyu boshqaruvi"),
+        lambda m: m.text in _MENU_MGMT_TEXTS,
         state="*"
     )
     dp.register_message_handler(

@@ -227,14 +227,17 @@ async def toggle_fav_handler(call: types.CallbackQuery):
 
 
 def register_menu_handlers(dp: Dispatcher):
-    dp.register_message_handler(show_menu, text="🍽 Menu")
+    # Barcha 3 tildagi menyu tugmalari
+    _MENU_TEXTS = ["🍽 Menu", "🍽 Menyu", "🍽 Меню"]
+    _SEARCH_TEXTS = ["🔍 Izlash", "🔍 Поиск", "🔍 Search"]
+    dp.register_message_handler(show_menu, lambda m: m.text in _MENU_TEXTS)
     dp.register_callback_query_handler(show_category_products, lambda c: c.data.startswith('category_'))
     dp.register_callback_query_handler(paginate_products, lambda c: c.data.startswith('paginate_'))
     dp.register_callback_query_handler(back_to_categories, text="back_to_categories")
     dp.register_callback_query_handler(change_quantity, lambda c: c.data.startswith('plus_') or c.data.startswith('minus_'))
     dp.register_callback_query_handler(noop_handler, text="noop")
     dp.register_callback_query_handler(toggle_fav_handler, lambda c: c.data.startswith('fav_'), state="*")
-    # Qidiruv
-    dp.register_message_handler(start_search, text="🔍 Izlash", state="*")
+    # Qidiruv — 3 tilda
+    dp.register_message_handler(start_search, lambda m: m.text in _SEARCH_TEXTS, state="*")
     dp.register_message_handler(process_search, state=SearchStates.waiting_query)
     dp.register_callback_query_handler(search_product_callback, lambda c: c.data.startswith('search_prod_'), state="*")

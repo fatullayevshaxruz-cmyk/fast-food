@@ -216,10 +216,16 @@ async def contact_us(message: types.Message):
 
 
 def register_profile_handlers(dp: Dispatcher):
-    dp.register_message_handler(show_my_orders, text="📦 Buyurtmalarim")
-    dp.register_message_handler(show_favorites, text="❤️ Sevimlilar")
-    dp.register_message_handler(show_profile, text="👤 Profil")
-    dp.register_message_handler(contact_us, text="☎️ Biz bilan aloqa")
+    # Barcha 3 tildagi tugmalar
+    _ORDERS_TEXTS  = ["📦 Buyurtmalarim", "📦 Мои заказы", "📦 My Orders"]
+    _FAV_TEXTS     = ["❤️ Sevimlilar", "❤️ Избранное", "❤️ Favorites"]
+    _PROFILE_TEXTS = ["👤 Profil", "👤 Профиль", "👤 Profile"]
+    _CONTACT_TEXTS = ["☎️ Biz bilan aloqa", "☎️ Связаться с нами", "☎️ Contact Us"]
+
+    dp.register_message_handler(show_my_orders,  lambda m: m.text in _ORDERS_TEXTS)
+    dp.register_message_handler(show_favorites,  lambda m: m.text in _FAV_TEXTS)
+    dp.register_message_handler(show_profile,    lambda m: m.text in _PROFILE_TEXTS)
+    dp.register_message_handler(contact_us,      lambda m: m.text in _CONTACT_TEXTS)
     dp.register_callback_query_handler(show_order_detail, lambda c: c.data.startswith('myorder_'), state="*")
     dp.register_callback_query_handler(repeat_order_handler, lambda c: c.data.startswith('repeat_'), state="*")
     dp.register_callback_query_handler(myorders_back, text="myorders_back", state="*")
