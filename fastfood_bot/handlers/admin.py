@@ -321,9 +321,10 @@ async def admin_addprod_description(message: types.Message, state: FSMContext):
     await message.answer("5-qadam: <b>Rasm</b> yuboring yoki URL yozing (tire = rasmsiz):", parse_mode="HTML")
 
 async def admin_addprod_image(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
     if message.text and message.text.strip().lower() == "/bekor":
         await state.finish()
-        await message.answer("❌ Bekor qilindi.", reply_markup=get_admin_keyboard())
+        await message.answer(get_text("admin_cancelled", lang), reply_markup=get_admin_keyboard(lang))
         return
     image_url = None
     if message.photo:
@@ -351,15 +352,17 @@ async def admin_image_start(call: types.CallbackQuery, state: FSMContext):
     if not _is_admin(call.from_user.id):
         return
     pid = int(call.data.split("_")[2])
+    lang = await get_user_language(call.from_user.id)
     await state.update_data(admin_image_product_id=pid)
     await AdminProductStates.waiting_new_image.set()
-    await call.message.answer("🖼 Yangi rasm yuboring yoki URL yozing:\n<i>/bekor — bekor qilish</i>", parse_mode="HTML")
+    await call.message.answer(get_text("admin_image_ask", lang), parse_mode="HTML")
     await call.answer()
 
 async def admin_image_receive(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
     if message.text and message.text.strip().lower() == "/bekor":
         await state.finish()
-        await message.answer("❌ Bekor qilindi.")
+        await message.answer(get_text("admin_cancelled", lang))
         return
     image_url = None
     if message.photo:
@@ -367,13 +370,13 @@ async def admin_image_receive(message: types.Message, state: FSMContext):
     elif message.text:
         image_url = message.text.strip()
     if not image_url:
-        await message.answer("⚠️ Rasm yoki URL yuboring:")
+        await message.answer(get_text("admin_image_invalid", lang))
         return
     data = await state.get_data()
     pid = data["admin_image_product_id"]
     await update_product_image(pid, image_url)
     await state.finish()
-    await message.answer("✅ Rasm yangilandi!", parse_mode="HTML")
+    await message.answer(get_text("admin_image_updated", lang), parse_mode="HTML")
     logging.info(f"Admin {message.from_user.id} #{pid} rasmini yangiladi")
 
 
@@ -384,46 +387,44 @@ async def admin_discount_start(call: types.CallbackQuery, state: FSMContext):
         return
     pid = int(call.data.split("_")[2])
     product = await get_product(pid)
+    lang = await get_user_language(call.from_user.id)
     if not product:
-        await call.answer("Topilmadi.", show_alert=True)
+        await call.answer(get_text("discount_not_found", lang), show_alert=True)
         return
-
     old_price = None
     try:
         old_price = product['old_price']
     except (KeyError, IndexError):
         pass
-
     if old_price and old_price > product['price']:
         await remove_product_discount(pid)
-        await call.answer("✅ Chegirma olib tashlandi!", show_alert=True)
+        await call.answer(get_text("discount_removed", lang), show_alert=True)
         return
-
     await state.update_data(admin_discount_product_id=pid)
     await AdminProductStates.waiting_discount_price.set()
     await call.message.answer(
-        f"🏷 <b>{product['name']}</b>\nHozirgi narx: <b>{product['price']:,} so'm</b>\n\n"
-        f"Chegirma narxini yozing (so'mda):\n<i>/bekor — bekor qilish</i>",
+        get_text("discount_ask_price", lang, name=product['name'], price=product['price']),
         parse_mode="HTML"
     )
     await call.answer()
 
 async def admin_discount_receive(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
     if message.text.strip().lower() == "/bekor":
         await state.finish()
-        await message.answer("❌ Bekor qilindi.")
+        await message.answer(get_text("admin_cancelled", lang))
         return
     try:
         new_price = int(message.text.strip().replace(" ", "").replace(",", ""))
         if new_price <= 0: raise ValueError
     except ValueError:
-        await message.answer("⚠️ Musbat son yozing:")
+        await message.answer(get_text("discount_invalid_price", lang))
         return
     data = await state.get_data()
     pid = data["admin_discount_product_id"]
     await set_product_discount(pid, new_price)
     await state.finish()
-    await message.answer(f"✅ Chegirma qo'yildi! Yangi narx: <b>{new_price:,} so'm</b>", parse_mode="HTML")
+    await message.answer(get_text("discount_set", lang, price=new_price), parse_mode="HTML")
     logging.info(f"Admin {message.from_user.id} #{pid} chegirma: {new_price}")
 
 
@@ -433,12 +434,13 @@ async def admin_toggle_product(call: types.CallbackQuery):
     if not _is_admin(call.from_user.id):
         return
     pid = int(call.data.split("_")[2])
+    lang = await get_user_language(call.from_user.id)
     new_status = await toggle_product_active(pid)
     if new_status is not None:
-        status_text = "✅ Ko'rsatildi (faol)" if new_status else "🙈 Yashirildi (nofaol)"
-        await call.answer(status_text, show_alert=True)
+        key = "toggle_shown" if new_status else "toggle_hidden"
+        await call.answer(get_text(key, lang), show_alert=True)
     else:
-        await call.answer("Xatolik.", show_alert=True)
+        await call.answer(get_text("toggle_error", lang), show_alert=True)
 
 
 # ── Asosiy menuga qaytish ────────────────────────────────────────────

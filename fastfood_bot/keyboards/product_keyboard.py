@@ -57,7 +57,7 @@ def get_product_markup(product_id, category_id, current_index, total_products,
 
 # ── Admin uchun alohida markup ──────────────────────────────────────
 
-def get_admin_categories_markup(categories):
+def get_admin_categories_markup(categories, lang="uz"):
     """Admin kategoriyalar — admin_cat_ prefiksi bilan."""
     markup = InlineKeyboardMarkup(row_width=2)
     for category in categories:
@@ -71,21 +71,26 @@ def get_admin_categories_markup(categories):
 
 
 def get_admin_product_markup(product_id, category_id, current_index,
-                              total_products, is_active=True, has_discount=False):
-    """Admin mahsulot sahifasi — boshqaruv tugmalari bilan."""
+                              total_products, is_active=True,
+                              has_discount=False, lang="uz"):
+    """Admin mahsulot sahifasi — boshqaruv tugmalari tanlangan tilda."""
     markup = InlineKeyboardMarkup()
 
     markup.row(
-        InlineKeyboardButton("💰 Narx", callback_data=f"admin_price_{product_id}"),
-        InlineKeyboardButton("🖼 Rasm", callback_data=f"admin_image_{product_id}"),
+        InlineKeyboardButton(get_text("btn_admin_price", lang),
+                             callback_data=f"admin_price_{product_id}"),
+        InlineKeyboardButton(get_text("btn_admin_image", lang),
+                             callback_data=f"admin_image_{product_id}"),
     )
     markup.row(
         InlineKeyboardButton(
-            "🏷 Chegirmani olish" if has_discount else "🏷 Chegirma",
+            get_text("btn_admin_remove_discount", lang) if has_discount
+            else get_text("btn_admin_discount", lang),
             callback_data=f"admin_discount_{product_id}"
         ),
         InlineKeyboardButton(
-            "👁 Ko'rsatish" if not is_active else "🙈 Yashirish",
+            get_text("btn_admin_show", lang) if not is_active
+            else get_text("btn_admin_hide", lang),
             callback_data=f"admin_toggle_{product_id}"
         ),
     )
@@ -104,8 +109,9 @@ def get_admin_product_markup(product_id, category_id, current_index,
 
     markup.add(
         InlineKeyboardButton(
-            text="⬅️ Kategoriyalarga qaytish",
+            text=get_text("btn_back_to_cats", lang),
             callback_data="admin_back_to_cats"
         )
     )
     return markup
+

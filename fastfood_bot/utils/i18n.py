@@ -1205,6 +1205,117 @@ TRANSLATIONS = {
         "ru": "❌ Отменён",
         "en": "❌ Cancelled",
     },
+
+    # ── Admin mahsulot kartochkasi tugmalari ──────────────────────
+    "btn_admin_price": {
+        "uz": "💰 Narx",
+        "ru": "💰 Цена",
+        "en": "💰 Price",
+    },
+    "btn_admin_image": {
+        "uz": "🖼 Rasm",
+        "ru": "🖼 Фото",
+        "en": "🖼 Image",
+    },
+    "btn_admin_discount": {
+        "uz": "🏷 Chegirma",
+        "ru": "🏷 Скидка",
+        "en": "🏷 Discount",
+    },
+    "btn_admin_remove_discount": {
+        "uz": "🏷 Chegirmani olish",
+        "ru": "🏷 Убрать скидку",
+        "en": "🏷 Remove Discount",
+    },
+    "btn_admin_show": {
+        "uz": "👁 Ko'rsatish",
+        "ru": "👁 Показать",
+        "en": "👁 Show",
+    },
+    "btn_admin_hide": {
+        "uz": "🙈 Yashirish",
+        "ru": "🙈 Скрыть",
+        "en": "🙈 Hide",
+    },
+    "btn_back_to_cats": {
+        "uz": "⬅️ Kategoriyalarga qaytish",
+        "ru": "⬅️ К категориям",
+        "en": "⬅️ Back to Categories",
+    },
+    # Toggle status xabari (admin uchun)
+    "toggle_shown": {
+        "uz": "✅ Ko'rsatildi (faol)",
+        "ru": "✅ Показано (активно)",
+        "en": "✅ Shown (active)",
+    },
+    "toggle_hidden": {
+        "uz": "🙈 Yashirildi (nofaol)",
+        "ru": "🙈 Скрыто (неактивно)",
+        "en": "🙈 Hidden (inactive)",
+    },
+    "toggle_error": {
+        "uz": "Xatolik.",
+        "ru": "Ошибка.",
+        "en": "Error.",
+    },
+    # Chegirma xabarlari (admin)
+    "discount_removed": {
+        "uz": "✅ Chegirma olib tashlandi!",
+        "ru": "✅ Скидка убрана!",
+        "en": "✅ Discount removed!",
+    },
+    "discount_not_found": {
+        "uz": "Topilmadi.",
+        "ru": "Не найдено.",
+        "en": "Not found.",
+    },
+    "discount_ask_price": {
+        "uz": "🏷 <b>{name}</b>\nHozirgi narx: <b>{price:,} so'm</b>\n\nChegirma narxini yozing (so'mda):\n<i>/bekor — bekor qilish</i>",
+        "ru": "🏷 <b>{name}</b>\nТекущая цена: <b>{price:,} сум</b>\n\nВведите цену со скидкой (в сумах):\n<i>/bekor — отмена</i>",
+        "en": "🏷 <b>{name}</b>\nCurrent price: <b>{price:,} sum</b>\n\nEnter the discounted price (in sum):\n<i>/bekor — cancel</i>",
+    },
+    "discount_set": {
+        "uz": "✅ Chegirma qo'yildi! Yangi narx: <b>{price:,} so'm</b>",
+        "ru": "✅ Скидка установлена! Новая цена: <b>{price:,} сум</b>",
+        "en": "✅ Discount set! New price: <b>{price:,} sum</b>",
+    },
+    "discount_invalid_price": {
+        "uz": "⚠️ Musbat son yozing:",
+        "ru": "⚠️ Введите положительное число:",
+        "en": "⚠️ Enter a positive number:",
+    },
+    # Image almashish
+    "admin_image_ask": {
+        "uz": "🖼 Yangi rasm yuboring yoki URL yozing:\n<i>/bekor — bekor qilish</i>",
+        "ru": "🖼 Отправьте новое фото или введите URL:\n<i>/bekor — отмена</i>",
+        "en": "🖼 Send a new photo or enter a URL:\n<i>/bekor — cancel</i>",
+    },
+    "admin_image_updated": {
+        "uz": "✅ Rasm yangilandi!",
+        "ru": "✅ Фото обновлено!",
+        "en": "✅ Image updated!",
+    },
+    "admin_image_invalid": {
+        "uz": "⚠️ Rasm yoki URL yuboring:",
+        "ru": "⚠️ Отправьте фото или URL:",
+        "en": "⚠️ Send a photo or URL:",
+    },
+    "admin_cancelled": {
+        "uz": "❌ Bekor qilindi.",
+        "ru": "❌ Отменено.",
+        "en": "❌ Cancelled.",
+    },
+    "order_not_found_admin": {
+        "uz": "Buyurtma topilmadi.",
+        "ru": "Заказ не найден.",
+        "en": "Order not found.",
+    },
+    # Admin mahsulot qo'shish (mavjud admin.py flow)
+    "product_added": {
+        "uz": "🎉 <b>Mahsulot qo'shildi!</b>\n\n🆔 {pid}\n🍽 {name}\n💰 {price:,} so'm\n🖼 {img}",
+        "ru": "🎉 <b>Продукт добавлен!</b>\n\n🆔 {pid}\n🍽 {name}\n💰 {price:,} сум\n🖼 {img}",
+        "en": "🎉 <b>Product added!</b>\n\n🆔 {pid}\n🍽 {name}\n💰 {price:,} sum\n🖼 {img}",
+    },
 }
 
 
