@@ -13,6 +13,7 @@ async def init_database():
             "ALTER TABLE orders ADD COLUMN note TEXT",
             "ALTER TABLE orders ADD COLUMN delivery_type VARCHAR(20) DEFAULT 'delivery'",
             "ALTER TABLE users ADD COLUMN default_address TEXT",
+            "ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'uz'",
         ]:
             try:
                 await conn.execute(alter)
@@ -53,6 +54,23 @@ async def update_user_phone(user_id, phone_number):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", phone_number, user_id)
+
+async def get_user_language(user_id) -> str:
+    """Foydalanuvchi tilini DB dan olish. Default: 'uz'."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        lang = await conn.fetchval(
+            "SELECT language FROM users WHERE user_id = $1", user_id
+        )
+        return lang or "uz"
+
+async def set_user_language(user_id, lang: str):
+    """Foydalanuvchi tilini DB ga saqlash."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET language = $1 WHERE user_id = $2", lang, user_id
+        )
 
 # ── Kesh (tezlashtirish uchun) ───────────────────────────────────────
 import time

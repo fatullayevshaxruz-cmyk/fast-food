@@ -1,5 +1,9 @@
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
+class LanguageStates(StatesGroup):
+    choosing_language = State()
+
+
 class OrderStates(StatesGroup):
     waiting_for_delivery_type = State()
     waiting_for_table_number = State()

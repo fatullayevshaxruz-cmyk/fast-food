@@ -100,6 +100,14 @@ if __name__ == '__main__':
         app = web.Application()
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
+
+        # ── WebApp (Telegram Mini App) uchun statik fayllar ─────
+        # map.html: Telegram WebApp sifatida xarita ko'rsatadi
+        webapp_dir = os.path.join(os.path.dirname(__file__), 'webapp')
+        if os.path.isdir(webapp_dir):
+            app.router.add_static('/webapp', webapp_dir, show_index=True)
+            logging.info(f"WebApp static files served from: {webapp_dir}")
+
         runner = web.AppRunner(app)
         await runner.setup()
         port = int(os.getenv("PORT", 8080))

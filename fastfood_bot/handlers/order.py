@@ -3,18 +3,25 @@ import asyncio
 import time as _time
 from datetime import datetime
 from aiogram.dispatcher import FSMContext
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ContentTypes
-from database.crud import get_cart_items, create_order, add_order_items, clear_cart, get_user
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ContentTypes, WebAppInfo
+from database.crud import get_cart_items, create_order, add_order_items, clear_cart, get_user, get_user_language
 from utils.states import OrderStates
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu
 from utils.helpers import notify_admins_new_order
+from utils.i18n import get_text
 from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
+import os
 # To'lov handler — aylanma importdan qochish uchun ichida import qilinadi
 
+# ── WebApp URL ─────────────────────────────────────────────────────────
+# Render deployment URL — .env dan olinadi, fallback bilan
+_RENDER_URL = os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com")
+MAP_WEBAPP_URL = f"{_RENDER_URL}/webapp/map.html"
 
-def _get_menu_for_user(user_id):
+
+def _get_menu_for_user(user_id, lang="uz"):
     is_admin = str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
-    return get_admin_main_menu() if is_admin else get_user_main_menu()
+    return get_admin_main_menu(lang) if is_admin else get_user_main_menu(lang)
 
 
 def _is_working_hours() -> bool:
@@ -91,7 +98,6 @@ async def _reverse_geocode(lat: float, lon: float) -> str:
                         display = data.get("display_name", "")
                         parts = [p.strip() for p in display.split(",")]
                         for part in parts:
-                            # Raqam, bo'sh yoki shahar nomi bo'lsa o'tkazib yubor
                             if (not part
                                     or part.isdigit()
                                     or any(skip in part.lower() for skip in _SKIP_WORDS)):
@@ -118,71 +124,102 @@ async def _reverse_geocode(lat: float, lon: float) -> str:
 # ── Checkout ──────────────────────────────────────────────────────────
 async def start_checkout(call: types.CallbackQuery, state: FSMContext):
     user_id = call.from_user.id
+    lang = await get_user_language(user_id)
     items = await get_cart_items(user_id)
     if not items:
-        await call.answer("Savatingiz bo'sh!", show_alert=True)
+        await call.answer(get_text("cart_empty", lang), show_alert=True)
         return
     if not _is_working_hours():
         await call.answer(
-            f"⏰ Kechirasiz, biz {WORKING_HOURS_START:02d}:00 dan "
-            f"{WORKING_HOURS_END:02d}:00 gacha ishlaymiz.\nErtaga kutamiz! 😊",
+            get_text("not_working_hours", lang,
+                     start=WORKING_HOURS_START,
+                     end=WORKING_HOURS_END),
             show_alert=True
         )
         return
 
     await OrderStates.waiting_for_delivery_type.set()
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(KeyboardButton("🍽️ Shu yerda"), KeyboardButton("🛵 Yetkazib berish"))
-    markup.add(KeyboardButton("❌ Bekor qilish"))
-    await call.message.answer("Ajoyib! Buyurtmani qanday usulda qabul qilasiz?", reply_markup=markup)
+    markup.add(
+        KeyboardButton(get_text("btn_eat_in", lang)),
+        KeyboardButton(get_text("btn_delivery", lang))
+    )
+    markup.add(KeyboardButton(get_text("btn_cancel", lang)))
+    await call.message.answer(
+        get_text("choose_delivery_type", lang),
+        reply_markup=markup
+    )
     await call.answer()
 
 
 async def process_delivery_type(message: types.Message, state: FSMContext):
     text = message.text.strip()
     user_id = message.from_user.id
+    lang = await get_user_language(user_id)
 
-    if "Shu yerda" in text:
+    eat_in_texts = [get_text("btn_eat_in", l) for l in ("uz", "ru", "en")]
+    delivery_texts = [get_text("btn_delivery", l) for l in ("uz", "ru", "en")]
+
+    if text in eat_in_texts:
         await state.update_data(delivery_type="eat_in")
         await OrderStates.waiting_for_table_number.set()
         markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-        markup.add(KeyboardButton("❌ Bekor qilish"))
-        await message.answer("Iltimos, stol raqamini kiriting (Masalan: 5):", reply_markup=markup)
+        markup.add(KeyboardButton(get_text("btn_cancel", lang)))
+        await message.answer(
+            get_text("ask_table_number", lang),
+            reply_markup=markup
+        )
 
-    elif "Yetkazib berish" in text:
+    elif text in delivery_texts:
         items = await get_cart_items(user_id)
         total = sum(i['price'] * i['quantity'] for i in items) if items else 0
         if total < MIN_ORDER_AMOUNT:
             diff = MIN_ORDER_AMOUNT - total
             await message.answer(
-                f"⚠️ <b>Yetkazib berish uchun minimal summa: {MIN_ORDER_AMOUNT:,} so'm</b>\n\n"
-                f"Savatda: <b>{total:,} so'm</b>\n"
-                f"Yana <b>{diff:,} so'm</b> lik mahsulot qo'shing.\n\n"
-                f"Yoki <b>\"🍽️ Shu yerda\"</b> ni tanlang.",
+                get_text("min_order_warning", lang,
+                         min=MIN_ORDER_AMOUNT,
+                         total=total,
+                         diff=diff),
                 parse_mode="HTML"
             )
             return
 
         await state.update_data(delivery_type="delivery")
         await OrderStates.waiting_for_location.set()
+
+        # ── "Xaritadan aniqlash" tugmasi — WebApp bilan ──────────
         markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-        markup.add(KeyboardButton("📍 Joylashuvni yuborish", request_location=True))
-        markup.add(KeyboardButton("❌ Bekor qilish"))
+        markup.add(
+            KeyboardButton(
+                get_text("btn_send_location", lang),
+                request_location=True
+            )
+        )
+        # WebApp URL ga til parametrini qo'shamiz
+        map_url = f"{MAP_WEBAPP_URL}?lang={lang}"
+        markup.add(
+            KeyboardButton(
+                get_text("btn_map_location", lang),
+                web_app=WebAppInfo(url=map_url)
+            )
+        )
+        markup.add(KeyboardButton(get_text("btn_cancel", lang)))
+
         await message.answer(
-            "📍 Yetkazib berish manzilini yuboring:\n"
-            "<i>GPS lokatsiya yoki matn shaklida yozib yuboring</i>",
+            get_text("ask_location", lang),
             parse_mode="HTML",
             reply_markup=markup
         )
     else:
-        await message.answer("Iltimos, pastdagi tugmalardan birini tanlang.")
+        await message.answer(get_text("select_incorrect", lang))
 
 
 async def process_table_number(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
     text = message.text.strip()
     if not text.isdigit() or int(text) <= 0:
         await message.answer(
-            "⚠️ Iltimos, faqat <b>stol raqamini</b> yozing (masalan: 5, 12).",
+            get_text("invalid_table_number", lang),
             parse_mode="HTML"
         )
         return
@@ -193,17 +230,29 @@ async def process_table_number(message: types.Message, state: FSMContext):
 
 
 async def cancel_order(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
     await state.finish()
-    await message.answer("❌ Buyurtma bekor qilindi.", reply_markup=_get_menu_for_user(message.from_user.id))
+    await message.answer(
+        get_text("order_cancelled", lang),
+        reply_markup=_get_menu_for_user(message.from_user.id, lang)
+    )
 
 
 async def process_location(message: types.Message, state: FSMContext):
+    """GPS yoki matn manzilni qayta ishlash."""
     try:
+        lang = await get_user_language(message.from_user.id)
+
         if message.text and (message.text.startswith("/") or
-                             message.text in ["🍽 Menu", "🛒 Savat", "ℹ️ Biz haqimizda", "📞 Bog'lanish"]):
+                             message.text in [
+                                 get_text("btn_menu", "uz"), get_text("btn_menu", "ru"), get_text("btn_menu", "en"),
+                                 get_text("btn_cart", "uz"), get_text("btn_cart", "ru"), get_text("btn_cart", "en"),
+                             ]):
             await state.finish()
-            await message.answer("Buyurtma jarayoni bekor qilindi.",
-                                 reply_markup=_get_menu_for_user(message.from_user.id))
+            await message.answer(
+                get_text("location_cancelled", lang),
+                reply_markup=_get_menu_for_user(message.from_user.id, lang)
+            )
             return
 
         lat, lon, address = None, None, None
@@ -222,10 +271,7 @@ async def process_location(message: types.Message, state: FSMContext):
         # O'zbekiston chegarasi tekshiruvi
         if lat is not None and lon is not None and not _is_in_uzbekistan(lat, lon):
             await message.answer(
-                "🌍 <b>Kechirasiz!</b>\n\n"
-                "Bu kafe faqat <b>O'zbekiston</b> hududida xizmat ko'rsatadi.\n"
-                "Sizning joylashuvingiz O'zbekiston chegarasidan tashqarida.\n\n"
-                "Agar siz O'zbekistonda bo'lsangiz, manzilni <b>matn</b> shaklida yuboring.",
+                get_text("not_in_uzbekistan", lang),
                 parse_mode="HTML"
             )
             return
@@ -234,10 +280,9 @@ async def process_location(message: types.Message, state: FSMContext):
         user_id = message.from_user.id
 
         if lat is not None and lon is not None and address is None:
-            # Geocodingni background da boshlash + DB dan telefon olish — bir vaqtda
             geo_task = asyncio.create_task(_reverse_geocode(lat, lon))
             user_row = await get_user(user_id)
-            address = await geo_task   # Shu paytgacha user DB dan keldi
+            address = await geo_task
         else:
             user_row = await get_user(user_id)
 
@@ -247,16 +292,16 @@ async def process_location(message: types.Message, state: FSMContext):
         saved_phone = user_row['phone_number'] if user_row else None
         if saved_phone:
             await state.update_data(phone=saved_phone)
-            await _ask_for_note(message, state,
+            await _ask_for_note(message, state, lang,
                                 prefix=f"✅ <b>Manzil:</b> {address}\n"
                                        f"📞 <b>Telefon:</b> {saved_phone}\n\n")
         else:
             markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-            markup.add(KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True))
-            markup.add(KeyboardButton("❌ Bekor qilish"))
+            markup.add(KeyboardButton(get_text("btn_send_phone", lang), request_contact=True))
+            markup.add(KeyboardButton(get_text("btn_cancel", lang)))
             await message.answer(
                 f"✅ <b>Manzil:</b> {address}\n\n"
-                "📞 Bog'lanish uchun telefon raqamingizni yuboring:",
+                + get_text("ask_phone", lang),
                 parse_mode="HTML",
                 reply_markup=markup
             )
@@ -268,53 +313,101 @@ async def process_location(message: types.Message, state: FSMContext):
         await message.answer(f"Xatolik yuz berdi: {e}")
 
 
+async def process_webapp_location(message: types.Message, state: FSMContext):
+    """Telegram WebApp xaritasidan kelgan joylashuv ma'lumotini qayta ishlash."""
+    import json
+    try:
+        lang = await get_user_language(message.from_user.id)
+        data_str = message.web_app_data.data
+        data = json.loads(data_str)
+
+        lat = float(data["lat"])
+        lon = float(data["lon"])
+        address = data.get("address", f"({lat:.4f}, {lon:.4f})")
+
+        # O'zbekiston chegarasi tekshiruvi
+        if not _is_in_uzbekistan(lat, lon):
+            await message.answer(
+                get_text("not_in_uzbekistan", lang),
+                parse_mode="HTML"
+            )
+            return
+
+        user_id = message.from_user.id
+        await state.update_data(address=address, lat=lat, lon=lon)
+
+        user_row = await get_user(user_id)
+        saved_phone = user_row['phone_number'] if user_row else None
+
+        if saved_phone:
+            await state.update_data(phone=saved_phone)
+            await _ask_for_note(message, state, lang,
+                                prefix=f"✅ <b>Manzil:</b> {address}\n"
+                                       f"📞 <b>Telefon:</b> {saved_phone}\n\n")
+        else:
+            markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            markup.add(KeyboardButton(get_text("btn_send_phone", lang), request_contact=True))
+            markup.add(KeyboardButton(get_text("btn_cancel", lang)))
+            await message.answer(
+                f"✅ <b>Manzil:</b> {address}\n\n"
+                + get_text("ask_phone", lang),
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+            await OrderStates.waiting_for_phone.set()
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await message.answer(f"Xarita xatoligi: {e}")
+
+
 async def process_phone(message: types.Message, state: FSMContext):
     try:
+        lang = await get_user_language(message.from_user.id)
         phone = message.contact.phone_number if message.contact else message.text
         await state.update_data(phone=phone)
-        await _ask_for_note(message, state)
+        await _ask_for_note(message, state, lang)
     except Exception as e:
         await message.answer(f"Xatolik yuz berdi: {e}")
 
 
-async def _ask_for_note(message: types.Message, state: FSMContext, prefix: str = ""):
+async def _ask_for_note(message: types.Message, state: FSMContext,
+                        lang: str = "uz", prefix: str = ""):
     """Izoh so'rash — delivery uchun."""
     await OrderStates.waiting_for_note.set()
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(KeyboardButton("⏭ O'tkazib yuborish"))
-    markup.add(KeyboardButton("❌ Bekor qilish"))
+    markup.add(KeyboardButton(get_text("btn_skip", lang)))
+    markup.add(KeyboardButton(get_text("btn_cancel", lang)))
     await message.answer(
-        prefix +
-        "📝 <b>Buyurtmangizga izoh yozmoqchimisiz?</b>\n\n"
-        "Masalan: <i>\"sous ko'proq\", \"achchiq qilmang\"</i>\n"
-        "Bo'lmasa <b>⏭ O'tkazib yuborish</b> tugmasini bosing.",
+        prefix + get_text("ask_note", lang),
         reply_markup=markup,
         parse_mode="HTML"
     )
 
 
 async def process_note(message: types.Message, state: FSMContext):
-    note = None if message.text.strip() == "⏭ O'tkazib yuborish" else message.text.strip()
+    lang = await get_user_language(message.from_user.id)
+    skip_texts = [get_text("btn_skip", l) for l in ("uz", "ru", "en")]
+    note = None if message.text.strip() in skip_texts else message.text.strip()
     await state.update_data(note=note)
 
     data = await state.get_data()
-    # Shu yerda (eat_in) uchun ham to'lov usuli so'raladi
     if data.get('delivery_type') == 'eat_in':
         await state.update_data(promo_code=None, discount_percent=0)
         from handlers.payment import ask_payment_method
         await ask_payment_method(message, state)
     else:
-        await _ask_for_promo(message, state)
+        await _ask_for_promo(message, state, lang)
 
 
-async def _ask_for_promo(message: types.Message, state: FSMContext):
+async def _ask_for_promo(message: types.Message, state: FSMContext, lang: str = "uz"):
     await OrderStates.waiting_for_promo.set()
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(KeyboardButton("⏭ O'tkazib yuborish"))
-    markup.add(KeyboardButton("❌ Bekor qilish"))
+    markup.add(KeyboardButton(get_text("btn_skip", lang)))
+    markup.add(KeyboardButton(get_text("btn_cancel", lang)))
     await message.answer(
-        "🎟 <b>Promo kodingiz bormi?</b>\n\n"
-        "Kodni yozing yoki <b>⏭ O'tkazib yuborish</b> tugmasini bosing.",
+        get_text("ask_promo", lang),
         reply_markup=markup,
         parse_mode="HTML"
     )
@@ -324,7 +417,10 @@ async def process_promo(message: types.Message, state: FSMContext):
     from database.crud import get_promo_code, use_promo_code, check_user_promo_used
     from handlers.payment import ask_payment_method
 
-    if message.text.strip() == "⏭ O'tkazib yuborish":
+    lang = await get_user_language(message.from_user.id)
+    skip_texts = [get_text("btn_skip", l) for l in ("uz", "ru", "en")]
+
+    if message.text.strip() in skip_texts:
         await state.update_data(promo_code=None, discount_percent=0)
         await ask_payment_method(message, state)
         return
@@ -332,24 +428,22 @@ async def process_promo(message: types.Message, state: FSMContext):
     code = message.text.strip().upper()
     promo = await get_promo_code(code)
     if not promo:
-        await message.answer("❌ Bunday promo kod topilmadi. Qaytadan yozing yoki o'tkazib yuboring.")
+        await message.answer(get_text("promo_not_found", lang))
         return
     if promo['max_uses'] > 0 and promo['used_count'] >= promo['max_uses']:
-        await message.answer("⚠️ Bu promo kod tugagan. Boshqa kod yozing yoki o'tkazib yuboring.")
+        await message.answer(get_text("promo_expired", lang))
         return
     already_used = await check_user_promo_used(message.from_user.id, code)
     if already_used:
-        await message.answer("⚠️ Siz bu kodni allaqachon ishlatgansiz. O'tkazib yuboring.")
+        await message.answer(get_text("promo_already_used", lang))
         return
 
     await use_promo_code(code, user_id=message.from_user.id)
     await state.update_data(promo_code=code, discount_percent=promo['discount_percent'])
     await message.answer(
-        f"✅ Promo kod <b>{code}</b> qo'llandi!\n"
-        f"💰 Chegirma: <b>{promo['discount_percent']}%</b>",
+        get_text("promo_applied", lang, code=code, pct=promo['discount_percent']),
         parse_mode="HTML"
     )
-    # To'lov usulini tanlashga o'tamiz
     await ask_payment_method(message, state)
 
 
@@ -358,6 +452,7 @@ async def finish_order(message: types.Message, state: FSMContext,
     try:
         data = await state.get_data()
         user_id = message.from_user.id
+        lang = await get_user_language(user_id)
         phone         = data.get('phone')
         address       = data.get('address')
         lat           = data.get('lat')
@@ -369,7 +464,10 @@ async def finish_order(message: types.Message, state: FSMContext,
 
         items = await get_cart_items(user_id)
         if not items:
-            await message.answer("Savat bo'shab qoldi!", reply_markup=_get_menu_for_user(user_id))
+            await message.answer(
+                get_text("cart_empty", lang),
+                reply_markup=_get_menu_for_user(user_id, lang)
+            )
             await state.finish()
             return
 
@@ -388,12 +486,15 @@ async def finish_order(message: types.Message, state: FSMContext,
         await add_order_items(order_id, items)
         await clear_cart(user_id)
 
-        receipt = "".join(f"  ▫️ {i['name']} x {i['quantity']} = {i['price']*i['quantity']:,} so'm\n"
-                          for i in items)
+        # Chek (har uchala tilda bir xil format)
+        receipt = "".join(
+            f"  ▫️ {i['name']} x {i['quantity']} = {i['price']*i['quantity']:,} so'm\n"
+            for i in items
+        )
 
         await state.finish()
 
-        # Kanalga xabar — background da (foydalanuvchini kutdirmaydi)
+        # Kanalga xabar — background da
         asyncio.create_task(notify_admins_new_order(
             bot=message.bot, order_id=order_id, total_amount=total_amount,
             user=message.from_user, items=items, phone=phone, address=address,
@@ -405,33 +506,27 @@ async def finish_order(message: types.Message, state: FSMContext,
                          if discount_amt > 0 else "")
 
         if delivery_type == "eat_in":
-            success_text = (
-                f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-                f"📋 <b>Buyurtma #{order_id}</b>\n"
-                f"🍽️ <b>Shu yerda</b> | {address}\n\n"
-                f"{receipt}"
-                f"{discount_text}\n"
-                f"  💰 <b>Jami: {after_discount:,} so'm</b>"
-                f"{note_text}\n\n"
-                f"🍖 Ofitsiant olib keladi. Yoqimli ishtaha! 😋"
-            )
+            success_text = get_text("order_success_eat_in", lang,
+                                    order_id=order_id,
+                                    address=address,
+                                    receipt=receipt,
+                                    discount=discount_text,
+                                    total=after_discount,
+                                    note=note_text)
         else:
-            success_text = (
-                f"✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
-                f"📋 <b>Buyurtma #{order_id}</b>\n"
-                f"🛵 <b>Yetkazib berish</b>\n\n"
-                f"{receipt}"
-                f"{discount_text}\n"
-                f"  🛵 Yetkazish: <b>{delivery_fee:,} so'm</b>\n"
-                f"  ━━━━━━━━━━━━━━━\n"
-                f"  💰 <b>Jami: {total_amount:,} so'm</b>"
-                f"{note_text}\n\n"
-                f"🛵 Yetkazib beruvchi siz bilan bog'lanadi.\n"
-                f"<i>(To'lovni mahsulotni qabul qilganda to'laysiz)</i>\n\n"
-                f"Rahmat! Yoqimli ishtaha! 😋"
-            )
+            success_text = get_text("order_success_delivery", lang,
+                                    order_id=order_id,
+                                    receipt=receipt,
+                                    discount=discount_text,
+                                    delivery_fee=delivery_fee,
+                                    total=total_amount,
+                                    note=note_text)
 
-        await message.answer(success_text, reply_markup=_get_menu_for_user(user_id), parse_mode="HTML")
+        await message.answer(
+            success_text,
+            reply_markup=_get_menu_for_user(user_id, lang),
+            parse_mode="HTML"
+        )
 
     except Exception as e:
         import traceback
@@ -442,8 +537,16 @@ async def finish_order(message: types.Message, state: FSMContext,
 def register_order_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(start_checkout, text="checkout")
     dp.register_message_handler(cancel_order, text="❌ Bekor qilish", state="*")
-    dp.register_message_handler(process_delivery_type, state=OrderStates.waiting_for_delivery_type)
-    dp.register_message_handler(process_table_number, state=OrderStates.waiting_for_table_number)
+    dp.register_message_handler(cancel_order, text="❌ Отмена", state="*")
+    dp.register_message_handler(cancel_order, text="❌ Cancel", state="*")
+    dp.register_message_handler(process_delivery_type,
+                                state=OrderStates.waiting_for_delivery_type)
+    dp.register_message_handler(process_table_number,
+                                state=OrderStates.waiting_for_table_number)
+    # WebApp ma'lumotlari — waiting_for_location holatida
+    dp.register_message_handler(process_webapp_location,
+                                content_types=ContentTypes.WEB_APP_DATA,
+                                state=OrderStates.waiting_for_location)
     dp.register_message_handler(process_location,
                                 content_types=['location', 'venue', 'text'],
                                 state=OrderStates.waiting_for_location)
