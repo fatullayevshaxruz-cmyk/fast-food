@@ -5,7 +5,10 @@ from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import ADMIN_ID
-from keyboards.admin_keyboard import get_admin_keyboard, get_order_status_keyboard, STATUS_LABELS
+from keyboards.admin_keyboard import (
+    get_admin_keyboard, get_order_status_keyboard,
+    STATUS_LABELS, get_status_label
+)
 from utils.states import AdminStates, AddProductStates, AdminProductStates
 from database.connection import get_db_pool
 from database.crud import (
@@ -27,7 +30,8 @@ def _is_admin(user_id: int) -> bool:
 async def cmd_admin(message: types.Message):
     if not _is_admin(message.from_user.id):
         return
-    await message.answer("Admin panelga xush kelibsiz!", reply_markup=get_admin_keyboard())
+    lang = await get_user_language(message.from_user.id)
+    await message.answer("✅ Admin panel", reply_markup=get_admin_keyboard(lang))
 
 
 # ── Statistika (kengaytirilgan) ──────────────────────────────────────
@@ -122,14 +126,10 @@ async def _show_orders_list(message, status_filter=None):
     text = "📦 <b>Buyurtmalar</b>\n\n"
     markup = InlineKeyboardMarkup(row_width=1)
     for o in orders:
-        s = STATUS_LABELS.get(o['status'] or 'pending', '⏳')
-        name = o.get('full_name', '—') or '—'
-        text_line = f"{s} #{o['id']} | {name} | {o['total_amount']:,} so'm"
+        text_line = f"{get_status_label(o['status'], lang)} #{o['id']} | {o.get('full_name', '—') or '—'} | {o['total_amount']:,} so'm"
         markup.add(InlineKeyboardButton(text_line, callback_data=f"adm_order_{o['id']}"))
 
     markup.row(
-        InlineKeyboardButton("⏳ Kutilayotgan", callback_data="adm_ordfilter_pending"),
-        InlineKeyboardButton("🍳 Tayyorlanmoqda", callback_data="adm_ordfilter_preparing"),
     )
     markup.row(
         InlineKeyboardButton("📦 Barchasi", callback_data="adm_ordfilter_all"),
@@ -188,7 +188,8 @@ async def admin_order_detail(call: types.CallbackQuery):
         f"🍛 <b>Tarkibi:</b>\n{items_text}\n"
         f"💰 <b>Jami: {order['total_amount']:,} so'm</b>"
     )
-    markup = get_order_status_keyboard(order_id, status)
+    lang = await get_user_language(call.from_user.id)
+    markup = get_order_status_keyboard(order_id, status, lang)
     try:
         await call.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
     except Exception:
@@ -602,22 +603,30 @@ async def admin_csv_export(message: types.Message):
 
 def register_admin_handlers(dp: Dispatcher):
     from utils.states import PromoCodeStates
-    
+
+    _STATS_TEXTS   = ["📊 Statistika", "📊 Статистика", "📊 Statistics"]
+    _BCAST_TEXTS   = ["📢 Xabar tarqatish", "📢 Рассылка", "📢 Broadcast"]
+    _BACK_TEXTS    = ["⬅️ Asosiy menu", "⬅️ Главное меню", "⬅️ Main Menu"]
+    _ORDERS_TEXTS  = ["📦 Buyurtmalar", "📦 Заказы", "📦 Orders"]
+    _ADDPROD_TEXTS = ["➕ Mahsulot qo'shish", "➕ Добавить продукт", "➕ Add Product"]
+    _PROMO_TEXTS   = ["🎟 Promo kodlar", "🎟 Промо-коды", "🎟 Promo Codes"]
+    _CSV_TEXTS     = ["📥 Hisobot (CSV)", "📥 Отчёт (CSV)", "📥 Report (CSV)"]
+
     dp.register_message_handler(cmd_admin, commands=['admin'])
-    dp.register_message_handler(stats_handler, text="📊 Statistika")
-    dp.register_message_handler(start_broadcast, text="📢 Xabar tarqatish")
+    dp.register_message_handler(stats_handler,   lambda m: m.text in _STATS_TEXTS)
+    dp.register_message_handler(start_broadcast, lambda m: m.text in _BCAST_TEXTS)
     dp.register_message_handler(send_broadcast, state=AdminStates.broadcast_message, content_types=types.ContentTypes.ANY)
-    dp.register_message_handler(admin_back_to_main, text="⬅️ Asosiy menu", state="*")
+    dp.register_message_handler(admin_back_to_main, lambda m: m.text in _BACK_TEXTS, state="*")
 
     # Buyurtmalar
-    dp.register_message_handler(admin_orders, text="📦 Buyurtmalar", state="*")
+    dp.register_message_handler(admin_orders, lambda m: m.text in _ORDERS_TEXTS, state="*")
     dp.register_callback_query_handler(admin_order_detail, lambda c: c.data and c.data.startswith("adm_order_") and not c.data.startswith("adm_ordstatus_") and not c.data.startswith("adm_ordfilter_"), state="*")
     dp.register_callback_query_handler(admin_change_order_status, lambda c: c.data and c.data.startswith("adm_ordstatus_"), state="*")
     dp.register_callback_query_handler(admin_order_filter, lambda c: c.data and c.data.startswith("adm_ordfilter_"), state="*")
     dp.register_callback_query_handler(admin_orders_back, text="adm_orders_back", state="*")
 
     # Mahsulot qo'shish
-    dp.register_message_handler(admin_start_add_product, text="➕ Mahsulot qo'shish", state="*")
+    dp.register_message_handler(admin_start_add_product, lambda m: m.text in _ADDPROD_TEXTS, state="*")
     dp.register_callback_query_handler(admin_addprod_category, lambda c: c.data and c.data.startswith("adm_addprod_cat_"), state=AddProductStates.waiting_category)
     dp.register_callback_query_handler(admin_addprod_cancel, lambda c: c.data == "adm_addprod_cancel", state="*")
     dp.register_message_handler(admin_addprod_name, state=AddProductStates.waiting_name)
@@ -637,7 +646,7 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(admin_toggle_product, lambda c: c.data and c.data.startswith("admin_toggle_"), state="*")
 
     # Promo kodlar
-    dp.register_message_handler(admin_promo_list, text="🎟 Promo kodlar", state="*")
+    dp.register_message_handler(admin_promo_list, lambda m: m.text in _PROMO_TEXTS, state="*")
     dp.register_callback_query_handler(admin_promo_create_start, text="promo_create", state="*")
     dp.register_message_handler(admin_promo_code_name, state=PromoCodeStates.waiting_code)
     dp.register_message_handler(admin_promo_discount, state=PromoCodeStates.waiting_discount)
@@ -645,5 +654,5 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(admin_promo_delete, lambda c: c.data and c.data.startswith("promo_del_"), state="*")
 
     # CSV eksport
-    dp.register_message_handler(admin_csv_export, text="📥 Hisobot (CSV)", state="*")
+    dp.register_message_handler(admin_csv_export, lambda m: m.text in _CSV_TEXTS, state="*")
 

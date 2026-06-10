@@ -999,6 +999,212 @@ TRANSLATIONS = {
         "ru": "Старая цена: <s>{old:,} сум</s>\nНовая цена: <b>{new:,} сум</b>",
         "en": "Old price: <s>{old:,} sum</s>\nNew price: <b>{new:,} sum</b>",
     },
+
+    # ── Admin keyboard tugmalari ──────────────────────────────────
+    "btn_orders_admin": {
+        "uz": "📦 Buyurtmalar",
+        "ru": "📦 Заказы",
+        "en": "📦 Orders",
+    },
+    "btn_stats": {
+        "uz": "📊 Statistika",
+        "ru": "📊 Статистика",
+        "en": "📊 Statistics",
+    },
+    "btn_broadcast": {
+        "uz": "📢 Xabar tarqatish",
+        "ru": "📢 Рассылка",
+        "en": "📢 Broadcast",
+    },
+    "btn_add_product": {
+        "uz": "➕ Mahsulot qo'shish",
+        "ru": "➕ Добавить продукт",
+        "en": "➕ Add Product",
+    },
+    "btn_promo_codes": {
+        "uz": "🎟 Promo kodlar",
+        "ru": "🎟 Промо-коды",
+        "en": "🎟 Promo Codes",
+    },
+    "btn_csv_report": {
+        "uz": "📥 Hisobot (CSV)",
+        "ru": "📥 Отчёт (CSV)",
+        "en": "📥 Report (CSV)",
+    },
+    "btn_back_main": {
+        "uz": "⬅️ Asosiy menu",
+        "ru": "⬅️ Главное меню",
+        "en": "⬅️ Main Menu",
+    },
+
+    # ── Menyu boshqaruvi (dinamik menyu) keyboard ─────────────────
+    "btn_dm_add": {
+        "uz": "➕ Taom qo'shish",
+        "ru": "➕ Добавить блюдо",
+        "en": "➕ Add Dish",
+    },
+    "btn_dm_price": {
+        "uz": "💰 Narx o'zgartirish",
+        "ru": "💰 Изменить цену",
+        "en": "💰 Change Price",
+    },
+    "btn_dm_delete": {
+        "uz": "🗑 Taomni o'chirish",
+        "ru": "🗑 Удалить блюдо",
+        "en": "🗑 Delete Dish",
+    },
+    "btn_dm_view": {
+        "uz": "📝 Menyuni ko'rish",
+        "ru": "📝 Просмотр меню",
+        "en": "📝 View Menu",
+    },
+    "btn_back": {
+        "uz": "⬅️ Orqaga",
+        "ru": "⬅️ Назад",
+        "en": "⬅️ Back",
+    },
+
+    # ── Menyu / Admin menyu sarlavhalari ──────────────────────────
+    "menu_panel_title": {
+        "uz": "🍽 <b>Menyu</b>\nQuyidagi kategoriyalardan birini tanlang:",
+        "ru": "🍽 <b>Меню</b>\nВыберите категорию:",
+        "en": "🍽 <b>Menu</b>\nChoose a category:",
+    },
+    "menu_empty_admin": {
+        "uz": "⚠️ Menyu bo'sh.",
+        "ru": "⚠️ Меню пусто.",
+        "en": "⚠️ Menu is empty.",
+    },
+    "no_permission": {
+        "uz": "❌ Sizda bu funksiyaga ruxsat yo'q.",
+        "ru": "❌ У вас нет доступа к этой функции.",
+        "en": "❌ You do not have permission for this.",
+    },
+    "dm_panel_title": {
+        "uz": "🛠 <b>Dinamik Menyu Boshqaruvi</b>\n\nQuyidagi amallardan birini tanlang:",
+        "ru": "🛠 <b>Управление меню</b>\n\nВыберите действие:",
+        "en": "🛠 <b>Menu Management</b>\n\nChoose an action:",
+    },
+    "dm_back_to_admin": {
+        "uz": "Admin paneliga qaytdingiz. ✅",
+        "ru": "Вы вернулись в панель администратора. ✅",
+        "en": "Returned to admin panel. ✅",
+    },
+
+    # ── Taom qo'shish oqimi ───────────────────────────────────────
+    "dm_add_title": {
+        "uz": "🍽 <b>Yangi taom qo'shish</b>\n\nTaomning <b>nomini</b> yozing:\n<i>(Bekor qilish uchun /bekor yozing)</i>",
+        "ru": "🍽 <b>Добавление нового блюда</b>\n\nВведите <b>название</b> блюда:\n<i>(Для отмены введите /bekor)</i>",
+        "en": "🍽 <b>Add New Dish</b>\n\nEnter the <b>dish name</b>:\n<i>(Type /bekor to cancel)</i>",
+    },
+    "dm_name_too_short": {
+        "uz": "⚠️ Taom nomi kamida 2 ta harf bo'lishi kerak. Qaytadan yozing:",
+        "ru": "⚠️ Название должно содержать минимум 2 символа. Попробуйте снова:",
+        "en": "⚠️ Dish name must be at least 2 characters. Try again:",
+    },
+    "dm_ask_price": {
+        "uz": "✅ Nom: <b>{name}</b>\n\nEndi taomning <b>narxini</b> yozing (faqat son, so'mda):\n<i>Masalan: 25000</i>",
+        "ru": "✅ Название: <b>{name}</b>\n\nТеперь введите <b>цену</b> блюда (только цифры, в сумах):\n<i>Например: 25000</i>",
+        "en": "✅ Name: <b>{name}</b>\n\nNow enter the <b>price</b> (numbers only, in sum):\n<i>Example: 25000</i>",
+    },
+    "dm_price_invalid": {
+        "uz": "⚠️ Narx musbat son bo'lishi kerak. Qaytadan yozing:",
+        "ru": "⚠️ Цена должна быть положительным числом. Попробуйте снова:",
+        "en": "⚠️ Price must be a positive number. Try again:",
+    },
+    "dm_ask_description": {
+        "uz": "Taomning <b>tavsifini</b> yozing (ixtiyoriy):\n<i>O'tkazib yuborish uchun — tire ( - ) yuboring</i>",
+        "ru": "Введите <b>описание</b> блюда (необязательно):\n<i>Чтобы пропустить — отправьте тире ( - )</i>",
+        "en": "Enter the <b>description</b> (optional):\n<i>To skip — send a dash ( - )</i>",
+    },
+    "dm_add_success": {
+        "uz": "🎉 <b>Taom muvaffaqiyatli qo'shildi!</b>\n\n🆔 ID: <b>{id}</b>\n🍽 Nomi: <b>{name}</b>\n💰 {price_label}\n📝 Tavsif: {desc}",
+        "ru": "🎉 <b>Блюдо успешно добавлено!</b>\n\n🆔 ID: <b>{id}</b>\n🍽 Название: <b>{name}</b>\n💰 {price_label}\n📝 Описание: {desc}",
+        "en": "🎉 <b>Dish added successfully!</b>\n\n🆔 ID: <b>{id}</b>\n🍽 Name: <b>{name}</b>\n💰 {price_label}\n📝 Description: {desc}",
+    },
+    "dm_cancelled": {
+        "uz": "❌ Bekor qilindi.",
+        "ru": "❌ Отменено.",
+        "en": "❌ Cancelled.",
+    },
+
+    # ── Narx o'zgartirish ─────────────────────────────────────────
+    "dm_select_price_title": {
+        "uz": "💰 <b>Qaysi taomning narxini o'zgartirmoqchisiz?</b>",
+        "ru": "💰 <b>Цену какого блюда хотите изменить?</b>",
+        "en": "💰 <b>Which dish price would you like to change?</b>",
+    },
+    "dm_price_updated": {
+        "uz": "✅ <b>{name}</b> narxi yangilandi!",
+        "ru": "✅ Цена <b>{name}</b> обновлена!",
+        "en": "✅ Price of <b>{name}</b> updated!",
+    },
+
+    # ── Taomni o'chirish ──────────────────────────────────────────
+    "dm_select_delete_title": {
+        "uz": "🗑 <b>Qaysi taomni o'chirmoqchisiz?</b>",
+        "ru": "🗑 <b>Какое блюдо хотите удалить?</b>",
+        "en": "🗑 <b>Which dish would you like to delete?</b>",
+    },
+    "dm_delete_success": {
+        "uz": "✅ <b>{name}</b> menyudan o'chirildi.",
+        "ru": "✅ <b>{name}</b> удалено из меню.",
+        "en": "✅ <b>{name}</b> removed from menu.",
+    },
+    "dm_delete_not_found": {
+        "uz": "❌ Taom topilmadi yoki allaqachon o'chirilgan.",
+        "ru": "❌ Блюдо не найдено или уже удалено.",
+        "en": "❌ Dish not found or already deleted.",
+    },
+    "dm_menu_empty": {
+        "uz": "⚠️ Menyu bo'sh. Avval taom qo'shing.",
+        "ru": "⚠️ Меню пусто. Сначала добавьте блюдо.",
+        "en": "⚠️ Menu is empty. Please add a dish first.",
+    },
+    "dm_not_found": {
+        "uz": "Taom topilmadi.",
+        "ru": "Блюдо не найдено.",
+        "en": "Dish not found.",
+    },
+
+    # ── Admin keyboard inline ─────────────────────────────────────
+    "btn_cancel_inline": {
+        "uz": "❌ Bekor qilish",
+        "ru": "❌ Отмена",
+        "en": "❌ Cancel",
+    },
+    "btn_orders_back": {
+        "uz": "⬅️ Orqaga",
+        "ru": "⬅️ Назад",
+        "en": "⬅️ Back",
+    },
+
+    # ── Buyurtma holatlari (admin panelida chiqadigan) ────────────
+    "status_pending": {
+        "uz": "⏳ Kutilmoqda",
+        "ru": "⏳ Ожидание",
+        "en": "⏳ Pending",
+    },
+    "status_preparing": {
+        "uz": "🍳 Tayyorlanmoqda",
+        "ru": "🍳 Готовится",
+        "en": "🍳 Preparing",
+    },
+    "status_delivering": {
+        "uz": "🚗 Yetkazilmoqda",
+        "ru": "🚗 Доставляется",
+        "en": "🚗 Delivering",
+    },
+    "status_completed": {
+        "uz": "✅ Tugallandi",
+        "ru": "✅ Завершён",
+        "en": "✅ Completed",
+    },
+    "status_cancelled": {
+        "uz": "❌ Bekor qilingan",
+        "ru": "❌ Отменён",
+        "en": "❌ Cancelled",
+    },
 }
 
 
