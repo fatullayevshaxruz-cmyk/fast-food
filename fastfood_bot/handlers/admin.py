@@ -12,8 +12,9 @@ from database.crud import (
     get_categories, add_product, get_all_orders, get_order_by_id,
     get_order_items_detail, update_order_status, toggle_product_active,
     update_product_image, set_product_discount, remove_product_discount,
-    get_today_stats, get_top_products, get_product
+    get_today_stats, get_top_products, get_product, get_user_language
 )
+from utils.i18n import get_text
 
 
 def _is_admin(user_id: int) -> bool:
@@ -207,7 +208,6 @@ async def admin_change_order_status(call: types.CallbackQuery):
     order = await get_order_by_id(order_id)
     if order:
         user_id = order['user_id']
-        # Buyurtma turini aniqlash (eat_in yoki delivery)
         is_eat_in = False
         try:
             is_eat_in = order.get('delivery_type') == 'eat_in' or \
@@ -215,22 +215,26 @@ async def admin_change_order_status(call: types.CallbackQuery):
         except Exception:
             pass
 
+        # Foydalanuvchi o'z tilida xabar olsin
+        user_lang = await get_user_language(user_id)
+
         if is_eat_in:
-            status_messages = {
-                "preparing":  f"🍳 <b>Buyurtma #{order_id}</b> tayyorlanmoqda!\nBiroz kuting, ofitsiant olib keladi...",
-                "delivering": f"🍽️ <b>Buyurtma #{order_id}</b> tayyor!\nOfitsiant stol raqamingizga olib keladi.",
-                "completed":  f"✅ <b>Buyurtma #{order_id}</b> xizmat ko'rsatildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
-                "cancelled":  f"❌ <b>Buyurtma #{order_id}</b> bekor qilindi.\nSavollar uchun: ☎️ +998943265755",
+            status_keys = {
+                "preparing":  "order_preparing_eat_in",
+                "delivering": "order_delivering_eat_in",
+                "completed":  "order_completed_eat_in",
+                "cancelled":  "order_cancelled_msg",
             }
         else:
-            status_messages = {
-                "preparing":  f"🍳 <b>Buyurtma #{order_id}</b> tayyorlanmoqda!\nBiroz kuting...",
-                "delivering": f"🚗 <b>Buyurtma #{order_id}</b> yo'lda!\nYetkazib beruvchimiz yaqin orada yetib boradi.",
-                "completed":  f"✅ <b>Buyurtma #{order_id}</b> yetkazildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
-                "cancelled":  f"❌ <b>Buyurtma #{order_id}</b> bekor qilindi.\nSavollar uchun: ☎️ +998943265755",
+            status_keys = {
+                "preparing":  "order_preparing_delivery",
+                "delivering": "order_delivering_delivery",
+                "completed":  "order_completed_delivery",
+                "cancelled":  "order_cancelled_msg",
             }
-        msg = status_messages.get(new_status)
-        if msg:
+        key = status_keys.get(new_status)
+        if key:
+            msg = get_text(key, user_lang, id=order_id)
             try:
                 await call.bot.send_message(user_id, msg, parse_mode="HTML")
             except Exception:
@@ -443,7 +447,8 @@ async def admin_back_to_main(message: types.Message, state: FSMContext):
         return
     await state.finish()
     from keyboards.main_menu import get_admin_main_menu
-    await message.answer("Asosiy menyuga qaytdingiz.", reply_markup=get_admin_main_menu())
+    lang = await get_user_language(message.from_user.id)
+    await message.answer("✅", reply_markup=get_admin_main_menu(lang))
 
 
 # ── Promo kodlar ─────────────────────────────────────────────────────

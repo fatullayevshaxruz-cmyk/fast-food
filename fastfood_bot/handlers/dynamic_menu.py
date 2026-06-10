@@ -16,6 +16,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 
 from config import ADMIN_ID
+from database.crud import get_user_language
 from database.db_manager import (
     dm_add_item,
     dm_get_all_items,
@@ -29,6 +30,7 @@ from keyboards.admin_keyboard import (
     get_items_inline_keyboard,
 )
 from utils.states import DynamicMenuAdminStates, AdminProductStates
+from utils.i18n import get_text
 
 
 # ─────────────────────────────────────────────
@@ -436,16 +438,19 @@ async def _send_admin_product_page(call, product, category_id, index, total, is_
 
     has_discount = bool(old_price and old_price > product['price'])
 
+    # Admin o'z tili bilan ko'rsin
+    lang = await get_user_language(call.from_user.id)
+
     caption = f"<b>{product['name']}</b>\n\n"
     if product['description']:
         caption += f"{product['description']}\n\n"
     if has_discount:
-        caption += f"💵 <s>{old_price:,} so'm</s> → <b>{product['price']:,} so'm</b> 🏷\n"
+        caption += get_text("price_discount_label", lang, old=old_price, new=product['price']) + "\n"
     else:
-        caption += f"💵 Narxi: <b>{product['price']:,} so'm</b>\n"
+        caption += get_text("price_label", lang, price=product['price']) + "\n"
     if not is_active:
-        caption += "🙈 <i>(Yashirilgan — foydalanuvchilarga ko'rinmaydi)</i>\n"
-    caption += f"<i>({index + 1}/{total})</i>"
+        caption += get_text("product_hidden_note", lang) + "\n"
+    caption += get_text("product_counter", lang, cur=index + 1, total=total)
 
     markup = get_admin_product_markup(product['id'], category_id, index, total, is_active=is_active, has_discount=has_discount)
 

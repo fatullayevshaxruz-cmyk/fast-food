@@ -66,13 +66,7 @@ async def show_product_page(call, product, category_id, index, total_products, q
         caption += f"{product['description']}\n\n"
 
     if old_price and old_price > product['price']:
-        # Chegirma matn (narx 3 tilda)
-        if lang == "ru":
-            caption += f"💵 <s>{old_price:,} сум</s> → <b>{product['price']:,} сум</b> 🏷"
-        elif lang == "en":
-            caption += f"💵 <s>{old_price:,} sum</s> → <b>{product['price']:,} sum</b> 🏷"
-        else:
-            caption += f"💵 <s>{old_price:,} so'm</s> → <b>{product['price']:,} so'm</b> 🏷"
+        caption += get_text("price_discount_label", lang, old=old_price, new=product['price'])
     else:
         caption += get_text("price_label", lang, price=product['price'])
 

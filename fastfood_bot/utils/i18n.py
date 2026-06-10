@@ -904,6 +904,60 @@ TRANSLATIONS = {
         "ru": "Ошибка подтверждения оплаты. Попробуйте снова.",
         "en": "Payment confirmation error. Please try again.",
     },
+
+    # ── Mahsulot kartochkasi narx va navigatsiya ──────────────────
+    "price_discount_label": {
+        "uz": "💵 <s>{old:,} so'm</s> → <b>{new:,} so'm</b> 🏷",
+        "ru": "💵 <s>{old:,} сум</s> → <b>{new:,} сум</b> 🏷",
+        "en": "💵 <s>{old:,} sum</s> → <b>{new:,} sum</b> 🏷",
+    },
+    "product_hidden_note": {
+        "uz": "🙈 <i>(Yashirilgan — foydalanuvchilarga ko'rinmaydi)</i>",
+        "ru": "🙈 <i>(Скрыто — пользователи не видят)</i>",
+        "en": "🙈 <i>(Hidden — not visible to users)</i>",
+    },
+    "product_counter": {
+        "uz": "<i>({cur}/{total})</i>",
+        "ru": "<i>({cur} из {total})</i>",
+        "en": "<i>({cur} of {total})</i>",
+    },
+
+    # ── Buyurtma holati xabarlari (foydalanuvchiga yuboriladi) ────
+    "order_preparing_eat_in": {
+        "uz": "🍳 <b>Buyurtma #{id}</b> tayyorlanmoqda!\nBiroz kuting, ofitsiant olib keladi...",
+        "ru": "🍳 <b>Заказ #{id}</b> готовится!\nПодождите немного, официант принесёт...",
+        "en": "🍳 <b>Order #{id}</b> is being prepared!\nPlease wait, a waiter will bring it...",
+    },
+    "order_delivering_eat_in": {
+        "uz": "🍽️ <b>Buyurtma #{id}</b> tayyor!\nOfitsiant stol raqamingizga olib keladi.",
+        "ru": "🍽️ <b>Заказ #{id}</b> готов!\nОфициант принесёт к вашему столику.",
+        "en": "🍽️ <b>Order #{id}</b> is ready!\nA waiter will bring it to your table.",
+    },
+    "order_completed_eat_in": {
+        "uz": "✅ <b>Buyurtma #{id}</b> xizmat ko'rsatildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
+        "ru": "✅ <b>Заказ #{id}</b> выполнен!\nПриятного аппетита! 😋\n\nСпасибо, что выбрали нас!",
+        "en": "✅ <b>Order #{id}</b> has been served!\nEnjoy your meal! 😋\n\nThank you for choosing us!",
+    },
+    "order_cancelled_msg": {
+        "uz": "❌ <b>Buyurtma #{id}</b> bekor qilindi.\nSavollar uchun: ☎️ +998943265755",
+        "ru": "❌ <b>Заказ #{id}</b> отменён.\nПо вопросам: ☎️ +998943265755",
+        "en": "❌ <b>Order #{id}</b> has been cancelled.\nFor questions: ☎️ +998943265755",
+    },
+    "order_preparing_delivery": {
+        "uz": "🍳 <b>Buyurtma #{id}</b> tayyorlanmoqda!\nBiroz kuting...",
+        "ru": "🍳 <b>Заказ #{id}</b> готовится!\nПодождите немного...",
+        "en": "🍳 <b>Order #{id}</b> is being prepared!\nPlease wait...",
+    },
+    "order_delivering_delivery": {
+        "uz": "🚗 <b>Buyurtma #{id}</b> yo'lda!\nYetkazib beruvchimiz yaqin orada yetib boradi.",
+        "ru": "🚗 <b>Заказ #{id}</b> в пути!\nКурьер скоро прибудет.",
+        "en": "🚗 <b>Order #{id}</b> is on the way!\nOur delivery person will arrive soon.",
+    },
+    "order_completed_delivery": {
+        "uz": "✅ <b>Buyurtma #{id}</b> yetkazildi!\nYoqimli ishtaha! 😋\n\nBizni tanlaganingiz uchun rahmat!",
+        "ru": "✅ <b>Заказ #{id}</b> доставлен!\nПриятного аппетита! 😋\n\nСпасибо, что выбрали нас!",
+        "en": "✅ <b>Order #{id}</b> has been delivered!\nEnjoy your meal! 😋\n\nThank you for choosing us!",
+    },
 }
 
 
