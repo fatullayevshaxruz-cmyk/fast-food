@@ -717,6 +717,193 @@ TRANSLATIONS = {
         "ru": "📞 <b>Связаться с нами:</b>\n\n📞 <b>+998943265755</b>",
         "en": "📞 <b>Contact Us:</b>\n\n📞 <b>+998943265755</b>",
     },
+
+    # ── Mahsulot kartochkasi (product_keyboard) ───────────────────
+    "btn_add_to_cart": {
+        "uz": "🛒 Savatga qo'shish",
+        "ru": "🛒 В корзину",
+        "en": "🛒 Add to Cart",
+    },
+    "qty_label": {
+        "uz": "{qty} dona",
+        "ru": "{qty} шт.",
+        "en": "{qty} pcs",
+    },
+    "btn_back_to_categories": {
+        "uz": "⬅️ Kategoriyalarga qaytish",
+        "ru": "⬅️ К категориям",
+        "en": "⬅️ Back to Categories",
+    },
+
+    # ── To'lov ────────────────────────────────────────────────────
+    "ask_payment_method": {
+        "uz": (
+            "💰 <b>To'lov usulini tanlang:</b>\n\n"
+            "  💵 <b>Naqd pul</b> — kuryer yetkazib kelganda to'lanadi\n"
+            "  💳 <b>Online</b> — Click yoki Payme orqali hozir to'lang"
+        ),
+        "ru": (
+            "💰 <b>Выберите способ оплаты:</b>\n\n"
+            "  💵 <b>Наличные</b> — оплата при получении\n"
+            "  💳 <b>Онлайн</b> — оплата через Click или Payme"
+        ),
+        "en": (
+            "💰 <b>Choose payment method:</b>\n\n"
+            "  💵 <b>Cash</b> — pay on delivery\n"
+            "  💳 <b>Online</b> — pay now via Click or Payme"
+        ),
+    },
+    "btn_pay_cash": {
+        "uz": "💵 Naqd pul (Yetkazib berilganda)",
+        "ru": "💵 Наличные (При получении)",
+        "en": "💵 Cash (On Delivery)",
+    },
+    "btn_pay_online": {
+        "uz": "💳 Online to'lov (Click / Payme)",
+        "ru": "💳 Онлайн (Click / Payme)",
+        "en": "💳 Online (Click / Payme)",
+    },
+    "cart_empty_retry": {
+        "uz": "⚠️ Savatingiz bo'shab qoldi. Qaytadan mahsulot tanlang.",
+        "ru": "⚠️ Корзина пуста. Пожалуйста, выберите товары снова.",
+        "en": "⚠️ Your cart is empty. Please choose products again.",
+    },
+    "invalid_amount": {
+        "uz": "⚠️ Buyurtma summasi noto'g'ri. Iltimos, qaytadan urinib ko'ring.",
+        "ru": "⚠️ Сумма заказа некорректна. Пожалуйста, попробуйте снова.",
+        "en": "⚠️ Order amount is invalid. Please try again.",
+    },
+    "invoice_sent": {
+        "uz": (
+            "💳 <b>To'lov oynasi yuborildi.</b>\n\n"
+            "Yuqoridagi kartochkaga bosib to'lovni amalga oshiring.\n"
+            "<i>To'lovni bekor qilish uchun oynani yoping.</i>"
+        ),
+        "ru": (
+            "💳 <b>Счёт отправлен.</b>\n\n"
+            "Нажмите на карточку выше для оплаты.\n"
+            "<i>Чтобы отменить — просто закройте окно.</i>"
+        ),
+        "en": (
+            "💳 <b>Invoice sent.</b>\n\n"
+            "Tap the card above to complete payment.\n"
+            "<i>To cancel, simply close the window.</i>"
+        ),
+    },
+    "payment_error": {
+        "uz": (
+            "⚠️ Online to'lovni boshlashda xatolik yuz berdi.\n"
+            "Iltimos, <b>Naqd pul</b> usulini tanlang yoki qaytadan urinib ko'ring."
+        ),
+        "ru": (
+            "⚠️ Произошла ошибка при онлайн-оплате.\n"
+            "Пожалуйста, выберите <b>Наличные</b> или попробуйте снова."
+        ),
+        "en": (
+            "⚠️ An error occurred with online payment.\n"
+            "Please choose <b>Cash</b> or try again."
+        ),
+    },
+    "payment_accepted_eat_in": {
+        "uz": (
+            "✅ <b>To'lov qabul qilindi va buyurtma tasdiqlandi!</b>\n\n"
+            "📋 <b>Buyurtma #{order_id}</b>\n"
+            "🍽️ <b>Shu yerda</b> | {address}\n\n"
+            "{receipt}"
+            "  💰 <b>Jami: {total:,} so'm</b>\n\n"
+            "💳 <i>Online to'lov: {charge_id}</i>\n\n"
+            "🍖 Ofitsiant olib keladi. Yoqimli ishtaha! 😋"
+        ),
+        "ru": (
+            "✅ <b>Оплата принята и заказ подтверждён!</b>\n\n"
+            "📋 <b>Заказ #{order_id}</b>\n"
+            "🍽️ <b>На месте</b> | {address}\n\n"
+            "{receipt}"
+            "  💰 <b>Итого: {total:,} сум</b>\n\n"
+            "💳 <i>Онлайн оплата: {charge_id}</i>\n\n"
+            "🍖 Официант принесёт заказ. Приятного аппетита! 😋"
+        ),
+        "en": (
+            "✅ <b>Payment accepted and order confirmed!</b>\n\n"
+            "📋 <b>Order #{order_id}</b>\n"
+            "🍽️ <b>Dine In</b> | {address}\n\n"
+            "{receipt}"
+            "  💰 <b>Total: {total:,} sum</b>\n\n"
+            "💳 <i>Online payment: {charge_id}</i>\n\n"
+            "🍖 A waiter will bring your order. Enjoy! 😋"
+        ),
+    },
+    "payment_accepted_delivery": {
+        "uz": (
+            "✅ <b>To'lov qabul qilindi va buyurtma tasdiqlandi!</b>\n\n"
+            "📋 <b>Buyurtma #{order_id}</b>\n"
+            "🛵 <b>Yetkazib berish</b>\n\n"
+            "{receipt}"
+            "  💰 <b>Jami: {total:,} so'm</b>\n\n"
+            "💳 <i>Online to'lov amalga oshirildi</i>\n\n"
+            "🛵 Yetkazib beruvchi siz bilan bog'lanadi.\n"
+            "Rahmat! Yoqimli ishtaha! 😋"
+        ),
+        "ru": (
+            "✅ <b>Оплата принята и заказ подтверждён!</b>\n\n"
+            "📋 <b>Заказ #{order_id}</b>\n"
+            "🛵 <b>Доставка</b>\n\n"
+            "{receipt}"
+            "  💰 <b>Итого: {total:,} сум</b>\n\n"
+            "💳 <i>Оплата прошла успешно</i>\n\n"
+            "🛵 Курьер свяжется с вами.\n"
+            "Спасибо! Приятного аппетита! 😋"
+        ),
+        "en": (
+            "✅ <b>Payment accepted and order confirmed!</b>\n\n"
+            "📋 <b>Order #{order_id}</b>\n"
+            "🛵 <b>Delivery</b>\n\n"
+            "{receipt}"
+            "  💰 <b>Total: {total:,} sum</b>\n\n"
+            "💳 <i>Online payment completed</i>\n\n"
+            "🛵 Delivery person will contact you.\n"
+            "Thank you! Enjoy your meal! 😋"
+        ),
+    },
+    "payment_accepted_empty_cart": {
+        "uz": (
+            "✅ <b>To'lov qabul qilindi!</b>\n\n"
+            "Buyurtmangiz tez orada qayta ishlanadi.\n"
+            "Aloqa uchun adminga murojaat qiling."
+        ),
+        "ru": (
+            "✅ <b>Оплата принята!</b>\n\n"
+            "Ваш заказ будет обработан в ближайшее время.\n"
+            "Свяжитесь с администратором при необходимости."
+        ),
+        "en": (
+            "✅ <b>Payment accepted!</b>\n\n"
+            "Your order will be processed shortly.\n"
+            "Contact admin if needed."
+        ),
+    },
+    "payment_generic_error": {
+        "uz": (
+            "✅ To'lovingiz qabul qilindi!\n\n"
+            "⚠️ Buyurtmani qayta ishlashda kichik muammo yuz berdi.\n"
+            "Tez orada siz bilan bog'lanamiz."
+        ),
+        "ru": (
+            "✅ Оплата принята!\n\n"
+            "⚠️ Возникла небольшая ошибка при обработке заказа.\n"
+            "Мы свяжемся с вами в ближайшее время."
+        ),
+        "en": (
+            "✅ Payment accepted!\n\n"
+            "⚠️ A minor error occurred while processing your order.\n"
+            "We will contact you shortly."
+        ),
+    },
+    "precheckout_error": {
+        "uz": "To'lovni tasdiqlashda xatolik. Qaytadan urinib ko'ring.",
+        "ru": "Ошибка подтверждения оплаты. Попробуйте снова.",
+        "en": "Payment confirmation error. Please try again.",
+    },
 }
 
 

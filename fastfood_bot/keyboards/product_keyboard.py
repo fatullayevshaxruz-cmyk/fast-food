@@ -1,6 +1,8 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from utils.i18n import get_text
 
-def get_categories_markup(categories):
+
+def get_categories_markup(categories, lang="uz"):
     markup = InlineKeyboardMarkup(row_width=2)
     for category in categories:
         markup.insert(
@@ -12,17 +14,18 @@ def get_categories_markup(categories):
     return markup
 
 
-def get_product_markup(product_id, category_id, current_index, total_products, quantity=1, is_favorite=False):
+def get_product_markup(product_id, category_id, current_index, total_products,
+                       quantity=1, is_favorite=False, lang="uz"):
     markup = InlineKeyboardMarkup()
 
     markup.row(
         InlineKeyboardButton("➖", callback_data=f"minus_{product_id}_{quantity}_{category_id}_{current_index}"),
-        InlineKeyboardButton(f"{quantity} dona", callback_data="noop"),
+        InlineKeyboardButton(get_text("qty_label", lang, qty=quantity), callback_data="noop"),
         InlineKeyboardButton("➕", callback_data=f"plus_{product_id}_{quantity}_{category_id}_{current_index}")
     )
     markup.row(
         InlineKeyboardButton(
-            text="🛒 Savatga qo'shish",
+            text=get_text("btn_add_to_cart", lang),
             callback_data=f"add_to_cart_{product_id}_{quantity}"
         ),
         InlineKeyboardButton(
@@ -33,15 +36,19 @@ def get_product_markup(product_id, category_id, current_index, total_products, q
 
     nav_buttons = []
     if current_index > 0:
-        nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f"paginate_{category_id}_{current_index - 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton("⬅️", callback_data=f"paginate_{category_id}_{current_index - 1}")
+        )
     if current_index < total_products - 1:
-        nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f"paginate_{category_id}_{current_index + 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton("➡️", callback_data=f"paginate_{category_id}_{current_index + 1}")
+        )
     if nav_buttons:
         markup.row(*nav_buttons)
 
     markup.add(
         InlineKeyboardButton(
-            text="⬅️ Kategoriyalarga qaytish",
+            text=get_text("btn_back_to_categories", lang),
             callback_data="back_to_categories"
         )
     )
@@ -63,11 +70,11 @@ def get_admin_categories_markup(categories):
     return markup
 
 
-def get_admin_product_markup(product_id, category_id, current_index, total_products, is_active=True, has_discount=False):
+def get_admin_product_markup(product_id, category_id, current_index,
+                              total_products, is_active=True, has_discount=False):
     """Admin mahsulot sahifasi — boshqaruv tugmalari bilan."""
     markup = InlineKeyboardMarkup()
 
-    # Boshqaruv tugmalari
     markup.row(
         InlineKeyboardButton("💰 Narx", callback_data=f"admin_price_{product_id}"),
         InlineKeyboardButton("🖼 Rasm", callback_data=f"admin_image_{product_id}"),
@@ -83,12 +90,15 @@ def get_admin_product_markup(product_id, category_id, current_index, total_produ
         ),
     )
 
-    # Navigatsiya
     nav_buttons = []
     if current_index > 0:
-        nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f"admin_paginate_{category_id}_{current_index - 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton("⬅️", callback_data=f"admin_paginate_{category_id}_{current_index - 1}")
+        )
     if current_index < total_products - 1:
-        nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f"admin_paginate_{category_id}_{current_index + 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton("➡️", callback_data=f"admin_paginate_{category_id}_{current_index + 1}")
+        )
     if nav_buttons:
         markup.row(*nav_buttons)
 

@@ -79,7 +79,7 @@ async def show_product_page(call, product, category_id, index, total_products, q
     fav = False
     if hasattr(call, 'from_user') and call.from_user:
         fav = await check_is_favorite(call.from_user.id, product['id'])
-    markup = get_product_markup(product['id'], category_id, index, total_products, quantity, is_favorite=fav)
+    markup = get_product_markup(product['id'], category_id, index, total_products, quantity, is_favorite=fav, lang=lang)
 
     if is_edit:
         try:
@@ -146,9 +146,10 @@ async def change_quantity(call: types.CallbackQuery):
 
     if new_qty != current_qty:
         fav = await check_is_favorite(call.from_user.id, product_id)
+        lang2 = await get_user_language(call.from_user.id)
         await call.message.edit_reply_markup(
             reply_markup=get_product_markup(
-                product_id, category_id, current_index, total_products, new_qty, is_favorite=fav
+                product_id, category_id, current_index, total_products, new_qty, is_favorite=fav, lang=lang2
             )
         )
 
