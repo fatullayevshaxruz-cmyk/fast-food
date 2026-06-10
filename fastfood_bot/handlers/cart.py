@@ -66,12 +66,7 @@ async def _show_cart(message, user_id):
     for item in items:
         item_total = item['price'] * item['quantity']
         total_price += item_total
-        if lang == "ru":
-            text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} сум\n"
-        elif lang == "en":
-            text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} sum\n"
-        else:
-            text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
+        text += get_text("item_line", lang, name=item['name'], qty=item['quantity'], total=item_total) + "\n"
 
         markup.add(InlineKeyboardButton(
             get_text("cart_remove_item", lang, name=item['name']),

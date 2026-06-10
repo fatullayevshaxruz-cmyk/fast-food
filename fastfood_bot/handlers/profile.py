@@ -86,12 +86,7 @@ async def show_order_detail(call: types.CallbackQuery):
     for item in items:
         item_total = item['price_at_time'] * item['quantity']
         total += item_total
-        if lang == "ru":
-            text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} сум\n"
-        elif lang == "en":
-            text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} sum\n"
-        else:
-            text += f"  ▫️ {item['name']} x {item['quantity']} = {item_total:,} so'm\n"
+        text += get_text("item_line", lang, name=item['name'], qty=item['quantity'], total=item_total) + "\n"
 
     text += get_text("order_total", lang, total=total)
 
@@ -140,15 +135,10 @@ async def show_favorites(message: types.Message):
     text = get_text("favorites_title", lang)
     markup = InlineKeyboardMarkup(row_width=1)
     for p in favs:
-        old_price = None
-        try:
-            old_price = p['old_price']
-        except (KeyError, IndexError):
-            pass
         if old_price and old_price > p['price']:
-            label = f"🏷 {p['name']} — {p['price']:,} so'm"
+            label = get_text("search_item_label", lang, icon="🏷", name=p['name'], price=p['price'])
         else:
-            label = f"🍴 {p['name']} — {p['price']:,} so'm"
+            label = get_text("search_item_label", lang, icon="🍴", name=p['name'], price=p['price'])
         markup.add(InlineKeyboardButton(label, callback_data=f"search_prod_{p['id']}_{p['category_id']}"))
 
     await message.answer(text, reply_markup=markup, parse_mode="HTML")

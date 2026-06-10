@@ -958,6 +958,47 @@ TRANSLATIONS = {
         "ru": "✅ <b>Заказ #{id}</b> доставлен!\nПриятного аппетита! 😋\n\nСпасибо, что выбрали нас!",
         "en": "✅ <b>Order #{id}</b> has been delivered!\nEnjoy your meal! 😋\n\nThank you for choosing us!",
     },
+
+    # ── Valyuta va umumiy narx satrlari ───────────────────────────
+    "currency": {
+        "uz": "so'm",
+        "ru": "сум",
+        "en": "sum",
+    },
+    # Savat va buyurtmalardagi mahsulot satri
+    "item_line": {
+        "uz": "  ▫️ {name} x {qty} = {total:,} so'm",
+        "ru": "  ▫️ {name} x {qty} = {total:,} сум",
+        "en": "  ▫️ {name} x {qty} = {total:,} sum",
+    },
+    # Qidiruv va sevimlilar ro'yxatidagi mahsulot labeli
+    "search_item_label": {
+        "uz": "{icon} {name} — {price:,} so'm",
+        "ru": "{icon} {name} — {price:,} сум",
+        "en": "{icon} {name} — {price:,} sum",
+    },
+    # Promo chegirma satri (buyurtma yakuni)
+    "promo_line": {
+        "uz": "\n  🎟 Promo ({code}): <b>-{amt:,} so'm</b>",
+        "ru": "\n  🎟 Promo ({code}): <b>-{amt:,} сум</b>",
+        "en": "\n  🎟 Promo ({code}): <b>-{amt:,} sum</b>",
+    },
+    # Admin narx so'rash (admin panelida qolsin o'zbek)
+    "admin_price_ask": {
+        "uz": "💰 Narxini yozing (so'mda):",
+        "ru": "💰 Введите цену (в сумах):",
+        "en": "💰 Enter the price (in sum):",
+    },
+    "admin_price_updated": {
+        "uz": "✅ Narx yangilandi! <b>{new:,} so'm</b>",
+        "ru": "✅ Цена обновлена! <b>{new:,} сум</b>",
+        "en": "✅ Price updated! <b>{new:,} sum</b>",
+    },
+    "admin_old_price": {
+        "uz": "Eski narx: <s>{old:,} so'm</s>\nYangi narx: <b>{new:,} so'm</b>",
+        "ru": "Старая цена: <s>{old:,} сум</s>\nНовая цена: <b>{new:,} сум</b>",
+        "en": "Old price: <s>{old:,} sum</s>\nNew price: <b>{new:,} sum</b>",
+    },
 }
 
 

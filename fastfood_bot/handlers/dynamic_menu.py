@@ -176,8 +176,10 @@ async def admin_receive_item_price(message: types.Message, state: FSMContext):
 
     await state.update_data(item_price=price)
     await DynamicMenuAdminStates.waiting_item_description.set()
+    lang = await get_user_language(message.from_user.id)
+    cur = get_text("currency", lang)
     await message.answer(
-        f"✅ Narxi: <b>{price:,} so'm</b>\n\n"
+        f"✅ {get_text('price_label', lang, price=price)}\n\n"
         "Taomning <b>tavsifini</b> yozing (ixtiyoriy):\n"
         "<i>O'tkazib yuborish uchun — tire ( - ) yuboring</i>",
         parse_mode="HTML"
@@ -201,11 +203,12 @@ async def admin_receive_item_description(message: types.Message, state: FSMConte
     )
 
     await state.finish()
+    lang = await get_user_language(message.from_user.id)
     await message.answer(
         f"🎉 <b>Taom muvaffaqiyatli qo'shildi!</b>\n\n"
         f"🆔 ID: <b>{item_id}</b>\n"
         f"🍽 Nomi: <b>{data['item_name']}</b>\n"
-        f"💰 Narxi: <b>{data['item_price']:,} so'm</b>\n"
+        f"💰 {get_text('price_label', lang, price=data['item_price'])}\n"
         f"📝 Tavsif: {description or '—'}",
         parse_mode="HTML",
         reply_markup=get_dynamic_menu_admin_keyboard()
@@ -247,10 +250,11 @@ async def admin_select_item_for_price(call: types.CallbackQuery, state: FSMConte
 
     await state.update_data(change_price_item_id=item_id)
     await DynamicMenuAdminStates.waiting_new_price.set()
+    lang = await get_user_language(call.from_user.id)
     await call.message.edit_text(
         f"✅ Tanlangan: <b>{item['name']}</b>\n"
-        f"Hozirgi narxi: <b>{item['price']:,} so'm</b>\n\n"
-        f"Yangi narxni yozing (so'mda):\n"
+        f"{get_text('price_label', lang, price=item['price'])}\n\n"
+        f"{get_text('admin_price_ask', lang)}\n"
         f"<i>Bekor qilish: /bekor</i>",
         parse_mode="HTML"
     )
@@ -279,10 +283,10 @@ async def admin_receive_new_price(message: types.Message, state: FSMContext):
 
     await state.finish()
     if success and item:
+        lang = await get_user_language(message.from_user.id)
         await message.answer(
             f"✅ <b>{item['name']}</b> narxi yangilandi!\n"
-            f"Eski narxi: <s>{item['price']:,} so'm</s>\n"
-            f"Yangi narxi: <b>{new_price:,} so'm</b>",
+            + get_text("admin_old_price", lang, old=item['price'], new=new_price),
             parse_mode="HTML",
             reply_markup=get_dynamic_menu_admin_keyboard()
         )
@@ -498,10 +502,11 @@ async def admin_inline_price_start(call: types.CallbackQuery, state: FSMContext)
 
     await state.update_data(admin_price_product_id=product_id)
     await AdminProductStates.waiting_new_price_inline.set()
+    lang = await get_user_language(call.from_user.id)
     await call.message.answer(
         f"✏️ <b>{product['name']}</b>\n"
-        f"Hozirgi narxi: <b>{product['price']:,} so'm</b>\n\n"
-        f"Yangi narxni yozing (faqat son):",
+        f"{get_text('price_label', lang, price=product['price'])}\n\n"
+        f"{get_text('admin_price_ask', lang)}",
         parse_mode="HTML"
     )
     await call.answer()
@@ -532,10 +537,10 @@ async def admin_inline_price_receive(message: types.Message, state: FSMContext):
         )
 
     await state.finish()
+    lang = await get_user_language(message.from_user.id)
     await message.answer(
         f"✅ <b>{product['name']}</b> narxi yangilandi!\n"
-        f"Eski narx: <s>{product['price']:,} so'm</s>\n"
-        f"Yangi narx: <b>{new_price:,} so'm</b>",
+        + get_text("admin_old_price", lang, old=product['price'], new=new_price),
         parse_mode="HTML"
     )
     logging.info(f"Admin {message.from_user.id} #{product_id} mahsulot narxini {new_price} ga o'zgartirdi")

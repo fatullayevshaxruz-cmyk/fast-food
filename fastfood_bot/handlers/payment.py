@@ -267,22 +267,12 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             payment_method=get_text("btn_pay_online", lang),
         ))
 
-        # Chek matn (narx tilda)
-        if lang == "ru":
-            receipt = "".join(
-                f"  ▫️ {i['name']} x {i['quantity']} = {i['price'] * i['quantity']:,} сум\n"
-                for i in items
-            )
-        elif lang == "en":
-            receipt = "".join(
-                f"  ▫️ {i['name']} x {i['quantity']} = {i['price'] * i['quantity']:,} sum\n"
-                for i in items
-            )
-        else:
-            receipt = "".join(
-                f"  ▫️ {i['name']} x {i['quantity']} = {i['price'] * i['quantity']:,} so'm\n"
-                for i in items
-            )
+        # Chek matn (til bo'yicha)
+        receipt = "".join(
+            get_text("item_line", lang, name=i['name'], qty=i['quantity'],
+                     total=i['price'] * i['quantity']) + "\n"
+            for i in items
+        )
 
         if delivery_type == "eat_in":
             result_text = get_text(

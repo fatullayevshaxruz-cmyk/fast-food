@@ -486,9 +486,10 @@ async def finish_order(message: types.Message, state: FSMContext,
         await add_order_items(order_id, items)
         await clear_cart(user_id)
 
-        # Chek (har uchala tilda bir xil format)
+        # Chek (til bo'yicha)
         receipt = "".join(
-            f"  ▫️ {i['name']} x {i['quantity']} = {i['price']*i['quantity']:,} so'm\n"
+            get_text("item_line", lang, name=i['name'], qty=i['quantity'],
+                     total=i['price'] * i['quantity']) + "\n"
             for i in items
         )
 
@@ -502,7 +503,7 @@ async def finish_order(message: types.Message, state: FSMContext,
         ))
 
         note_text     = f"\n  📝 <i>{note}</i>" if note else ""
-        discount_text = (f"\n  🎟 Promo ({promo_code}): <b>-{discount_amt:,} so'm</b>"
+        discount_text = (get_text("promo_line", lang, code=promo_code, amt=discount_amt)
                          if discount_amt > 0 else "")
 
         if delivery_type == "eat_in":

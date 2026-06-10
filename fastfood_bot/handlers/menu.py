@@ -187,9 +187,9 @@ async def process_search(message: types.Message, state: FSMContext):
     for p in results:
         old_price = p.get('old_price')
         if old_price and old_price > p['price']:
-            label = f"🏷 {p['name']} — {p['price']:,} so'm"
+            label = get_text("search_item_label", lang, icon="🏷", name=p['name'], price=p['price'])
         else:
-            label = f"🍴 {p['name']} — {p['price']:,} so'm"
+            label = get_text("search_item_label", lang, icon="🍴", name=p['name'], price=p['price'])
         markup.add(InlineKeyboardButton(label, callback_data=f"search_prod_{p['id']}_{p['category_id']}"))
 
     await message.answer(
