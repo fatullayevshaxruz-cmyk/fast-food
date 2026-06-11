@@ -15,7 +15,7 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 
 from config import ADMIN_ID
-from database.crud import get_user_language
+from database.crud import get_user_language, get_product_name, get_product_desc
 from database.db_manager import (
     dm_add_item,
     dm_get_all_items,
@@ -161,17 +161,75 @@ async def admin_receive_item_price(message: types.Message, state: FSMContext):
 
 
 async def admin_receive_item_description(message: types.Message, state: FSMContext):
+    """3-qadam: O'zbek tavsifni qabul qilish, keyin RU nomini so'rash."""
     lang = await get_user_language(message.from_user.id)
     if message.text.strip().lower() == "/bekor":
         await state.finish()
         await message.answer(get_text("dm_cancelled", lang), reply_markup=get_dynamic_menu_admin_keyboard(lang))
         return
     description = "" if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(item_description=description)
+    await DynamicMenuAdminStates.waiting_item_name_ru.set()
+    await message.answer(get_text("ask_name_ru", lang), parse_mode="HTML")
+
+
+async def admin_receive_item_name_ru(message: types.Message, state: FSMContext):
+    """4-qadam: Rus tilidagi nom."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("dm_cancelled", lang), reply_markup=get_dynamic_menu_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(item_name_ru=val)
+    await DynamicMenuAdminStates.waiting_item_name_en.set()
+    await message.answer(get_text("ask_name_en", lang), parse_mode="HTML")
+
+
+async def admin_receive_item_name_en(message: types.Message, state: FSMContext):
+    """5-qadam: Ingliz tilidagi nom."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("dm_cancelled", lang), reply_markup=get_dynamic_menu_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(item_name_en=val)
+    await DynamicMenuAdminStates.waiting_item_desc_ru.set()
+    await message.answer(get_text("ask_desc_ru", lang), parse_mode="HTML")
+
+
+async def admin_receive_item_desc_ru(message: types.Message, state: FSMContext):
+    """6-qadam: Rus tilidagi tavsif."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("dm_cancelled", lang), reply_markup=get_dynamic_menu_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(item_desc_ru=val)
+    await DynamicMenuAdminStates.waiting_item_desc_en.set()
+    await message.answer(get_text("ask_desc_en", lang), parse_mode="HTML")
+
+
+async def admin_receive_item_desc_en(message: types.Message, state: FSMContext):
+    """7-qadam: Ingliz tilidagi tavsif. Hammasi tayyor — bazaga yozamiz."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("dm_cancelled", lang), reply_markup=get_dynamic_menu_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
     data = await state.get_data()
+
     item_id = await dm_add_item(
         name=data["item_name"],
         price=data["item_price"],
-        description=description
+        description=data.get("item_description", ""),
+        name_ru=data.get("item_name_ru"),
+        name_en=data.get("item_name_en"),
+        description_ru=data.get("item_desc_ru"),
+        description_en=val,
     )
     await state.finish()
     price_label = get_text("price_label", lang, price=data["item_price"])
@@ -179,7 +237,7 @@ async def admin_receive_item_description(message: types.Message, state: FSMConte
         get_text("dm_add_success", lang,
                  id=item_id, name=data["item_name"],
                  price_label=price_label,
-                 desc=description or "—"),
+                 desc=data.get("item_description") or "—"),
         parse_mode="HTML",
         reply_markup=get_dynamic_menu_admin_keyboard(lang)
     )
@@ -381,9 +439,13 @@ async def _send_admin_product_page(call, product, category_id, index, total, is_
     has_discount = bool(old_price and old_price > product['price'])
     lang = await get_user_language(call.from_user.id)
 
-    caption = f"<b>{product['name']}</b>\n\n"
-    if product['description']:
-        caption += f"{product['description']}\n\n"
+    # Nom va tavsif adminning tiliga qarab
+    prod_name = get_product_name(product, lang)
+    prod_desc = get_product_desc(product, lang)
+
+    caption = f"<b>{prod_name}</b>\n\n"
+    if prod_desc:
+        caption += f"{prod_desc}\n\n"
     if has_discount:
         caption += get_text("price_discount_label", lang, old=old_price, new=product['price']) + "\n"
     else:
@@ -393,7 +455,7 @@ async def _send_admin_product_page(call, product, category_id, index, total, is_
     caption += get_text("product_counter", lang, cur=index + 1, total=total)
 
     markup = get_admin_product_markup(product['id'], category_id, index, total,
-                                       is_active=is_active, has_discount=has_discount)
+                                       is_active=is_active, has_discount=has_discount, lang=lang)
     if is_edit:
         try:
             if product['image_url']:
@@ -524,6 +586,10 @@ def register_dynamic_menu_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_receive_item_name, state=DynamicMenuAdminStates.waiting_item_name)
     dp.register_message_handler(admin_receive_item_price, state=DynamicMenuAdminStates.waiting_item_price)
     dp.register_message_handler(admin_receive_item_description, state=DynamicMenuAdminStates.waiting_item_description)
+    dp.register_message_handler(admin_receive_item_name_ru,     state=DynamicMenuAdminStates.waiting_item_name_ru)
+    dp.register_message_handler(admin_receive_item_name_en,     state=DynamicMenuAdminStates.waiting_item_name_en)
+    dp.register_message_handler(admin_receive_item_desc_ru,     state=DynamicMenuAdminStates.waiting_item_desc_ru)
+    dp.register_message_handler(admin_receive_item_desc_en,     state=DynamicMenuAdminStates.waiting_item_desc_en)
     dp.register_message_handler(
         admin_start_change_price,
         lambda m: m.text in _CHANGE_PRICE_TEXTS, state="*"

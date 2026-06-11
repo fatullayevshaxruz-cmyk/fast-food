@@ -51,10 +51,27 @@ async def init_dynamic_menu_db() -> None:
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT    NOT NULL,
                 price       INTEGER NOT NULL,
-                description TEXT    DEFAULT ''
+                description TEXT    DEFAULT '',
+                name_ru     TEXT,
+                name_en     TEXT,
+                description_ru TEXT,
+                description_en TEXT
             )
         """)
         await db.commit()
+
+        # Ko'p tilli ustunlarni mavjud jadvallarga qo'shish (migration)
+        for col, ctype in [
+            ("name_ru", "TEXT"),
+            ("name_en", "TEXT"),
+            ("description_ru", "TEXT"),
+            ("description_en", "TEXT"),
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE dynamic_menu ADD COLUMN {col} {ctype}")
+                await db.commit()
+            except Exception:
+                pass  # Ustun allaqachon mavjud
 
         # Bo'sh bo'lsa standart taomlar bilan to'ldirish
         cursor = await db.execute("SELECT COUNT(*) FROM dynamic_menu")
@@ -76,41 +93,48 @@ async def init_dynamic_menu_db() -> None:
 # CRUD funksiyalari
 # ─────────────────────────────────────────────
 
-async def dm_add_item(name: str, price: int, description: str = "") -> int:
+async def dm_add_item(name: str, price: int, description: str = "",
+                      name_ru: str = None, name_en: str = None,
+                      description_ru: str = None, description_en: str = None) -> int:
     """
-    Yangi taom qo'shadi.
+    Yangi taom qo'shadi — ko'p tilli ma'lumotlar bilan.
     Qaytaradi: yangi qator id si.
     """
     async with aiosqlite.connect(SQLITE_DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO dynamic_menu (name, price, description) VALUES (?, ?, ?)",
-            (name, price, description)
+            """INSERT INTO dynamic_menu
+               (name, price, description, name_ru, name_en, description_ru, description_en)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (name, price, description,
+             name_ru or None, name_en or None,
+             description_ru or None, description_en or None)
         )
         await db.commit()
         return cursor.lastrowid
 
 
 async def dm_get_all_items() -> List[dict]:
-    """Barcha taomlarni qaytaradi (id, name, price, description)."""
+    """Barcha taomlarni qaytaradi (barcha ustunlar)."""
     async with aiosqlite.connect(SQLITE_DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT id, name, price, description FROM dynamic_menu ORDER BY id"
+            "SELECT id, name, price, description, name_ru, name_en, description_ru, description_en FROM dynamic_menu ORDER BY id"
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
 
 
 async def dm_get_item_by_id(item_id: int) -> Optional[dict]:
-    """Berilgan id bo'yicha taomni qaytaradi."""
+    """Berilgan id bo'yicha taomni qaytaradi (barcha ustunlar)."""
     async with aiosqlite.connect(SQLITE_DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT id, name, price, description FROM dynamic_menu WHERE id = ?",
+            "SELECT id, name, price, description, name_ru, name_en, description_ru, description_en FROM dynamic_menu WHERE id = ?",
             (item_id,)
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
+
 
 
 async def dm_update_price(item_id: int, new_price: int) -> bool:

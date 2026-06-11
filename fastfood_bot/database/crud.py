@@ -14,6 +14,11 @@ async def init_database():
             "ALTER TABLE orders ADD COLUMN delivery_type VARCHAR(20) DEFAULT 'delivery'",
             "ALTER TABLE users ADD COLUMN default_address TEXT",
             "ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'uz'",
+            # Ko'p tilli nom va tavsif ustunlari
+            "ALTER TABLE products ADD COLUMN name_ru TEXT",
+            "ALTER TABLE products ADD COLUMN name_en TEXT",
+            "ALTER TABLE products ADD COLUMN description_ru TEXT",
+            "ALTER TABLE products ADD COLUMN description_en TEXT",
         ]:
             try:
                 await conn.execute(alter)
@@ -182,17 +187,52 @@ async def add_order_items(order_id, cart_items):
                     VALUES ($1, $2, $3, $4)
                 """, order_id, item['product_id'], item['quantity'], item['price'])
 
-async def add_product(category_id: int, name: str, price: int, description: str = "", image_url: str = None) -> int:
-    """Yangi mahsulot qo'shadi."""
+async def add_product(category_id: int, name: str, price: int, description: str = "",
+                      image_url: str = None,
+                      name_ru: str = None, name_en: str = None,
+                      description_ru: str = None, description_en: str = None) -> int:
+    """Yangi mahsulot qo'shadi. Ko'p tilli nom va tavsif ixtiyoriy."""
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("""
-            INSERT INTO products (category_id, name, description, price, image_url, is_active)
-            VALUES ($1, $2, $3, $4, $5, 1)
+            INSERT INTO products
+              (category_id, name, description, price, image_url, is_active,
+               name_ru, name_en, description_ru, description_en)
+            VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, $9)
             RETURNING id
-        """, category_id, name, description, price, image_url)
+        """, category_id, name, description, price, image_url,
+             name_ru or None, name_en or None,
+             description_ru or None, description_en or None)
         clear_cache("products_cat_")
         return row['id']
+
+
+def get_product_name(product, lang: str) -> str:
+    """Mahsulot nomini tanlangan tilda qaytaradi. Mavjud bo'lmasa o'zbekcha."""
+    if lang == "ru":
+        return (product.get('name_ru') if isinstance(product, dict) else _field(product, 'name_ru')) or product['name']
+    if lang == "en":
+        return (product.get('name_en') if isinstance(product, dict) else _field(product, 'name_en')) or product['name']
+    return product['name']
+
+
+def get_product_desc(product, lang: str) -> str:
+    """Mahsulot tavsifini tanlangan tilda qaytaradi. Mavjud bo'lmasa o'zbekcha."""
+    if lang == "ru":
+        val = (product.get('description_ru') if isinstance(product, dict) else _field(product, 'description_ru'))
+        return val or product.get('description') or ""
+    if lang == "en":
+        val = (product.get('description_en') if isinstance(product, dict) else _field(product, 'description_en'))
+        return val or product.get('description') or ""
+    return product.get('description') or ""
+
+
+def _field(record, key):
+    """asyncpg Record dan xavfsiz maydon olish."""
+    try:
+        return record[key]
+    except (KeyError, IndexError):
+        return None
 
 async def get_user_orders(user_id, limit=10):
     pool = await get_db_pool()

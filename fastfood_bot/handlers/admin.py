@@ -311,14 +311,60 @@ async def admin_addprod_price(message: types.Message, state: FSMContext):
     await message.answer(f"✅ Narx: <b>{price:,} so'm</b>\n\n4-qadam: <b>Tavsif</b> yozing (tire = o'tkazish):", parse_mode="HTML")
 
 async def admin_addprod_description(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
     if message.text.strip().lower() == "/bekor":
         await state.finish()
-        await message.answer("❌ Bekor qilindi.", reply_markup=get_admin_keyboard())
+        await message.answer(get_text("admin_cancelled", lang), reply_markup=get_admin_keyboard(lang))
         return
     desc = "" if message.text.strip() == "-" else message.text.strip()
     await state.update_data(description=desc)
+    # RU nom bosqichiga o'tish
+    await AddProductStates.waiting_name_ru.set()
+    await message.answer(get_text("ask_name_ru", lang), parse_mode="HTML")
+
+async def admin_addprod_name_ru(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang), reply_markup=get_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(name_ru=val)
+    await AddProductStates.waiting_name_en.set()
+    await message.answer(get_text("ask_name_en", lang), parse_mode="HTML")
+
+async def admin_addprod_name_en(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang), reply_markup=get_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(name_en=val)
+    await AddProductStates.waiting_desc_ru.set()
+    await message.answer(get_text("ask_desc_ru", lang), parse_mode="HTML")
+
+async def admin_addprod_desc_ru(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang), reply_markup=get_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(desc_ru=val)
+    await AddProductStates.waiting_desc_en.set()
+    await message.answer(get_text("ask_desc_en", lang), parse_mode="HTML")
+
+async def admin_addprod_desc_en(message: types.Message, state: FSMContext):
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang), reply_markup=get_admin_keyboard(lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(desc_en=val)
     await AddProductStates.waiting_image.set()
-    await message.answer("5-qadam: <b>Rasm</b> yuboring yoki URL yozing (tire = rasmsiz):", parse_mode="HTML")
+    await message.answer("🖼 <b>Rasm</b> yuboring yoki URL yozing (tire = rasmsiz):", parse_mode="HTML")
 
 async def admin_addprod_image(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
@@ -332,11 +378,19 @@ async def admin_addprod_image(message: types.Message, state: FSMContext):
     elif message.text and message.text.strip() != "-":
         image_url = message.text.strip()
     data = await state.get_data()
-    pid = await add_product(data["category_id"], data["name"], data["price"], data.get("description",""), image_url)
+    pid = await add_product(
+        data["category_id"], data["name"], data["price"],
+        data.get("description", ""), image_url,
+        name_ru=data.get("name_ru"),
+        name_en=data.get("name_en"),
+        description_ru=data.get("desc_ru"),
+        description_en=data.get("desc_en"),
+    )
     await state.finish()
     await message.answer(
-        f"🎉 <b>Mahsulot qo'shildi!</b>\n\n🆔 {pid}\n🍽 {data['name']}\n💰 {data['price']:,} so'm\n🖼 {'✅' if image_url else '—'}",
-        parse_mode="HTML", reply_markup=get_admin_keyboard()
+        get_text("product_added", lang, pid=pid, name=data['name'],
+                 price=data['price'], img='✅' if image_url else '—'),
+        parse_mode="HTML", reply_markup=get_admin_keyboard(lang)
     )
     logging.info(f"Admin {message.from_user.id} mahsulot qo'shdi #{pid}")
 
@@ -634,6 +688,10 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_addprod_name, state=AddProductStates.waiting_name)
     dp.register_message_handler(admin_addprod_price, state=AddProductStates.waiting_price)
     dp.register_message_handler(admin_addprod_description, state=AddProductStates.waiting_description)
+    dp.register_message_handler(admin_addprod_name_ru,  state=AddProductStates.waiting_name_ru)
+    dp.register_message_handler(admin_addprod_name_en,  state=AddProductStates.waiting_name_en)
+    dp.register_message_handler(admin_addprod_desc_ru,  state=AddProductStates.waiting_desc_ru)
+    dp.register_message_handler(admin_addprod_desc_en,  state=AddProductStates.waiting_desc_en)
     dp.register_message_handler(admin_addprod_image, content_types=[types.ContentType.PHOTO, types.ContentType.TEXT], state=AddProductStates.waiting_image)
 
     # Rasm almashish

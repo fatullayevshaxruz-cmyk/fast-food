@@ -2,7 +2,7 @@ from aiogram import types, Dispatcher
 from database.crud import (
     get_categories, get_products_by_category, get_product,
     search_products, toggle_favorite, is_favorite as check_is_favorite,
-    get_user_language
+    get_user_language, get_product_name, get_product_desc
 )
 from keyboards.product_keyboard import get_categories_markup, get_product_markup
 from utils.states import SearchStates
@@ -61,9 +61,13 @@ async def show_product_page(call, product, category_id, index, total_products, q
         product['old_price'] if 'old_price' in product.keys() else None
     )
 
-    caption = f"<b>{product['name']}</b>\n\n"
-    if product['description']:
-        caption += f"{product['description']}\n\n"
+    # Nom va tavsif tanlangan tilda
+    prod_name = get_product_name(product, lang)
+    prod_desc = get_product_desc(product, lang)
+
+    caption = f"<b>{prod_name}</b>\n\n"
+    if prod_desc:
+        caption += f"{prod_desc}\n\n"
 
     if old_price and old_price > product['price']:
         caption += get_text("price_discount_label", lang, old=old_price, new=product['price'])

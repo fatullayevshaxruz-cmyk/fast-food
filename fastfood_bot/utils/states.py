@@ -20,15 +20,23 @@ class AdminStates(StatesGroup):
 
 class AddProductStates(StatesGroup):
     waiting_category    = State()
-    waiting_name        = State()
+    waiting_name        = State()   # O'zbek (asosiy)
     waiting_price       = State()
-    waiting_description = State()
+    waiting_description = State()   # O'zbek (asosiy)
+    waiting_name_ru     = State()   # Rus tili
+    waiting_name_en     = State()   # Ingliz tili
+    waiting_desc_ru     = State()   # Rus tavsif
+    waiting_desc_en     = State()   # Ingliz tavsif
     waiting_image       = State()
 
 class DynamicMenuAdminStates(StatesGroup):
-    waiting_item_name        = State()
+    waiting_item_name        = State()   # O'zbek (asosiy)
     waiting_item_price       = State()
-    waiting_item_description = State()
+    waiting_item_description = State()   # O'zbek (asosiy)
+    waiting_item_name_ru     = State()   # Rus nom
+    waiting_item_name_en     = State()   # Ingliz nom
+    waiting_item_desc_ru     = State()   # Rus tavsif
+    waiting_item_desc_en     = State()   # Ingliz tavsif
     waiting_new_price        = State()
     waiting_item_id_for_delete = State()
 

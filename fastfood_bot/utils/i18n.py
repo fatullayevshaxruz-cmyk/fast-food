@@ -1316,6 +1316,33 @@ TRANSLATIONS = {
         "ru": "🎉 <b>Продукт добавлен!</b>\n\n🆔 {pid}\n🍽 {name}\n💰 {price:,} сум\n🖼 {img}",
         "en": "🎉 <b>Product added!</b>\n\n🆔 {pid}\n🍽 {name}\n💰 {price:,} sum\n🖼 {img}",
     },
+
+    # ── Ko'p tilli nom va tavsif kiritish (admin add product) ─────
+    "ask_name_ru": {
+        "uz": "🇷🇺 Endi taomning <b>Rus tilidagi nomini</b> yozing:\n<i>(O'tkazib yuborish uchun — tire ( - ) yuboring)</i>",
+        "ru": "🇷🇺 Введите <b>название на русском</b>:\n<i>(Чтобы пропустить — отправьте тире ( - ))</i>",
+        "en": "🇷🇺 Enter the <b>name in Russian</b>:\n<i>(To skip — send a dash ( - ))</i>",
+    },
+    "ask_name_en": {
+        "uz": "🇬🇧 Taomning <b>Ingliz tilidagi nomini</b> yozing:\n<i>(O'tkazib yuborish uchun — tire ( - ) yuboring)</i>",
+        "ru": "🇬🇧 Введите <b>название на английском</b>:\n<i>(Чтобы пропустить — отправьте тире ( - ))</i>",
+        "en": "🇬🇧 Enter the <b>name in English</b>:\n<i>(To skip — send a dash ( - ))</i>",
+    },
+    "ask_desc_ru": {
+        "uz": "🇷🇺 Taomning <b>Rus tilidagi tavsifini</b> yozing:\n<i>(O'tkazib yuborish uchun — tire ( - ) yuboring)</i>",
+        "ru": "🇷🇺 Введите <b>описание на русском</b>:\n<i>(Чтобы пропустить — отправьте тире ( - ))</i>",
+        "en": "🇷🇺 Enter the <b>description in Russian</b>:\n<i>(To skip — send a dash ( - ))</i>",
+    },
+    "ask_desc_en": {
+        "uz": "🇬🇧 Taomning <b>Ingliz tilidagi tavsifini</b> yozing:\n<i>(O'tkazib yuborish uchun — tire ( - ) yuboring)</i>",
+        "ru": "🇬🇧 Введите <b>описание на английском</b>:\n<i>(Чтобы пропустить — отправьте тире ( - ))</i>",
+        "en": "🇬🇧 Enter the <b>description in English</b>:\n<i>(To skip — send a dash ( - ))</i>",
+    },
+    "skip_translation_note": {
+        "uz": "<i>💡 Tarjimalar ixtiyoriy — agar bo'sh qoldirsangiz, o'zbek matni ko'rsatiladi.</i>",
+        "ru": "<i>💡 Переводы необязательны — если не заполните, будет показан узбекский текст.</i>",
+        "en": "<i>💡 Translations are optional — Uzbek text will be shown if left empty.</i>",
+    },
 }
 
 
