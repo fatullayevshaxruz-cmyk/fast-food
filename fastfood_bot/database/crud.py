@@ -194,44 +194,63 @@ async def add_product(category_id: int, name: str, price: int, description: str 
     """Yangi mahsulot qo'shadi. Ko'p tilli nom va tavsif ixtiyoriy."""
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            INSERT INTO products
-              (category_id, name, description, price, image_url, is_active,
-               name_ru, name_en, description_ru, description_en)
-            VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, $9)
-            RETURNING id
-        """, category_id, name, description, price, image_url,
-             name_ru or None, name_en or None,
-             description_ru or None, description_en or None)
+        # Avval ko'p tilli ustunlar bilan urinib ko'rish
+        try:
+            row = await conn.fetchrow("""
+                INSERT INTO products
+                  (category_id, name, description, price, image_url, is_active,
+                   name_ru, name_en, description_ru, description_en)
+                VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, $9)
+                RETURNING id
+            """, category_id, name, description, price, image_url,
+                 name_ru or None, name_en or None,
+                 description_ru or None, description_en or None)
+        except Exception:
+            # Eski ustunlar bilan fallback (migration hali ishlamagan)
+            row = await conn.fetchrow("""
+                INSERT INTO products (category_id, name, description, price, image_url, is_active)
+                VALUES ($1, $2, $3, $4, $5, 1)
+                RETURNING id
+            """, category_id, name, description, price, image_url)
         clear_cache("products_cat_")
         return row['id']
 
 
 def get_product_name(product, lang: str) -> str:
-    """Mahsulot nomini tanlangan tilda qaytaradi. Mavjud bo'lmasa o'zbekcha."""
-    if lang == "ru":
-        return (product.get('name_ru') if isinstance(product, dict) else _field(product, 'name_ru')) or product['name']
-    if lang == "en":
-        return (product.get('name_en') if isinstance(product, dict) else _field(product, 'name_en')) or product['name']
+    """Mahsulot nomini tanlangan tilda qaytaradi. Xato bo'lsa o'zbekcha."""
+    try:
+        if lang == "ru":
+            return _field(product, 'name_ru') or product['name']
+        if lang == "en":
+            return _field(product, 'name_en') or product['name']
+    except Exception:
+        pass
     return product['name']
 
 
 def get_product_desc(product, lang: str) -> str:
-    """Mahsulot tavsifini tanlangan tilda qaytaradi. Mavjud bo'lmasa o'zbekcha."""
-    if lang == "ru":
-        val = (product.get('description_ru') if isinstance(product, dict) else _field(product, 'description_ru'))
-        return val or product.get('description') or ""
-    if lang == "en":
-        val = (product.get('description_en') if isinstance(product, dict) else _field(product, 'description_en'))
-        return val or product.get('description') or ""
-    return product.get('description') or ""
+    """Mahsulot tavsifini tanlangan tilda qaytaradi. Xato bo'lsa o'zbekcha."""
+    try:
+        if lang == "ru":
+            return _field(product, 'description_ru') or _field(product, 'description') or ""
+        if lang == "en":
+            return _field(product, 'description_en') or _field(product, 'description') or ""
+        return _field(product, 'description') or ""
+    except Exception:
+        pass
+    try:
+        return product.get('description') or ""
+    except Exception:
+        return ""
 
 
 def _field(record, key):
-    """asyncpg Record dan xavfsiz maydon olish."""
+    """asyncpg Record yoki dict dan xavfsiz maydon olish — har qanday xatoni tutadi."""
     try:
+        if isinstance(record, dict):
+            return record.get(key)
         return record[key]
-    except (KeyError, IndexError):
+    except Exception:
         return None
 
 async def get_user_orders(user_id, limit=10):
