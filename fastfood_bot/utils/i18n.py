@@ -1242,6 +1242,26 @@ TRANSLATIONS = {
         "ru": "⬅️ К категориям",
         "en": "⬅️ Back to Categories",
     },
+    "btn_admin_translate": {
+        "uz": "🌐 Tarjima qo'shish (RU/EN)",
+        "ru": "🌐 Добавить перевод (RU/EN)",
+        "en": "🌐 Add Translation (RU/EN)",
+    },
+    "trans_start": {
+        "uz": "🌐 <b>{name}</b> uchun tarjima qo'shish\n\n<i>Har bir bosqichda tire ( - ) yuborsangiz — bo'sh qoladi (o'zbekcha ko'rsatiladi).</i>",
+        "ru": "🌐 Добавление перевода для <b>{name}</b>\n\n<i>Отправьте тире ( - ), чтобы оставить пустым (будет показан узбекский).</i>",
+        "en": "🌐 Adding translation for <b>{name}</b>\n\n<i>Send a dash ( - ) to leave empty (Uzbek text will be shown).</i>",
+    },
+    "trans_saved": {
+        "uz": "✅ Tarjima saqlandi!\n\n🇷🇺 <b>{name_ru}</b>\n🇬🇧 <b>{name_en}</b>",
+        "ru": "✅ Перевод сохранён!\n\n🇷🇺 <b>{name_ru}</b>\n🇬🇧 <b>{name_en}</b>",
+        "en": "✅ Translation saved!\n\n🇷🇺 <b>{name_ru}</b>\n🇬🇧 <b>{name_en}</b>",
+    },
+    "trans_error": {
+        "uz": "⚠️ Saqlashda xatolik (ustunlar hali qo'shilmagan bo'lishi mumkin). Keyinroq urinib ko'ring.",
+        "ru": "⚠️ Ошибка при сохранении. Попробуйте позже.",
+        "en": "⚠️ Error saving. Please try again later.",
+    },
     # Toggle status xabari (admin uchun)
     "toggle_shown": {
         "uz": "✅ Ko'rsatildi (faol)",

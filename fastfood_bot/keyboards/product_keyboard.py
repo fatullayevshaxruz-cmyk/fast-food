@@ -94,6 +94,13 @@ def get_admin_product_markup(product_id, category_id, current_index,
             callback_data=f"admin_toggle_{product_id}"
         ),
     )
+    # Tarjima qo'shish tugmasi
+    markup.row(
+        InlineKeyboardButton(
+            get_text("btn_admin_translate", lang),
+            callback_data=f"admin_translate_{product_id}"
+        )
+    )
 
     nav_buttons = []
     if current_index > 0:

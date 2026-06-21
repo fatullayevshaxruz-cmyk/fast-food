@@ -121,11 +121,18 @@ async def get_products_by_category(category_id):
         return cached
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        # is_active TRUE ham 1 ham TRUE qabul qiladi (PostgreSQL va SQLite)
-        result = await conn.fetch(
-            "SELECT * FROM products WHERE category_id = $1 AND is_active != 0 AND is_active != 'false'",
-            int(category_id)
-        )
+        # PostgreSQL uchun boolean ustunni to'g'ri tekshirish
+        try:
+            result = await conn.fetch(
+                "SELECT * FROM products WHERE category_id = $1 AND is_active IS NOT FALSE",
+                int(category_id)
+            )
+        except Exception:
+            # Fallback: hamma aktiv taomlarni olish
+            result = await conn.fetch(
+                "SELECT * FROM products WHERE category_id = $1",
+                int(category_id)
+            )
         _set_cache(key, result)
         return result
 
@@ -325,10 +332,20 @@ async def search_products(query):
     pool = await get_db_pool()
     search = f"%{query.lower()}%"
     async with pool.acquire() as conn:
-        return await conn.fetch(
-            "SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE LOWER(p.name) LIKE $1 AND p.is_active != 0 LIMIT 10",
-            search
-        )
+        try:
+            return await conn.fetch(
+                "SELECT p.*, c.name as category_name FROM products p "
+                "LEFT JOIN categories c ON p.category_id = c.id "
+                "WHERE LOWER(p.name) LIKE $1 AND p.is_active IS NOT FALSE LIMIT 10",
+                search
+            )
+        except Exception:
+            return await conn.fetch(
+                "SELECT p.*, c.name as category_name FROM products p "
+                "LEFT JOIN categories c ON p.category_id = c.id "
+                "WHERE LOWER(p.name) LIKE $1 LIMIT 10",
+                search
+            )
 
 async def update_product_image(product_id, image_url):
     """Mahsulot rasmini yangilash."""
@@ -336,6 +353,27 @@ async def update_product_image(product_id, image_url):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE products SET image_url = $1 WHERE id = $2", image_url, int(product_id))
     clear_cache("products_cat_")
+
+
+async def update_product_translations(product_id: int,
+                                      name_ru: str = None, name_en: str = None,
+                                      description_ru: str = None, description_en: str = None):
+    """Mahsulotning RU/EN nom va tavsifini yangilash."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute("""
+                UPDATE products
+                SET name_ru = $1, name_en = $2,
+                    description_ru = $3, description_en = $4
+                WHERE id = $5
+            """, name_ru or None, name_en or None,
+                 description_ru or None, description_en or None,
+                 int(product_id))
+            clear_cache("products_cat_")
+            return True
+        except Exception:
+            return False
 
 async def set_product_discount(product_id, new_price):
     """Chegirma qo'yish — eski narxni old_price ga saqlaydi."""

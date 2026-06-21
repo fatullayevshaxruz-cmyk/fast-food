@@ -135,6 +135,7 @@ async def show_favorites(message: types.Message):
     text = get_text("favorites_title", lang)
     markup = InlineKeyboardMarkup(row_width=1)
     for p in favs:
+        old_price = p.get('old_price')
         if old_price and old_price > p['price']:
             label = get_text("search_item_label", lang, icon="🏷", name=p['name'], price=p['price'])
         else:

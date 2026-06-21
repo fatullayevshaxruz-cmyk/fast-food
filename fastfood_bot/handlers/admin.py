@@ -126,7 +126,7 @@ async def _show_orders_list(message, status_filter=None):
     text = "📦 <b>Buyurtmalar</b>\n\n"
     markup = InlineKeyboardMarkup(row_width=1)
     for o in orders:
-        text_line = f"{get_status_label(o['status'], lang)} #{o['id']} | {o.get('full_name', '—') or '—'} | {o['total_amount']:,} so'm"
+        text_line = f"{get_status_label(o['status'])} #{o['id']} | {o.get('full_name', '—') or '—'} | {o['total_amount']:,} so'm"
         markup.add(InlineKeyboardButton(text_line, callback_data=f"adm_order_{o['id']}"))
 
     markup.row(
@@ -497,6 +497,108 @@ async def admin_toggle_product(call: types.CallbackQuery):
         await call.answer(get_text("toggle_error", lang), show_alert=True)
 
 
+# ── Tarjima qo'shish (admin menyu ichidan) ───────────────────────────
+
+async def admin_translate_start(call: types.CallbackQuery, state: FSMContext):
+    """Admin mahsulotga tarjima qo'shishni boshlaydi."""
+    if not _is_admin(call.from_user.id):
+        return
+    pid = int(call.data.split("_")[2])
+    product = await get_product(pid)
+    lang = await get_user_language(call.from_user.id)
+    if not product:
+        await call.answer(get_text("product_not_found", lang), show_alert=True)
+        return
+    await state.update_data(admin_trans_product_id=pid)
+    await AdminProductStates.waiting_trans_name_ru.set()
+    await call.message.answer(
+        get_text("trans_start", lang, name=product['name']) + "\n\n"
+        + get_text("ask_name_ru", lang),
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+
+async def admin_trans_name_ru(message: types.Message, state: FSMContext):
+    """1-bosqich: Rus tilidagi nom."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(trans_name_ru=val)
+    await AdminProductStates.waiting_trans_name_en.set()
+    await message.answer(get_text("ask_name_en", lang), parse_mode="HTML")
+
+
+async def admin_trans_name_en(message: types.Message, state: FSMContext):
+    """2-bosqich: Ingliz tilidagi nom."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(trans_name_en=val)
+    await AdminProductStates.waiting_trans_desc_ru.set()
+    await message.answer(get_text("ask_desc_ru", lang), parse_mode="HTML")
+
+
+async def admin_trans_desc_ru(message: types.Message, state: FSMContext):
+    """3-bosqich: Rus tilidagi tavsif."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    await state.update_data(trans_desc_ru=val)
+    await AdminProductStates.waiting_trans_desc_en.set()
+    await message.answer(get_text("ask_desc_en", lang), parse_mode="HTML")
+
+
+async def admin_trans_desc_en(message: types.Message, state: FSMContext):
+    """4-bosqich: Ingliz tilidagi tavsif. Hammasi bazaga yoziladi."""
+    lang = await get_user_language(message.from_user.id)
+    if message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer(get_text("admin_cancelled", lang))
+        return
+    val = None if message.text.strip() == "-" else message.text.strip()
+    data = await state.get_data()
+    pid = data["admin_trans_product_id"]
+    name_ru = data.get("trans_name_ru")
+    name_en = data.get("trans_name_en")
+    desc_ru = data.get("trans_desc_ru")
+    desc_en = val
+
+    try:
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE products
+                   SET name_ru = COALESCE($1, name_ru),
+                       name_en = COALESCE($2, name_en),
+                       description_ru = COALESCE($3, description_ru),
+                       description_en = COALESCE($4, description_en)
+                   WHERE id = $5""",
+                name_ru, name_en, desc_ru, desc_en, pid
+            )
+        await state.finish()
+        await message.answer(
+            get_text("trans_saved", lang,
+                     name_ru=name_ru or "—",
+                     name_en=name_en or "—"),
+            parse_mode="HTML"
+        )
+        logging.info(f"Admin {message.from_user.id} #{pid} ga tarjima qo'shdi")
+    except Exception as e:
+        await state.finish()
+        logging.error(f"Tarjima saqlash xatosi: {e}")
+        await message.answer(get_text("trans_error", lang))
+
+
 # ── Asosiy menuga qaytish ────────────────────────────────────────────
 
 async def admin_back_to_main(message: types.Message, state: FSMContext):
@@ -704,6 +806,13 @@ def register_admin_handlers(dp: Dispatcher):
 
     # Yashirish
     dp.register_callback_query_handler(admin_toggle_product, lambda c: c.data and c.data.startswith("admin_toggle_"), state="*")
+
+    # Tarjima qo'shish (admin menyu ichidan)
+    dp.register_callback_query_handler(admin_translate_start, lambda c: c.data and c.data.startswith("admin_translate_"), state="*")
+    dp.register_message_handler(admin_trans_name_ru, state=AdminProductStates.waiting_trans_name_ru)
+    dp.register_message_handler(admin_trans_name_en, state=AdminProductStates.waiting_trans_name_en)
+    dp.register_message_handler(admin_trans_desc_ru, state=AdminProductStates.waiting_trans_desc_ru)
+    dp.register_message_handler(admin_trans_desc_en, state=AdminProductStates.waiting_trans_desc_en)
 
     # Promo kodlar
     dp.register_message_handler(admin_promo_list, lambda m: m.text in _PROMO_TEXTS, state="*")

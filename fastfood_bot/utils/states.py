@@ -44,6 +44,11 @@ class AdminProductStates(StatesGroup):
     waiting_new_price_inline  = State()
     waiting_new_image         = State()
     waiting_discount_price    = State()
+    # Tarjima qo'shish/tahrirlash
+    waiting_trans_name_ru     = State()
+    waiting_trans_name_en     = State()
+    waiting_trans_desc_ru     = State()
+    waiting_trans_desc_en     = State()
 
 class SearchStates(StatesGroup):
     waiting_query = State()
