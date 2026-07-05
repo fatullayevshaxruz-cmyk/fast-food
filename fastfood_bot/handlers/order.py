@@ -4,7 +4,7 @@ import time as _time
 from datetime import datetime
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ContentTypes, WebAppInfo
-from database.crud import get_cart_items, create_order, add_order_items, clear_cart, get_user, get_user_language
+from database.crud import get_cart_items, create_order, add_order_items, clear_cart, get_user, get_user_language, get_product_name
 from utils.states import OrderStates
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu
 from utils.helpers import notify_admins_new_order
@@ -488,7 +488,7 @@ async def finish_order(message: types.Message, state: FSMContext,
 
         # Chek (til bo'yicha)
         receipt = "".join(
-            get_text("item_line", lang, name=i['name'], qty=i['quantity'],
+            get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
                      total=i['price'] * i['quantity']) + "\n"
             for i in items
         )

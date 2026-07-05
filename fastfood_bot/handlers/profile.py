@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from database.crud import (
     get_user_orders, get_order_items_detail, get_order_by_id, get_user,
     get_favorites, repeat_order_to_cart, update_user_name, update_user_phone,
-    update_user_address, get_user_language
+    update_user_address, get_user_language, get_product_name
 )
 from keyboards.admin_keyboard import STATUS_LABELS
 from utils.states import ProfileStates
@@ -86,7 +86,7 @@ async def show_order_detail(call: types.CallbackQuery):
     for item in items:
         item_total = item['price_at_time'] * item['quantity']
         total += item_total
-        text += get_text("item_line", lang, name=item['name'], qty=item['quantity'], total=item_total) + "\n"
+        text += get_text("item_line", lang, name=get_product_name(item, lang), qty=item['quantity'], total=item_total) + "\n"
 
     text += get_text("order_total", lang, total=total)
 
@@ -135,11 +135,12 @@ async def show_favorites(message: types.Message):
     text = get_text("favorites_title", lang)
     markup = InlineKeyboardMarkup(row_width=1)
     for p in favs:
+        p_name = get_product_name(p, lang)
         old_price = p.get('old_price')
         if old_price and old_price > p['price']:
-            label = get_text("search_item_label", lang, icon="🏷", name=p['name'], price=p['price'])
+            label = get_text("search_item_label", lang, icon="🏷", name=p_name, price=p['price'])
         else:
-            label = get_text("search_item_label", lang, icon="🍴", name=p['name'], price=p['price'])
+            label = get_text("search_item_label", lang, icon="🍴", name=p_name, price=p['price'])
         markup.add(InlineKeyboardButton(label, callback_data=f"search_prod_{p['id']}_{p['category_id']}"))
 
     await message.answer(text, reply_markup=markup, parse_mode="HTML")

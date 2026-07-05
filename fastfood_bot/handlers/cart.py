@@ -1,5 +1,5 @@
 from aiogram import types, Dispatcher
-from database.crud import add_to_cart, get_cart_items, clear_cart, remove_from_cart, get_user_language
+from database.crud import add_to_cart, get_cart_items, clear_cart, remove_from_cart, get_user_language, get_product_name
 from utils.i18n import get_text
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -66,10 +66,11 @@ async def _show_cart(message, user_id):
     for item in items:
         item_total = item['price'] * item['quantity']
         total_price += item_total
-        text += get_text("item_line", lang, name=item['name'], qty=item['quantity'], total=item_total) + "\n"
+        p_name = get_product_name(item, lang)
+        text += get_text("item_line", lang, name=p_name, qty=item['quantity'], total=item_total) + "\n"
 
         markup.add(InlineKeyboardButton(
-            get_text("cart_remove_item", lang, name=item['name']),
+            get_text("cart_remove_item", lang, name=p_name),
             callback_data=f"del_cart_{item['id']}_{user_id}"
         ))
 

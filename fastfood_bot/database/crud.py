@@ -14,11 +14,14 @@ async def init_database():
             "ALTER TABLE orders ADD COLUMN delivery_type VARCHAR(20) DEFAULT 'delivery'",
             "ALTER TABLE users ADD COLUMN default_address TEXT",
             "ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'uz'",
-            # Ko'p tilli nom va tavsif ustunlari
+            # Ko'p tilli nom va tavsif ustunlari (mahsulotlar)
             "ALTER TABLE products ADD COLUMN name_ru TEXT",
             "ALTER TABLE products ADD COLUMN name_en TEXT",
             "ALTER TABLE products ADD COLUMN description_ru TEXT",
             "ALTER TABLE products ADD COLUMN description_en TEXT",
+            # Ko'p tilli nom ustunlari (kategoriyalar)
+            "ALTER TABLE categories ADD COLUMN name_ru TEXT",
+            "ALTER TABLE categories ADD COLUMN name_en TEXT",
         ]:
             try:
                 await conn.execute(alter)
@@ -154,7 +157,8 @@ async def get_cart_items(user_id):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         return await conn.fetch("""
-            SELECT c.*, p.name, p.price, p.image_url 
+            SELECT c.*, p.name, p.price, p.image_url,
+                   p.name_ru, p.name_en
             FROM cart_items c 
             JOIN products p ON c.product_id = p.id 
             WHERE c.user_id = $1
@@ -235,6 +239,18 @@ def get_product_name(product, lang: str) -> str:
     return product['name']
 
 
+def get_category_name(category, lang: str) -> str:
+    """Kategoriya nomini tanlangan tilda qaytaradi. Xato bo'lsa o'zbekcha."""
+    try:
+        if lang == "ru":
+            return _field(category, 'name_ru') or category['name']
+        if lang == "en":
+            return _field(category, 'name_en') or category['name']
+    except Exception:
+        pass
+    return category['name']
+
+
 def get_product_desc(product, lang: str) -> str:
     """Mahsulot tavsifini tanlangan tilda qaytaradi. Xato bo'lsa o'zbekcha."""
     try:
@@ -300,7 +316,7 @@ async def get_order_items_detail(order_id):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         return await conn.fetch("""
-            SELECT oi.*, p.name 
+            SELECT oi.*, p.name, p.name_ru, p.name_en
             FROM order_items oi 
             JOIN products p ON oi.product_id = p.id 
             WHERE oi.order_id = $1
@@ -328,7 +344,7 @@ async def toggle_product_active(product_id):
     return None
 
 async def search_products(query):
-    """Mahsulot izlash (case-insensitive)."""
+    """Mahsulot izlash — barcha 3 tilda (case-insensitive)."""
     pool = await get_db_pool()
     search = f"%{query.lower()}%"
     async with pool.acquire() as conn:
@@ -336,7 +352,9 @@ async def search_products(query):
             return await conn.fetch(
                 "SELECT p.*, c.name as category_name FROM products p "
                 "LEFT JOIN categories c ON p.category_id = c.id "
-                "WHERE LOWER(p.name) LIKE $1 AND p.is_active IS NOT FALSE LIMIT 10",
+                "WHERE (LOWER(p.name) LIKE $1 OR LOWER(COALESCE(p.name_ru,'')) LIKE $1 "
+                "OR LOWER(COALESCE(p.name_en,'')) LIKE $1) "
+                "AND p.is_active IS NOT FALSE LIMIT 10",
                 search
             )
         except Exception:

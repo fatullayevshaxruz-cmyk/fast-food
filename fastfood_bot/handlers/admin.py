@@ -15,7 +15,8 @@ from database.crud import (
     get_categories, add_product, get_all_orders, get_order_by_id,
     get_order_items_detail, update_order_status, toggle_product_active,
     update_product_image, set_product_discount, remove_product_discount,
-    get_today_stats, get_top_products, get_product, get_user_language
+    get_today_stats, get_top_products, get_product, get_user_language,
+    get_product_name
 )
 from utils.i18n import get_text
 
@@ -164,8 +165,9 @@ async def admin_order_detail(call: types.CallbackQuery):
     date_str = created.strftime('%Y-%m-%d %H:%M') if hasattr(created, 'strftime') else str(created)[:16]
 
     items_text = ""
+    lang = await get_user_language(call.from_user.id)
     for it in items:
-        items_text += f"  ▫️ {it['name']} x {it['quantity']} = {it['price_at_time'] * it['quantity']:,} so'm\n"
+        items_text += f"  ▫️ {get_product_name(it, lang)} x {it['quantity']} = {it['price_at_time'] * it['quantity']:,} so'm\n"
 
     note = None
     try:

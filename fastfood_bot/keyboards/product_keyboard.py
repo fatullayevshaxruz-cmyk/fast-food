@@ -1,13 +1,15 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils.i18n import get_text
+from database.crud import get_category_name
 
 
 def get_categories_markup(categories, lang="uz"):
     markup = InlineKeyboardMarkup(row_width=2)
     for category in categories:
+        cat_name = get_category_name(category, lang)
         markup.insert(
             InlineKeyboardButton(
-                text=f"{category['emoji'] or '🍽'} {category['name']}",
+                text=f"{category['emoji'] or '🍽'} {cat_name}",
                 callback_data=f"category_{category['id']}"
             )
         )
@@ -61,9 +63,10 @@ def get_admin_categories_markup(categories, lang="uz"):
     """Admin kategoriyalar — admin_cat_ prefiksi bilan."""
     markup = InlineKeyboardMarkup(row_width=2)
     for category in categories:
+        cat_name = get_category_name(category, lang)
         markup.insert(
             InlineKeyboardButton(
-                text=f"{category['emoji'] or '🍽'} {category['name']}",
+                text=f"{category['emoji'] or '🍽'} {cat_name}",
                 callback_data=f"admin_cat_{category['id']}"
             )
         )

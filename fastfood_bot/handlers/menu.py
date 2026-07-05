@@ -20,7 +20,7 @@ async def show_menu(message: types.Message):
         return
     await message.answer(
         get_text("menu_title", lang),
-        reply_markup=get_categories_markup(categories),
+        reply_markup=get_categories_markup(categories, lang=lang),
         parse_mode="HTML"
     )
 
@@ -136,7 +136,7 @@ async def back_to_categories(call: types.CallbackQuery):
     categories = await get_categories()
     await call.message.answer(
         get_text("menu_title", lang),
-        reply_markup=get_categories_markup(categories),
+        reply_markup=get_categories_markup(categories, lang=lang),
         parse_mode="HTML"
     )
 
@@ -206,11 +206,12 @@ async def process_search(message: types.Message, state: FSMContext):
 
     markup = InlineKeyboardMarkup(row_width=1)
     for p in results:
+        p_name = get_product_name(p, lang)
         old_price = p.get('old_price')
         if old_price and old_price > p['price']:
-            label = get_text("search_item_label", lang, icon="🏷", name=p['name'], price=p['price'])
+            label = get_text("search_item_label", lang, icon="🏷", name=p_name, price=p['price'])
         else:
-            label = get_text("search_item_label", lang, icon="🍴", name=p['name'], price=p['price'])
+            label = get_text("search_item_label", lang, icon="🍴", name=p_name, price=p['price'])
         markup.add(InlineKeyboardButton(label, callback_data=f"search_prod_{p['id']}_{p['category_id']}"))
 
     await message.answer(

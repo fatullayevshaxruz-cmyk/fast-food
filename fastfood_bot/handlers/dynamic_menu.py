@@ -55,7 +55,7 @@ async def user_show_dynamic_menu(message: types.Message):
         return
     await message.answer(
         get_text("menu_panel_title", lang),
-        reply_markup=get_admin_categories_markup(categories),
+        reply_markup=get_admin_categories_markup(categories, lang=lang),
         parse_mode="HTML"
     )
 
@@ -417,7 +417,7 @@ async def admin_back_to_categories(call: types.CallbackQuery):
     categories = await get_categories()
     await call.message.answer(
         get_text("menu_panel_title", lang),
-        reply_markup=get_admin_categories_markup(categories),
+        reply_markup=get_admin_categories_markup(categories, lang=lang),
         parse_mode="HTML"
     )
     await call.answer()
