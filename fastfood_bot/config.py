@@ -31,3 +31,7 @@ DELIVERY_FEE = int(os.getenv("DELIVERY_FEE", "10000"))             # 10,000 so'm
 
 # Minimal buyurtma summasi (yetkazish uchun)
 MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm
+
+# Online to'lov (karta) — vaqtincha o'chirish/yoqish
+# .env da ONLINE_PAYMENT_ENABLED=1 qilib yoqish mumkin
+ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "0") == "1"

@@ -78,10 +78,15 @@ def _parse_payload(payload: str) -> dict:
 # ── To'lov usulini so'rash ────────────────────────────────────────────
 
 async def ask_payment_method(message: types.Message, state: FSMContext):
+    from config import ONLINE_PAYMENT_ENABLED
     lang = await get_user_language(message.from_user.id)
 
-    if not _has_payment_token():
-        log.info("PAYMENT_PROVIDER_TOKEN topilmadi — naqd to'lovga o'tilmoqda.")
+    # Online to'lov o'chirilgan yoki token yo'q — faqat naqd
+    if not ONLINE_PAYMENT_ENABLED or not _has_payment_token():
+        if not ONLINE_PAYMENT_ENABLED:
+            log.info("Online to'lov vaqtincha o'chirilgan — naqd to'lovga o'tilmoqda.")
+        else:
+            log.info("PAYMENT_PROVIDER_TOKEN topilmadi — naqd to'lovga o'tilmoqda.")
         from handlers.order import finish_order
         await finish_order(message, state, payment_method=get_text("btn_pay_cash", lang))
         return
