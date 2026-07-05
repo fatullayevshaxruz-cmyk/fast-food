@@ -81,24 +81,17 @@ async def ask_payment_method(message: types.Message, state: FSMContext):
     from config import ONLINE_PAYMENT_ENABLED
     lang = await get_user_language(message.from_user.id)
 
-    # Online to'lov o'chirilgan yoki token yo'q — faqat naqd
-    if not ONLINE_PAYMENT_ENABLED or not _has_payment_token():
-        if not ONLINE_PAYMENT_ENABLED:
-            log.info("Online to'lov vaqtincha o'chirilgan — naqd to'lovga o'tilmoqda.")
-        else:
-            log.info("PAYMENT_PROVIDER_TOKEN topilmadi — naqd to'lovga o'tilmoqda.")
-        from handlers.order import finish_order
-        await finish_order(message, state, payment_method=get_text("btn_pay_cash", lang))
-        return
-
     await OrderStates.waiting_for_payment_method.set()
 
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(
-        KeyboardButton(get_text("btn_pay_cash", lang)),
-        KeyboardButton(get_text("btn_pay_online", lang)),
-        KeyboardButton(get_text("btn_cancel", lang)),
-    )
+    markup.add(KeyboardButton(get_text("btn_pay_cash", lang)))
+
+    # Online to'lov faqat yoqilgan va token mavjud bo'lganda ko'rsatiladi
+    if ONLINE_PAYMENT_ENABLED and _has_payment_token():
+        markup.add(KeyboardButton(get_text("btn_pay_online", lang)))
+
+    markup.add(KeyboardButton(get_text("btn_cancel", lang)))
+
     await message.answer(
         get_text("ask_payment_method", lang),
         reply_markup=markup,
