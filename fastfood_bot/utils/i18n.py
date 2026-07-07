@@ -738,19 +738,16 @@ TRANSLATIONS = {
     # ── To'lov ────────────────────────────────────────────────────
     "ask_payment_method": {
         "uz": (
-            "💰 <b>To'lov usulini tanlang:</b>\n\n"
-            "  💵 <b>Naqd pul</b> — kuryer yetkazib kelganda to'lanadi\n"
-            "  💳 <b>Online</b> — Click yoki Payme orqali hozir to'lang"
+            "💰 <b>To'lov turi:</b>\n\n"
+            "  💵 <b>Naqd pul</b> — kuryer mahsulotni yetkazganda to'lanadi"
         ),
         "ru": (
-            "💰 <b>Выберите способ оплаты:</b>\n\n"
-            "  💵 <b>Наличные</b> — оплата при получении\n"
-            "  💳 <b>Онлайн</b> — оплата через Click или Payme"
+            "💰 <b>Способ оплаты:</b>\n\n"
+            "  💵 <b>Наличные</b> — оплата при получении товара"
         ),
         "en": (
-            "💰 <b>Choose payment method:</b>\n\n"
-            "  💵 <b>Cash</b> — pay on delivery\n"
-            "  💳 <b>Online</b> — pay now via Click or Payme"
+            "💰 <b>Payment type:</b>\n\n"
+            "  💵 <b>Cash</b> — pay when the courier delivers your order"
         ),
     },
     "btn_pay_cash": {
