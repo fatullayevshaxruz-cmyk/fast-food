@@ -1,5 +1,10 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+import os
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from utils.i18n import get_text
+
+# WebApp menyu URL
+_RENDER_URL = os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com")
+MENU_WEBAPP_URL = f"{_RENDER_URL}/webapp/menu.html"
 
 
 def get_language_keyboard() -> ReplyKeyboardMarkup:
@@ -41,6 +46,13 @@ def get_user_main_menu(lang: str = "uz") -> ReplyKeyboardMarkup:
     markup.add(
         KeyboardButton(get_text("btn_orders", lang)),
         KeyboardButton(get_text("btn_profile", lang)),
+    )
+    # ── WebApp interaktiv menyu tugmasi ──────────────────────────────
+    markup.add(
+        KeyboardButton(
+            get_text("btn_web_menu", lang),
+            web_app=WebAppInfo(url=f"{MENU_WEBAPP_URL}?lang={lang}")
+        ),
     )
     markup.add(
         KeyboardButton(get_text("btn_contact", lang)),

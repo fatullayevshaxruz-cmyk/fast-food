@@ -102,5 +102,17 @@ ALL_TABLES = [
     "CREATE INDEX IF NOT EXISTS idx_cart_user ON cart_items(user_id);",
     "CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);",
     "CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);",
-    "CREATE INDEX IF NOT EXISTS idx_promo_uses ON promo_code_uses(user_id, promo_code);"
+    "CREATE INDEX IF NOT EXISTS idx_promo_uses ON promo_code_uses(user_id, promo_code);",
+
+    # ── Buyurtma baholash (Feedback) ──────────────────────────────────
+    """CREATE TABLE IF NOT EXISTS order_ratings (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id),
+        user_id BIGINT REFERENCES users(user_id),
+        rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );""",
+    "CREATE INDEX IF NOT EXISTS idx_ratings_order ON order_ratings(order_id);",
+    "CREATE INDEX IF NOT EXISTS idx_ratings_user ON order_ratings(user_id);",
 ]

@@ -474,7 +474,27 @@ async def finish_order(message: types.Message, state: FSMContext,
         items_total    = sum(i['price'] * i['quantity'] for i in items)
         discount_amt   = int(items_total * discount_pct / 100) if discount_pct > 0 else 0
         after_discount = items_total - discount_amt
-        delivery_fee   = DELIVERY_FEE if delivery_type == "delivery" else 0
+
+        # ── Masofaga qarab yetkazish narxi ─────────────────────────
+        if delivery_type == "delivery":
+            if lat is not None and lon is not None:
+                try:
+                    from utils.delivery_fee import calculate_delivery_fee
+                    from config import (RESTAURANT_LAT, RESTAURANT_LON, DELIVERY_BASE_FEE,
+                                       DELIVERY_EXTRA_PER_KM, DELIVERY_FREE_KM)
+                    delivery_fee, _dist_km = await calculate_delivery_fee(
+                        float(lat), float(lon),
+                        RESTAURANT_LAT, RESTAURANT_LON,
+                        DELIVERY_BASE_FEE, DELIVERY_EXTRA_PER_KM,
+                        DELIVERY_FREE_KM, DELIVERY_FEE,
+                    )
+                except Exception:
+                    delivery_fee = DELIVERY_FEE
+            else:
+                delivery_fee = DELIVERY_FEE
+        else:
+            delivery_fee = 0
+
         total_amount   = after_discount + delivery_fee
 
         order_id = await create_order(

@@ -35,3 +35,17 @@ MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm
 # Online to'lov (karta) — vaqtincha o'chirish/yoqish
 # .env da ONLINE_PAYMENT_ENABLED=1 qilib yoqish mumkin
 ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "0") == "1"
+
+# ── Restoran joylashuvi (yetkazish masofasi hisoblash uchun) ──────────
+# .env da RESTAURANT_LAT va RESTAURANT_LON ni to'g'rilang!
+RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.2995"))   # Toshkent (default)
+RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.2401"))   # Toshkent (default)
+
+# ── Masofaga qarab yetkazish narxi ───────────────────────────────────
+# Birinchi FREE_KM km → BASE_FEE; har qo'shimcha km → EXTRA_PER_KM
+DELIVERY_BASE_FEE      = int(os.getenv("DELIVERY_BASE_FEE", "10000"))    # 10,000 so'm
+DELIVERY_EXTRA_PER_KM  = int(os.getenv("DELIVERY_EXTRA_PER_KM", "2000")) # 2,000 so'm/km
+DELIVERY_FREE_KM       = float(os.getenv("DELIVERY_FREE_KM", "3.0"))     # 3 km gacha bepul
+
+# ── Kuryer telefoni (yetkazilmoqda xabarida ko'rsatiladi) ────────────
+COURIER_PHONE = os.getenv("COURIER_PHONE", "")   # misol: "+998901234567"

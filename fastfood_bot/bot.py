@@ -24,7 +24,9 @@ from handlers.order import register_order_handlers
 from handlers.admin import register_admin_handlers
 from handlers.profile import register_profile_handlers
 from handlers.dynamic_menu import register_dynamic_menu_handlers
-from handlers.payment import register_payment_handlers  # 💳 To'lov tizimi
+from handlers.payment import register_payment_handlers   # 💳 To'lov tizimi
+from handlers.webapp_menu import register_webapp_menu_handlers  # 🌐 WebApp menyu
+from handlers.feedback import register_feedback_handlers         # ⭐ Baholash tizimi
 
 # ── Self-ping: Render uxlab qolmasligi uchun ─────────────────────────
 RENDER_URL = os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com")
@@ -90,19 +92,63 @@ if __name__ == '__main__':
     register_admin_handlers(dp)
     register_profile_handlers(dp)
     register_dynamic_menu_handlers(dp)
-    register_payment_handlers(dp)    # 💳 To'lov tizimi (oxirida ro'yxatdan o'tkaziladi)
+    register_payment_handlers(dp)       # 💳 To'lov tizimi
+    register_webapp_menu_handlers(dp)   # 🌐 WebApp menyu (order DAN keyin)
+    register_feedback_handlers(dp)      # ⭐ Baholash tizimi (eng oxirida)
 
     # ── Health check web server ──────────────────────────────────────
     async def health_check(request):
         return web.Response(text="OK — Fast Food Bot is running! 🍔")
 
+    # ── REST API: WebApp uchun menyu ma'lumotlari ──────────────────
+    async def api_menu_handler(request):
+        """GET /api/menu — Barcha kategoriyalar va mahsulotlarni JSON da qaytaradi."""
+        try:
+            from database.crud import get_categories, get_products_by_category
+            categories = await get_categories()
+            result = []
+            for cat in categories:
+                products = await get_products_by_category(cat['id'])
+                active = [p for p in products if p.get('is_active', True) is not False]
+                if not active:
+                    continue
+                prod_list = []
+                for p in active:
+                    prod_list.append({
+                        "id":           p['id'],
+                        "name":         p.get('name') or '',
+                        "name_ru":      p.get('name_ru') or p.get('name') or '',
+                        "name_en":      p.get('name_en') or p.get('name') or '',
+                        "description":  p.get('description') or '',
+                        "price":        p['price'],
+                        "old_price":    p.get('old_price'),
+                        "image_url":    p.get('image_url') or '',
+                    })
+                result.append({
+                    "id":      cat['id'],
+                    "name":    cat.get('name') or '',
+                    "name_ru": cat.get('name_ru') or cat.get('name') or '',
+                    "name_en": cat.get('name_en') or cat.get('name') or '',
+                    "emoji":   cat.get('emoji') or '🍽',
+                    "products": prod_list,
+                })
+            headers = {
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-cache",
+            }
+            return web.json_response({"categories": result}, headers=headers)
+        except Exception as e:
+            logging.error(f"/api/menu xatosi: {e}", exc_info=True)
+            return web.json_response({"error": str(e)}, status=500)
+
     async def start_web_server():
         app = web.Application()
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
+        app.router.add_get('/api/menu', api_menu_handler)  # 🌐 WebApp API
 
         # ── WebApp (Telegram Mini App) uchun statik fayllar ─────
-        # map.html: Telegram WebApp sifatida xarita ko'rsatadi
+        # map.html: xarita, menu.html: interaktiv menyu
         webapp_dir = os.path.join(os.path.dirname(__file__), 'webapp')
         if os.path.isdir(webapp_dir):
             app.router.add_static('/webapp', webapp_dir, show_index=True)

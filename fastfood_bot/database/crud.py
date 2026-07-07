@@ -582,3 +582,39 @@ async def get_orders_for_export():
             FROM orders o LEFT JOIN users u ON o.user_id = u.user_id
             ORDER BY o.created_at DESC
         """)
+
+
+# ── Buyurtma baholash (Feedback) ──────────────────────────────────────
+
+async def save_order_rating(order_id: int, user_id: int, rating: int):
+    """
+    Buyurtma uchun yulduz bahosini saqlaydi.
+    Agar foydalanuvchi avval baholagan bo'lsa — yangilaydi.
+    """
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id FROM order_ratings WHERE order_id=$1 AND user_id=$2",
+            order_id, user_id
+        )
+        if existing:
+            await conn.execute(
+                "UPDATE order_ratings SET rating=$1 WHERE order_id=$2 AND user_id=$3",
+                rating, order_id, user_id
+            )
+        else:
+            await conn.execute(
+                "INSERT INTO order_ratings (order_id, user_id, rating) VALUES ($1,$2,$3)",
+                order_id, user_id, rating
+            )
+
+
+async def update_order_rating_comment(order_id: int, comment: str):
+    """Buyurtma bahosiga izoh qo'shadi yoki yangilaydi."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE order_ratings SET comment=$1 WHERE order_id=$2",
+            comment, order_id
+        )
+

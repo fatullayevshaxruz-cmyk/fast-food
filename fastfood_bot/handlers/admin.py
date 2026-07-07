@@ -235,13 +235,28 @@ async def admin_change_order_status(call: types.CallbackQuery):
                 "completed":  "order_completed_delivery",
                 "cancelled":  "order_cancelled_msg",
             }
-        key = status_keys.get(new_status)
-        if key:
-            msg = get_text(key, user_lang, id=order_id)
-            try:
-                await call.bot.send_message(user_id, msg, parse_mode="HTML")
-            except Exception:
-                pass
+        # ── Yangi: Chiroyli progress xabari yuborish ─────────────
+        from handlers.order_tracking import send_order_status_update
+        from config import COURIER_PHONE
+        asyncio.create_task(send_order_status_update(
+            bot=call.bot,
+            user_id=user_id,
+            order_id=order_id,
+            new_status=new_status,
+            lang=user_lang,
+            delivery_type=order.get('delivery_type', 'delivery'),
+            courier_phone=COURIER_PHONE if new_status == "delivering" else None,
+        ))
+
+        # ── Buyurtma tugaganda baholash so'rovi (3 sek delay bilan) ─
+        if new_status == "completed":
+            from handlers.feedback import send_feedback_request
+
+            async def _send_fb_delayed():
+                await asyncio.sleep(3)
+                await send_feedback_request(call.bot, user_id, order_id, user_lang)
+
+            asyncio.create_task(_send_fb_delayed())
 
     # Sahifani yangilash
     call.data = f"adm_order_{order_id}"

@@ -62,3 +62,6 @@ class PromoCodeStates(StatesGroup):
     waiting_code            = State()
     waiting_discount        = State()
     waiting_max_uses        = State()
+
+class FeedbackStates(StatesGroup):
+    waiting_comment         = State()   # Past baho (1-3 ⭐) dan keyin sabab so'rash

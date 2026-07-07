@@ -1360,7 +1360,263 @@ TRANSLATIONS = {
         "ru": "<i>💡 Переводы необязательны — если не заполните, будет показан узбекский текст.</i>",
         "en": "<i>💡 Translations are optional — Uzbek text will be shown if left empty.</i>",
     },
+
+    # ── Buyurtma holati kuzatish (Order Tracking) ─────────────────────
+    "tracking_pending": {
+        "uz": (
+            "📦 <b>Buyurtma #{id} qabul qilindi!</b>\n\n"
+            "{progress}\n\n"
+            "⏳ <b>Kutilmoqda</b> — tez orada tayyorlanishga boshlanadi.\n"
+            "<i>Sizga yangilanish xabari yuboramiz!</i>"
+        ),
+        "ru": (
+            "📦 <b>Заказ #{id} принят!</b>\n\n"
+            "{progress}\n\n"
+            "⏳ <b>Ожидание</b> — скоро начнём готовить.\n"
+            "<i>Мы пришлём вам обновление!</i>"
+        ),
+        "en": (
+            "📦 <b>Order #{id} received!</b>\n\n"
+            "{progress}\n\n"
+            "⏳ <b>Pending</b> — will be prepared soon.\n"
+            "<i>We'll send you an update!</i>"
+        ),
+    },
+    "tracking_preparing": {
+        "uz": (
+            "🍳 <b>Buyurtma #{id} tayyorlanmoqda!</b>\n\n"
+            "{progress}\n\n"
+            "🍳 <b>Tayyorlanmoqda</b> — oshpazlarimiz ishlayapti.\n"
+            "<i>Biroz sabr qiling 😊</i>"
+        ),
+        "ru": (
+            "🍳 <b>Заказ #{id} готовится!</b>\n\n"
+            "{progress}\n\n"
+            "🍳 <b>Готовится</b> — наши повара работают.\n"
+            "<i>Немного терпения 😊</i>"
+        ),
+        "en": (
+            "🍳 <b>Order #{id} is being prepared!</b>\n\n"
+            "{progress}\n\n"
+            "🍳 <b>Preparing</b> — our chefs are at work.\n"
+            "<i>Just a moment 😊</i>"
+        ),
+    },
+    "tracking_preparing_eat_in": {
+        "uz": (
+            "🍳 <b>Buyurtma #{id} tayyorlanmoqda!</b>\n\n"
+            "{progress}\n\n"
+            "🍳 <b>Tayyorlanmoqda</b> — oshpazlarimiz ishlayapti.\n"
+            "<i>Biroz sabr qiling 😊</i>"
+        ),
+        "ru": (
+            "🍳 <b>Заказ #{id} готовится!</b>\n\n"
+            "{progress}\n\n"
+            "🍳 <b>Готовится</b> — наши повара работают.\n"
+            "<i>Немного терпения 😊</i>"
+        ),
+        "en": (
+            "🍳 <b>Order #{id} is being prepared!</b>\n\n"
+            "{progress}\n\n"
+            "🍳 <b>Preparing</b> — our chefs are at work.\n"
+            "<i>Just a moment 😊</i>"
+        ),
+    },
+    "tracking_delivering": {
+        "uz": (
+            "🛵 <b>Buyurtma #{id} yo'lda!</b>\n\n"
+            "{progress}\n\n"
+            "🛵 <b>Yetkazilmoqda</b> — kuryer buyurtmangizni olib kelmoqda!"
+        ),
+        "ru": (
+            "🛵 <b>Заказ #{id} в пути!</b>\n\n"
+            "{progress}\n\n"
+            "🛵 <b>В доставке</b> — курьер везёт ваш заказ!"
+        ),
+        "en": (
+            "🛵 <b>Order #{id} is on the way!</b>\n\n"
+            "{progress}\n\n"
+            "🛵 <b>Out for delivery</b> — courier is bringing your order!"
+        ),
+    },
+    "tracking_delivering_eat_in": {
+        "uz": (
+            "🍽️ <b>Buyurtma #{id} stolingizga keltirilyapti!</b>\n\n"
+            "{progress}\n\n"
+            "🍽️ <b>Keltirilyapti</b> — xizmatchi stolingizga olib kelmoqda!"
+        ),
+        "ru": (
+            "🍽️ <b>Заказ #{id} подаётся к столу!</b>\n\n"
+            "{progress}\n\n"
+            "🍽️ <b>Подаётся</b> — официант несёт ваш заказ!"
+        ),
+        "en": (
+            "🍽️ <b>Order #{id} is being served!</b>\n\n"
+            "{progress}\n\n"
+            "🍽️ <b>Serving</b> — your order is being brought to your table!"
+        ),
+    },
+    "tracking_completed": {
+        "uz": (
+            "✅ <b>Buyurtma #{id} yetkazildi!</b>\n\n"
+            "{progress}\n\n"
+            "✅ <b>Yakunlandi</b> — buyurtmangiz muvaffaqiyatli yetkazildi.\n"
+            "Ishtaha ochiq bo'lsin! 😋"
+        ),
+        "ru": (
+            "✅ <b>Заказ #{id} доставлен!</b>\n\n"
+            "{progress}\n\n"
+            "✅ <b>Завершён</b> — ваш заказ успешно доставлен.\n"
+            "Приятного аппетита! 😋"
+        ),
+        "en": (
+            "✅ <b>Order #{id} delivered!</b>\n\n"
+            "{progress}\n\n"
+            "✅ <b>Completed</b> — your order has been delivered.\n"
+            "Enjoy your meal! 😋"
+        ),
+    },
+    "tracking_completed_eat_in": {
+        "uz": (
+            "✅ <b>Buyurtma #{id} tayyor!</b>\n\n"
+            "{progress}\n\n"
+            "✅ <b>Yakunlandi</b> — taomingiz stolingizga qo'yildi.\n"
+            "Ishtaha ochiq bo'lsin! 😋"
+        ),
+        "ru": (
+            "✅ <b>Заказ #{id} готов!</b>\n\n"
+            "{progress}\n\n"
+            "✅ <b>Подан</b> — ваше блюдо на столе.\n"
+            "Приятного аппетита! 😋"
+        ),
+        "en": (
+            "✅ <b>Order #{id} ready!</b>\n\n"
+            "{progress}\n\n"
+            "✅ <b>Served</b> — your meal is on the table.\n"
+            "Enjoy your meal! 😋"
+        ),
+    },
+    "tracking_cancelled": {
+        "uz": (
+            "❌ <b>Buyurtma #{id} bekor qilindi</b>\n\n"
+            "{progress}\n\n"
+            "Afsuski, buyurtmangiz bekor qilindi.\n"
+            "Agar savollaringiz bo'lsa, biz bilan bog'laning."
+        ),
+        "ru": (
+            "❌ <b>Заказ #{id} отменён</b>\n\n"
+            "{progress}\n\n"
+            "К сожалению, ваш заказ отменён.\n"
+            "Если есть вопросы — свяжитесь с нами."
+        ),
+        "en": (
+            "❌ <b>Order #{id} cancelled</b>\n\n"
+            "{progress}\n\n"
+            "Unfortunately, your order has been cancelled.\n"
+            "Contact us if you have any questions."
+        ),
+    },
+    "tracking_courier_phone": {
+        "uz": "📞 Kuryer bilan bog'lanish:",
+        "ru": "📞 Связаться с курьером:",
+        "en": "📞 Contact the courier:",
+    },
+
+    # ── Baholash tizimi (Feedback / Rating) ───────────────────────────
+    "feedback_request": {
+        "uz": (
+            "😊 <b>Buyurtma #{id} yetkazildi!</b>\n\n"
+            "Xizmatimizni baholang — sizning fikringiz bizga juda muhim! 🙏\n\n"
+            "Quyidagi yulduzlardan birini tanlang:"
+        ),
+        "ru": (
+            "😊 <b>Заказ #{id} доставлен!</b>\n\n"
+            "Оцените наш сервис — ваше мнение очень важно для нас! 🙏\n\n"
+            "Выберите одну из звёзд:"
+        ),
+        "en": (
+            "😊 <b>Order #{id} delivered!</b>\n\n"
+            "Rate our service — your feedback means a lot to us! 🙏\n\n"
+            "Select a star rating:"
+        ),
+    },
+    "feedback_thanks_high": {
+        "uz": "🎉 Rahmat! {stars}\n\nSizning ijobiy bahongiz bizni yanada yaxshi ishlashga undaydi! ❤️",
+        "ru": "🎉 Спасибо! {stars}\n\nВаша высокая оценка вдохновляет нас работать ещё лучше! ❤️",
+        "en": "🎉 Thank you! {stars}\n\nYour positive rating inspires us to do even better! ❤️",
+    },
+    "feedback_ask_comment": {
+        "uz": (
+            "😔 {stars}\n\n"
+            "Afsuski xizmatimiz sizga to'liq yoqmadi.\n"
+            "Nima yaxshilanishi kerak edi?\n\n"
+            "<i>O'tkazib yuborish uchun — quyidagi tugmani bosing.</i>"
+        ),
+        "ru": (
+            "😔 {stars}\n\n"
+            "Жаль, что наш сервис вас не устроил.\n"
+            "Что можно улучшить?\n\n"
+            "<i>Чтобы пропустить — нажмите кнопку ниже.</i>"
+        ),
+        "en": (
+            "😔 {stars}\n\n"
+            "Sorry to hear that. What could we improve?\n\n"
+            "<i>To skip — press the button below.</i>"
+        ),
+    },
+    "feedback_thanks_low": {
+        "uz": (
+            "🙏 Fikringiz uchun katta rahmat!\n\n"
+            "Muammoni bartaraf etishga harakat qilamiz.\n"
+            "Keyingi safar yanada yaxshi xizmat ko'rsatamiz! 💪"
+        ),
+        "ru": (
+            "🙏 Большое спасибо за отзыв!\n\n"
+            "Постараемся устранить проблему.\n"
+            "В следующий раз обслужим ещё лучше! 💪"
+        ),
+        "en": (
+            "🙏 Thank you for your feedback!\n\n"
+            "We'll work on improving the experience.\n"
+            "Next time will be even better! 💪"
+        ),
+    },
+    "feedback_skipped": {
+        "uz": "Tushunarli! Keyingi safar baholashingizni kutamiz 😊",
+        "ru": "Понятно! Ждём вашей оценки в следующий раз 😊",
+        "en": "Got it! We look forward to your rating next time 😊",
+    },
+
+    # ── WebApp interaktiv menyu ───────────────────────────────────────
+    "btn_web_menu": {
+        "uz": "🌐 Tezkor buyurtma",
+        "ru": "🌐 Быстрый заказ",
+        "en": "🌐 Quick Order",
+    },
+    "webapp_cart_received": {
+        "uz": (
+            "✅ <b>Savat qabul qilindi!</b>\n\n"
+            "WebApp dan tanlangan mahsulotlar savatga qo'shildi.\n\n"
+            "📦 Davom etish uchun yetkazish turini tanlang:"
+        ),
+        "ru": (
+            "✅ <b>Корзина получена!</b>\n\n"
+            "Товары из WebApp добавлены в корзину.\n\n"
+            "📦 Выберите тип доставки для продолжения:"
+        ),
+        "en": (
+            "✅ <b>Cart received!</b>\n\n"
+            "Items from WebApp added to your cart.\n\n"
+            "📦 Select delivery type to continue:"
+        ),
+    },
+    "webapp_cart_empty": {
+        "uz": "❌ Savat bo'sh yoki xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.",
+        "ru": "❌ Корзина пуста или произошла ошибка. Пожалуйста, попробуйте снова.",
+        "en": "❌ Cart is empty or an error occurred. Please try again.",
+    },
 }
+
 
 
 def get_text(key: str, lang: str = "uz", **kwargs) -> str:
