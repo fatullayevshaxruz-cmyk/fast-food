@@ -38,8 +38,8 @@ ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "0") == "1"
 
 # ── Restoran joylashuvi (yetkazish masofasi hisoblash uchun) ──────────
 # .env da RESTAURANT_LAT va RESTAURANT_LON ni to'g'rilang!
-RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.2995"))   # Toshkent (default)
-RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.2401"))   # Toshkent (default)
+RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.2995").replace(",", "."))
+RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.2401").replace(",", "."))
 
 # ── Masofaga qarab yetkazish narxi ───────────────────────────────────
 # Birinchi FREE_KM km → BASE_FEE; har qo'shimcha km → EXTRA_PER_KM
