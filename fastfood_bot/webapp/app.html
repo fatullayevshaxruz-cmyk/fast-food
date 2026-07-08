@@ -336,12 +336,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
         <input id="eaddr" class="tin" type="text" placeholder="Masalan: Stol 5, yoki 2-qavat...">
       </div>
 
-      <button class="cob" style="margin-top:14px" onclick="gstep('pay')">Davom etish →</button>
+      <button class="cob" style="margin-top:14px" onclick="gstep('phone-confirm')">Davom etish →</button>
+    </div>
+
+    <!-- Step: phone confirm -->
+    <div id="st-phone-confirm" class="step">
+      <button class="bk" onclick="gstep('addr')">← Ortga</button>
+      <div class="stit">📞 Telefon raqami</div>
+      <div style="font-size:13px;color:var(--hint);margin-bottom:12px">Buyurtma uchun telefon raqamingizni tasdiqlang:</div>
+      
+      <div style="background:var(--sec);padding:14px;border-radius:12px;margin-bottom:16px;text-align:center">
+        <div style="font-size:12px;color:var(--hint);margin-bottom:4px">Profil raqamingiz:</div>
+        <div id="confirm-phone-val" style="font-size:18px;font-weight:700;color:var(--accent)">+998 ...</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+        <button id="btn-own-phone" class="cob" style="margin-top:0;background:var(--green)" onclick="confirmOwnPhone()">✅ O'zining raqami</button>
+        <button class="cob" style="margin-top:0;background:var(--blue)" onclick="changeToOtherPhone()">✏️ Boshqa raqam</button>
+      </div>
+
+      <div id="other-phone-section" style="display:none;background:var(--sec);padding:14px;border-radius:12px;margin-bottom:14px">
+        <div style="font-weight:600;margin-bottom:8px;font-size:13px">📱 Yangi telefon raqamini kiriting:</div>
+        <input id="other-phone-inp" class="tin" type="tel" placeholder="+998 90 123 45 67">
+        <button class="cob" style="width:100%;margin-top:10px" onclick="saveAndConfirmOtherPhone()">Saqlash va davom etish</button>
+      </div>
     </div>
 
     <!-- Step: payment -->
     <div id="st-pay" class="step">
-      <button class="bk" onclick="gstep('addr')">← Ortga</button>
+      <button class="bk" onclick="gstep('phone-confirm')">← Ortga</button>
       <div class="stit">💳 To'lov</div>
       <div class="po">
         <div class="pob on" id="p-cash" onclick="selPay('cash')">💵 Naqd pul</div>
@@ -385,7 +408,7 @@ let payMeth = 'cash';
 let addrType = 'gps';
 let savedLat = null, savedLon = null;
 let discount = 0, promoCode = '';
-let savedPhone = '';
+let savedPhone = localStorage.getItem('user_phone') || '';
 const DEF_FEE = 10000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -412,8 +435,9 @@ async function boot(){
           isAdmin=u.is_admin;
           $('av').textContent=(u.name||'?')[0].toUpperCase();
           $('un').textContent=u.name||'Foydalanuvchi';
-          $('up').textContent=u.phone||'Telefon raqam yo\'q';
-          savedPhone=u.phone||'';
+          savedPhone=u.phone||savedPhone;
+          if(savedPhone) localStorage.setItem('user_phone', savedPhone);
+          $('up').textContent=savedPhone||'Telefon raqam yo\'q';
           if(isAdmin) $('alink').style.display='block';
           renderOrds(pd.orders||[]);
         }
@@ -587,6 +611,7 @@ async function savePhone(){
     await POST('/api/profile/update',{user_id:uid,phone:ph});
     $('up').textContent=ph;
     savedPhone=ph;
+    localStorage.setItem('user_phone', ph);
     tglPhone();
     tg.HapticFeedback&&tg.HapticFeedback.notificationOccurred('success');
   }catch(e){ alert('Saqlashda xato yuz berdi'); }
@@ -689,6 +714,42 @@ function gstep(s){
   $('sheet').scrollTop=0;
   if(s==='pay') updPaySum();
   if(s==='addr') setupAddr();
+  if(s==='phone-confirm'){
+    $('confirm-phone-val').textContent = savedPhone || 'Kiritilmagan';
+    $('btn-own-phone').style.display = savedPhone ? 'block' : 'none';
+    $('other-phone-section').style.display = 'none';
+    $('other-phone-inp').value = '';
+  }
+}
+
+function confirmOwnPhone(){
+  if(!savedPhone){
+    alert('Profil raqamingiz topilmadi, iltimos boshqa raqam kiriting.');
+    return;
+  }
+  gstep('pay');
+}
+
+function changeToOtherPhone(){
+  $('other-phone-section').style.display = 'block';
+  $('other-phone-inp').value = savedPhone || '';
+}
+
+async function saveAndConfirmOtherPhone(){
+  const ph = $('other-phone-inp').value.trim();
+  if(!ph){
+    alert('Iltimos telefon raqamini kiriting!');
+    return;
+  }
+  try {
+    await POST('/api/profile/update', {user_id: uid, phone: ph});
+    savedPhone = ph;
+    localStorage.setItem('user_phone', ph);
+    $('up').textContent = ph;
+    gstep('pay');
+  } catch(e) {
+    alert('Telefon raqamini saqlashda xato yuz berdi.');
+  }
 }
 
 function renderCart(){
