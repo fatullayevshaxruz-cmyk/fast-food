@@ -1,12 +1,11 @@
 import logging
 from aiohttp import web
-import json
 from config import ADMIN_ID
 from database.crud import (
     get_user, get_user_orders, get_favorites, toggle_favorite,
     search_products, get_today_stats, get_all_orders, update_order_status,
     add_product, update_product_image, get_categories, get_products_by_category,
-    delete_promo_code
+    delete_promo_code, get_promo_code, check_user_promo_used, update_user_phone
 )
 from database.connection import get_db_pool
 
@@ -265,30 +264,73 @@ async def api_admin_categories(request):
         logging.error(f"/api/admin/categories error: {e}")
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
+async def api_profile_update(request):
+    try:
+        data = await request.json()
+        user_id = int(data.get('user_id', 0))
+        if not user_id:
+            return add_cors_headers(web.json_response({'error': 'Missing user_id'}, status=400))
+        phone = data.get('phone', '').strip()
+        if phone:
+            await update_user_phone(user_id, phone)
+        return add_cors_headers(web.json_response({'success': True}))
+    except Exception as e:
+        logging.error(f'/api/profile/update error: {e}')
+        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+
+
+async def api_promo_check(request):
+    try:
+        code = request.query.get('code', '').strip().upper()
+        user_id = int(request.query.get('user_id', 0))
+        if not code:
+            return add_cors_headers(web.json_response({'valid': False}))
+        promo = await get_promo_code(code)
+        if not promo:
+            return add_cors_headers(web.json_response({'valid': False}))
+        promo_dict = dict(promo)
+        if promo_dict.get('max_uses', 0) > 0 and promo_dict.get('used_count', 0) >= promo_dict['max_uses']:
+            return add_cors_headers(web.json_response({'valid': False, 'reason': 'Limit'}))
+        return add_cors_headers(web.json_response({
+            'valid': True,
+            'discount_percent': promo_dict.get('discount_percent', 0),
+            'code': code
+        }))
+    except Exception as e:
+        logging.error(f'/api/promo error: {e}')
+        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+
+
 def register_webapp_api(app: web.Application):
     app.router.add_options('/api/user', options_handler)
     app.router.add_get('/api/user', api_user_profile)
-    
+
+    app.router.add_options('/api/profile/update', options_handler)
+    app.router.add_post('/api/profile/update', api_profile_update)
+
     app.router.add_options('/api/favorites', options_handler)
     app.router.add_get('/api/favorites', api_favorites)
-    
+
     app.router.add_options('/api/favorites/toggle', options_handler)
     app.router.add_post('/api/favorites/toggle', api_favorites_toggle)
-    
+
     app.router.add_options('/api/search', options_handler)
     app.router.add_get('/api/search', api_search)
-    
+
+    app.router.add_options('/api/promo', options_handler)
+    app.router.add_get('/api/promo', api_promo_check)
+
     app.router.add_options('/api/admin/dashboard', options_handler)
     app.router.add_get('/api/admin/dashboard', api_admin_dashboard)
-    
+
     app.router.add_options('/api/admin/orders', options_handler)
     app.router.add_get('/api/admin/orders', api_admin_orders)
-    
+
     app.router.add_options('/api/admin/order/status', options_handler)
     app.router.add_post('/api/admin/order/status', api_admin_order_status)
-    
+
     app.router.add_options('/api/admin/products', options_handler)
     app.router.add_post('/api/admin/products', api_admin_products)
-    
+
     app.router.add_options('/api/admin/categories', options_handler)
     app.router.add_post('/api/admin/categories', api_admin_categories)

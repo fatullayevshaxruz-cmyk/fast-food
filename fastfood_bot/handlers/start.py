@@ -65,11 +65,11 @@ async def process_language_choice(message: types.Message, state: FSMContext):
     inline_kb = InlineKeyboardMarkup(row_width=1)
     inline_kb.add(
         InlineKeyboardButton(
-            text="🌐 WebApp",
+            text="🌐 Menu ilova",
             web_app=WebAppInfo(url=webapp_url)
         ),
         InlineKeyboardButton(
-            text="📱 Oddiy menu",
+            text="📱 Menu",
             callback_data="show_regular_menu"
         )
     )
