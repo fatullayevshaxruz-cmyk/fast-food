@@ -6,6 +6,8 @@
 <title>Fast Food</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root{
   --bg:var(--tg-theme-bg-color,#fff);
@@ -306,7 +308,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
         </div>
         <div class="aob" id="ao-map" onclick="selAddr('map')">
           <div class="ai">🗺</div>
-          <div class="aoc"><div class="aot">Xarita orqali</div><div class="aod">Koordinatalar bilan aniq manzil</div></div>
+          <div class="aoc"><div class="aot">Xaritadan tanlash</div><div class="aod">Aniq manzilni xaritada belgilash</div></div>
         </div>
       </div>
 
@@ -324,13 +326,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 
       <!-- Map section -->
       <div id="sec-map" class="addr-section">
-        <div style="font-size:13px;color:var(--hint);margin-bottom:10px">Telegram da lokatsiya xaritasini oching va koordinatlarni nusxa ko'chiring:</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-          <div><div style="font-size:12px;color:var(--hint);margin-bottom:4px">Latitude:</div><input id="mlat" class="tin" type="number" step="0.0001" placeholder="41.2995"></div>
-          <div><div style="font-size:12px;color:var(--hint);margin-bottom:4px">Longitude:</div><input id="mlon" class="tin" type="number" step="0.0001" placeholder="69.2401"></div>
-        </div>
-        <button class="loc-btn" style="background:var(--green)" onclick="confirmMap()">🗺 Manzilni tasdiqlash</button>
-        <div id="map-addr" style="font-size:13px;color:var(--text);margin-top:8px;display:none"></div>
+        <div style="font-size:13px;color:var(--hint);margin-bottom:10px">Xaritadan buyurtma yetkaziladigan joyni belgilang (markerni suring):</div>
+        <div id="map-canvas" style="width:100%;height:240px;border-radius:12px;margin-bottom:10px;border:1.5px solid var(--sec);position:relative;z-index:10"></div>
+        <div id="map-addr" style="font-size:13px;color:var(--text);margin-top:8px;line-height:1.4;font-weight:600"></div>
       </div>
 
       <!-- Eat-in note section -->
@@ -725,6 +723,7 @@ function selAddr(t){
     $('ao-'+x).classList.toggle('on',x===t);
     $('sec-'+x).classList.toggle('on',x===t);
   });
+  if(t==='map') initLeafletMap();
 }
 
 // GPS location
@@ -751,14 +750,76 @@ async function getGPS(){
   );
 }
 
-// Map coords
-async function confirmMap(){
-  const lat=parseFloat($('mlat').value);
-  const lon=parseFloat($('mlon').value);
-  if(isNaN(lat)||isNaN(lon)){ alert('Koordinatalarni to\'g\'ri kiriting!'); return; }
-  savedLat=lat; savedLon=lon;
-  $('map-addr').style.display='block';
-  $('map-addr').textContent=`✅ Koordinata saqlandi: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+// Leaflet Map Logic
+let leafletMap = null;
+let leafletMarker = null;
+window.mapAddressText = '';
+
+function initLeafletMap() {
+  if (leafletMap) {
+    setTimeout(() => {
+      leafletMap.invalidateSize();
+    }, 150);
+    return;
+  }
+
+  // Toshkent koordinatalari default
+  const defaultLat = 41.31108;
+  const defaultLon = 69.24056;
+
+  // Xaritani yaratish
+  leafletMap = L.map('map-canvas').setView([defaultLat, defaultLon], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(leafletMap);
+
+  // Marker yaratish
+  leafletMarker = L.marker([defaultLat, defaultLon], { draggable: true }).addTo(leafletMap);
+
+  // Markerni default koordinata sifatida saqlaymiz
+  savedLat = defaultLat;
+  savedLon = defaultLon;
+  updateMapAddress(defaultLat, defaultLon);
+
+  // Marker surilganda koordinatalarni saqlash va manzilni geocode qilish
+  leafletMarker.on('dragend', function (e) {
+    const latlng = leafletMarker.getLatLng();
+    savedLat = latlng.lat;
+    savedLon = latlng.lng;
+    updateMapAddress(savedLat, savedLon);
+  });
+
+  // Xarita bosilganda markerni o'sha yerga ko'chirish
+  leafletMap.on('click', function (e) {
+    leafletMarker.setLatLng(e.latlng);
+    savedLat = e.latlng.lat;
+    savedLon = e.latlng.lng;
+    updateMapAddress(savedLat, savedLon);
+  });
+}
+
+async function updateMapAddress(lat, lon) {
+  const el = $('map-addr');
+  el.style.display = 'block';
+  el.innerHTML = '<span style="color:var(--hint)">🔍 Manzil aniqlanmoqda...</span>';
+  
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=17&addressdetails=1&accept-language=uz`);
+    if (res.ok) {
+      const data = await res.json();
+      const display_name = data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      el.textContent = display_name;
+      window.mapAddressText = display_name;
+    } else {
+      el.textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      window.mapAddressText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+  } catch (e) {
+    el.textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    window.mapAddressText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  }
 }
 
 function getAddress(){
@@ -768,7 +829,7 @@ function getAddress(){
   }
   if(addrType==='gps') return { addr:`${savedLat?.toFixed(4)||''}, ${savedLon?.toFixed(4)||''}`, lat:savedLat, lon:savedLon };
   if(addrType==='text') return { addr:$('taddr').value.trim(), lat:null, lon:null };
-  if(addrType==='map') return { addr:`${savedLat?.toFixed(4)||''}, ${savedLon?.toFixed(4)||''}`, lat:savedLat, lon:savedLon };
+  if(addrType==='map') return { addr: window.mapAddressText || `${savedLat?.toFixed(4)||''}, ${savedLon?.toFixed(4)||''}`, lat:savedLat, lon:savedLon };
   return { addr:'', lat:null, lon:null };
 }
 

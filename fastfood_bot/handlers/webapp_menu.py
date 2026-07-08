@@ -21,7 +21,7 @@ from aiogram.types import ContentTypes
 from database.crud import (
     clear_cart, add_to_cart, get_cart_items, create_order,
     add_order_items, get_user_language, get_user, use_promo_code,
-    get_promo_code, check_user_promo_used
+    get_promo_code, check_user_promo_used, get_product_name
 )
 from utils.helpers import notify_admins_new_order
 from utils.i18n import get_text
@@ -102,10 +102,11 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
             return
 
         # ── 2. Savat ma'lumotlarini olish ────────────────────────────
-        items = await get_cart_items(user_id)
-        if not items:
+        raw_items = await get_cart_items(user_id)
+        if not raw_items:
             await message.answer(get_text("webapp_cart_empty", lang))
             return
+        items = [dict(i) for i in raw_items]
 
         delivery_type  = data.get("delivery_type", "delivery")
         address        = data.get("address", "")
@@ -207,38 +208,31 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         ))
 
         # ── 9. Mijozga chek ───────────────────────────────────────────
-        def _fmt(n): return f"{n:,}".replace(",", " ")
-
-        receipt_lines = "".join(
-            f"  ▫️ {i['name']} × {i['quantity']} = {_fmt(i['price'] * i['quantity'])} so'm\n"
+        receipt = "".join(
+            get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
+                     total=i['price'] * i['quantity']) + "\n"
             for i in items
         )
 
-        discount_line = ""
-        if discount_amt > 0:
-            discount_line = f"\n🎁 <b>Chegirma ({discount_pct}%):</b> -{_fmt(discount_amt)} so'm"
+        discount_text = (get_text("promo_line", lang, code=promo_code, amt=discount_amt)
+                         if discount_amt > 0 else "")
 
         if delivery_type == "eat_in":
-            success_text = (
-                f"✅ <b>Buyurtma #{order_id} qabul qilindi!</b>\n\n"
-                f"🍽 <b>Turi:</b> Shu yerda\n"
-                f"📍 <b>Manzil:</b> {address}\n\n"
-                f"🍛 <b>Buyurtma:</b>\n{receipt_lines}"
-                f"{discount_line}\n"
-                f"💰 <b>Jami:</b> {_fmt(total_amount)} so'm\n\n"
-                f"🕐 Tez orada tayyorlanadi!"
-            )
+            success_text = get_text("order_success_eat_in", lang,
+                                    order_id=order_id,
+                                    address=address,
+                                    receipt=receipt,
+                                    discount=discount_text,
+                                    total=after_discount,
+                                    note="")
         else:
-            success_text = (
-                f"✅ <b>Buyurtma #{order_id} qabul qilindi!</b>\n\n"
-                f"🛵 <b>Turi:</b> Yetkazib berish\n"
-                f"📍 <b>Manzil:</b> {address}\n\n"
-                f"🍛 <b>Buyurtma:</b>\n{receipt_lines}"
-                f"{discount_line}\n"
-                f"🚚 <b>Yetkazish:</b> {_fmt(delivery_fee_val)} so'm\n"
-                f"💰 <b>Jami:</b> {_fmt(total_amount)} so'm\n\n"
-                f"🕐 Tez orada yetkazib beramiz!"
-            )
+            success_text = get_text("order_success_delivery", lang,
+                                    order_id=order_id,
+                                    receipt=receipt,
+                                    discount=discount_text,
+                                    delivery_fee=delivery_fee_val,
+                                    total=total_amount,
+                                    note="")
 
         await message.answer(
             success_text,
