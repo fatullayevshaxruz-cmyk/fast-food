@@ -54,7 +54,7 @@ async def api_user_profile(request):
             
         return add_cors_headers(web.json_response({
             "user": {
-                "id": user_dict['user_id'],
+                "id": str(user_dict['user_id']),
                 "name": user_dict.get('full_name') or user_dict.get('username') or 'User',
                 "phone": user_dict.get('phone_number') or '',
                 "lang": user_dict.get('language') or 'uz',

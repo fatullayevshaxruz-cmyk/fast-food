@@ -396,7 +396,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 const tg = window.Telegram.WebApp;
 tg.expand();
 const API = window.location.origin;
-const uid = tg.initDataUnsafe?.user?.id || 0;
+let uid = tg.initDataUnsafe?.user?.id || 0;
+if(uid) {
+  localStorage.setItem('tg_uid', uid);
+} else {
+  uid = parseInt(localStorage.getItem('tg_uid') || '0');
+}
 
 // ─── State ────────────────────────────────────────────────────────────
 let cats = [];
