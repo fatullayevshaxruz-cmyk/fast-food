@@ -626,7 +626,18 @@ function renderOrds(ords){
   const el=$('uords');
   if(!ords.length){ el.innerHTML='<div class="es"><div class="ei">📦</div>Hali buyurtmalar yo\'q</div>'; return; }
   el.innerHTML=ords.slice(0,20).map(o=>{
-    const dt=o.created_at?new Date(o.created_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    let dt = '';
+    try {
+      if(o.created_at) {
+        const cleanDt = o.created_at.replace(' ', 'T');
+        dt = new Date(cleanDt).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+        if(dt === 'Invalid Date' || dt.includes('NaN')) {
+          dt = o.created_at.split('.')[0] || o.created_at;
+        }
+      }
+    } catch(e) {
+      dt = o.created_at || '';
+    }
     return `<div class="oc"><div class="or"><span class="oid">#${o.id}</span><span class="badge ${badgeCls(o.status)}">${badgeTxt(o.status)}</span></div><div class="od">${dt}</div><div class="ot">${fmt(o.total_amount)} so'm</div></div>`;
   }).join('');
 }

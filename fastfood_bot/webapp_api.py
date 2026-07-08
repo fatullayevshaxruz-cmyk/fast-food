@@ -35,35 +35,36 @@ async def api_user_profile(request):
         pool = await get_db_pool()
         async with pool.acquire() as conn:
             user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
-        
-        if not user:
-            return add_cors_headers(web.json_response({"error": "User not found"}, status=404))
+            if not user:
+                return add_cors_headers(web.json_response({"error": "User not found"}, status=404))
             
-        orders = await get_user_orders(user_id, limit=50)
-        
-        user_dict = dict(user)
-        orders_list = []
-        for o in orders:
-            o_dict = dict(o)
-            # Fetch order items
-            async with pool.acquire() as conn:
+            orders = await conn.fetch("""
+                SELECT * FROM orders 
+                WHERE user_id = $1 
+                ORDER BY created_at DESC 
+                LIMIT 50
+            """, user_id)
+            
+            user_dict = dict(user)
+            orders_list = []
+            for o in orders:
+                o_dict = dict(o)
                 items = await conn.fetch("SELECT * FROM order_items WHERE order_id = $1", o_dict['id'])
-                items_list = [dict(i) for i in items]
-                o_dict['items'] = items_list
-            orders_list.append(o_dict)
+                o_dict['items'] = [dict(i) for i in items]
+                orders_list.append(o_dict)
             
-        return add_cors_headers(web.json_response({
-            "user": {
-                "id": str(user_dict['user_id']),
-                "name": user_dict.get('full_name') or user_dict.get('username') or 'User',
-                "phone": user_dict.get('phone_number') or '',
-                "lang": user_dict.get('language') or 'uz',
-                "is_admin": _is_admin(user_id)
-            },
-            "orders": orders_list
-        }, default=str))
+            return add_cors_headers(web.json_response({
+                "user": {
+                    "id": str(user_dict['user_id']),
+                    "name": user_dict.get('full_name') or user_dict.get('username') or 'User',
+                    "phone": user_dict.get('phone_number') or '',
+                    "lang": user_dict.get('language') or 'uz',
+                    "is_admin": _is_admin(user_id)
+                },
+                "orders": orders_list
+            }, default=str))
     except Exception as e:
-        logging.error(f"/api/user error: {e}")
+        logging.error(f"/api/user error: {e}", exc_info=True)
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
 async def api_favorites(request):
