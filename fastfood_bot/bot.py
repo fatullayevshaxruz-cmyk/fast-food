@@ -177,6 +177,8 @@ if __name__ == '__main__':
 
     async def start_web_server():
         app = web.Application()
+        app['bot'] = bot
+        app['dp'] = dp
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
         app.router.add_get('/api/menu', api_menu_handler)   # 🌐 WebApp menyu API

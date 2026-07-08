@@ -879,18 +879,38 @@ async function placeOrder(){
 
   const items=Object.values(cart).map(i=>({product_id:i.id,quantity:i.qty}));
   const payload={
-    type:'webapp_cart',
+    user_id: uid,
     items,
     delivery_type: dlvType,
     address: addr||'Manzil kiritilmagan',
     payment_method: payMeth==='cash'?'Naqd (Yetkazib berilganda)':'Karta',
     promo_code: promoCode||null,
-    lat, lon,
+    lat, lon
   };
 
-  tg.sendData(JSON.stringify(payload));
-  gstep('ok');
-  setTimeout(()=>{ closeM(); },3000);
+  const btn = document.querySelector('#st-pay .cob');
+  if(btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
+  
+  try {
+    const res = await POST('/api/order/create', payload);
+    if(res.success) {
+      gstep('ok');
+      cart = {};
+      updQty();
+      updBtn();
+      setTimeout(()=>{
+        closeM();
+        tg.close();
+      }, 3000);
+    } else {
+      alert(res.error || 'Buyurtma berishda xato yuz berdi');
+      if(btn) { btn.disabled = false; btn.textContent = '✅ Buyurtma berish'; }
+    }
+  } catch(e) {
+    console.error(e);
+    alert('Tarmoq xatosi. Iltimos qayta urinib ko\'ring.');
+    if(btn) { btn.disabled = false; btn.textContent = '✅ Buyurtma berish'; }
+  }
 }
 
 // Start
