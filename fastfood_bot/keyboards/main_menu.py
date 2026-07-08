@@ -4,7 +4,7 @@ from utils.i18n import get_text
 
 # WebApp menyu URL
 _RENDER_URL = os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com")
-MENU_WEBAPP_URL = f"{_RENDER_URL}/webapp/menu.html"
+MENU_WEBAPP_URL = f"{_RENDER_URL}/webapp/app.html"
 
 
 def get_language_keyboard() -> ReplyKeyboardMarkup:

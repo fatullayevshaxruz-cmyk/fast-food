@@ -54,11 +54,26 @@ async def process_language_choice(message: types.Message, state: FSMContext):
     await set_user_language(user.id, lang)
     await state.finish()
 
-    # Tanlangan til haqida tasdiqlash
-    await message.answer(get_text("language_selected", lang))
+    # Tanlangan til haqida tasdiqlash va ReplyKeyboard ni yashirish
+    from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
 
-    # Asosiy menyu (yangi WebApp tugmasi bilan)
-    keyboard = get_admin_main_menu(lang) if _is_admin(user.id) else get_user_main_menu(lang)
+    # WebApp URL
+    webapp_url = f"{MENU_WEBAPP_URL}?lang={lang}"
+
+    # Asosiy menyu uchun inline tugmalar
+    inline_kb = InlineKeyboardMarkup(row_width=1)
+    inline_kb.add(
+        InlineKeyboardButton(
+            text="🌐 WebApp",
+            web_app=WebAppInfo(url=webapp_url)
+        ),
+        InlineKeyboardButton(
+            text="📱 Oddiy menu",
+            callback_data="show_regular_menu"
+        )
+    )
+
     await message.answer(
         get_text("welcome", lang,
                  name=user.full_name,
@@ -66,7 +81,7 @@ async def process_language_choice(message: types.Message, state: FSMContext):
                  end=WORKING_HOURS_END,
                  fee=DELIVERY_FEE,
                  min_order=MIN_ORDER_AMOUNT),
-        reply_markup=keyboard,
+        reply_markup=inline_kb,
         parse_mode="HTML"
     )
 
@@ -143,10 +158,28 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
         await message.answer(get_text("no_active_action", lang))
 
 
+async def process_show_regular_menu_callback(call: types.CallbackQuery):
+    """'Oddiy menu' tugmasi bosilganda an'anaviy klaviaturani chiqaradi."""
+    await call.answer()
+    try:
+        lang = await get_user_language(call.from_user.id)
+    except Exception:
+        lang = "uz"
+
+    keyboard = get_admin_main_menu(lang) if _is_admin(call.from_user.id) else get_user_main_menu(lang)
+    labels = {
+        "uz": "📱 Oddiy menyu ochildi. Quyidagi klaviaturadan foydalaning:",
+        "ru": "📱 Обычное меню открыто. Используйте клавиатуру ниже:",
+        "en": "📱 Regular menu opened. Use the keyboard below:",
+    }
+    await call.message.answer(labels.get(lang, labels["uz"]), reply_markup=keyboard)
+
+
 def register_start_handlers(dp: Dispatcher):
     dp.register_message_handler(cmd_start, commands=['start'], state="*")
     dp.register_message_handler(process_language_choice,
                                 state=LanguageStates.choosing_language)
+    dp.register_callback_query_handler(process_show_regular_menu_callback, text="show_regular_menu", state="*")
     dp.register_message_handler(cmd_help, commands=['help'])
     dp.register_message_handler(cmd_cancel, commands=['cancel'], state="*")
     dp.register_message_handler(cmd_webapp, commands=['webapp'], state="*")           # 🌐 WebApp

@@ -181,12 +181,16 @@ if __name__ == '__main__':
         app.router.add_get('/health', health_check)
         app.router.add_get('/api/menu', api_menu_handler)   # 🌐 WebApp menyu API
         app.router.add_options('/api/menu', api_menu_handler)  # CORS preflight
+        
+        # ── Yangi SPA API larni ro'yxatdan o'tkazish ──
+        from webapp_api import register_webapp_api
+        register_webapp_api(app)
 
         # ── WebApp (Telegram Mini App) uchun statik fayllar ─────
         webapp_dir = os.path.join(os.path.dirname(__file__), 'webapp')
         if os.path.isdir(webapp_dir):
             app.router.add_static('/webapp', webapp_dir, show_index=True)
-            webapp_url = f"{RENDER_URL}/webapp/menu.html"
+            webapp_url = f"{RENDER_URL}/webapp/app.html"
             logging.info(f"🌐 WebApp menyu URL: {webapp_url}")
         else:
             logging.warning("⚠️  webapp/ papkasi topilmadi!")
