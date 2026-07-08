@@ -56,6 +56,8 @@ async def api_user_profile(request):
             orders_list = []
             for o in orders:
                 o_dict = dict(o)
+                if o_dict.get('created_at'):
+                    o_dict['created_at'] = str(o_dict['created_at'])
                 items = await conn.fetch("SELECT * FROM order_items WHERE order_id = $1", o_dict['id'])
                 o_dict['items'] = [dict(i) for i in items]
                 orders_list.append(o_dict)
@@ -69,7 +71,7 @@ async def api_user_profile(request):
                     "is_admin": _is_admin(user_id)
                 },
                 "orders": orders_list
-            }, default=str))
+            }))
     except Exception as e:
         logging.error(f"/api/user error: {e}", exc_info=True)
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
