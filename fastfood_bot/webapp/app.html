@@ -398,11 +398,11 @@ tg.expand();
 const API = window.location.origin;
 
 // ─── LocalStorage User ID persistence ──────────────────────────────────
-let uid = tg.initDataUnsafe?.user?.id || 0;
+let uid = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : '';
 if(uid) {
   localStorage.setItem('tg_uid', uid);
 } else {
-  uid = parseInt(localStorage.getItem('tg_uid') || '0');
+  uid = localStorage.getItem('tg_uid') || '';
 }
 
 // ─── State ────────────────────────────────────────────────────────────
