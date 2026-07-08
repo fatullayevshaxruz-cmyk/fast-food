@@ -134,7 +134,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 .cp2{font-weight:700;color:var(--accent);flex-shrink:0}
 .tr{display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-top:12px;padding-top:10px;border-top:2px solid var(--sec)}
 
-/* Delivery type — 2 option */
+/* Delivery type */
 .dt{display:flex;gap:10px;margin-bottom:16px}
 .do{flex:1;padding:14px 8px;border-radius:12px;border:2px solid var(--sec);text-align:center;cursor:pointer;font-weight:600;font-size:14px;transition:all .15s}
 .do.on{border-color:var(--accent);background:#fff8f4}
@@ -174,55 +174,55 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 </head>
 <body>
 
-<div id="loader"><div class="spin"></div>Yuklanmoqda...</div>
+<div id="loader"><div class="spin"></div><span data-i18n="loading">Yuklanmoqda...</span></div>
 <div id="app" style="display:none">
 
   <!-- HOME -->
   <div id="pg-home" class="pg on">
-    <div class="ph">🍽 Menyu</div>
+    <div class="ph" data-i18n="title_menu">🍽 Menyu</div>
     <div class="chips" id="chips"></div>
     <div class="grid" id="hgrid"></div>
   </div>
 
   <!-- SEARCH -->
   <div id="pg-search" class="pg">
-    <div class="ph">🔍 Qidiruv</div>
-    <div class="sw"><span class="sg">🔍</span><input id="sinp" class="si" type="text" placeholder="Taom nomini yozing..."></div>
-    <div id="shint" class="nr2">Qidirish uchun taom nomini yozing</div>
-    <div id="sempty" class="nr2" style="display:none">Hech narsa topilmadi 🔎</div>
+    <div class="ph" data-i18n="title_search">🔍 Qidiruv</div>
+    <div class="sw"><span class="sg">🔍</span><input id="sinp" class="si" type="text" data-i18n="placeholder_search" placeholder="Taom nomini yozing..."></div>
+    <div id="shint" class="nr2" data-i18n="search_hint">Qidirish uchun taom nomini yozing</div>
+    <div id="sempty" class="nr2" style="display:none" data-i18n="empty_search">Hech narsa topilmadi 🔎</div>
     <div class="grid" id="sgrid"></div>
   </div>
 
   <!-- FAVORITES -->
   <div id="pg-favs" class="pg">
-    <div class="ph">❤️ Sevimlilar</div>
-    <div id="fempty" class="es" style="display:none"><div class="ei">🤍</div>Hali sevimli taomlar yo'q</div>
+    <div class="ph" data-i18n="title_favs">❤️ Sevimlilar</div>
+    <div id="fempty" class="es" style="display:none"><div class="ei">🤍</div><span data-i18n="empty_favs">Hali sevimli taomlar yo'q</span></div>
     <div class="grid" id="fgrid"></div>
   </div>
 
   <!-- PROFILE -->
   <div id="pg-profile" class="pg">
-    <div class="ph">👤 Profil</div>
+    <div class="ph" data-i18n="title_profile">👤 Profil</div>
     <div class="prc">
       <div class="av" id="av">?</div>
       <div class="un" id="un">—</div>
-      <div class="up" id="up">Telefon raqam yo'q</div>
-      <button class="eb" onclick="tglPhone()">✏️ Telefon qo'shish / o'zgartirish</button>
-      <div id="alink" style="display:none;margin-top:10px"><button class="ab2" onclick="nav('admin')">👑 Admin Panel</button></div>
+      <div class="up" id="up" data-i18n="no_phone">Telefon raqam yo'q</div>
+      <button class="eb" onclick="tglPhone()" data-i18n="btn_edit_phone">✏️ Telefon qo'shish / o'zgartirish</button>
+      <div id="alink" style="display:none;margin-top:10px"><button class="ab2" onclick="nav('admin')" data-i18n="btn_admin">👑 Admin Panel</button></div>
     </div>
     <div id="pebox" class="pe" style="display:none">
-      <div style="font-weight:600;margin-bottom:8px">📱 Telefon raqam</div>
+      <div style="font-weight:600;margin-bottom:8px" data-i18n="label_phone">📱 Telefon raqam</div>
       <input id="pinp" class="pin" type="tel" placeholder="+998 90 123 45 67">
-      <button class="sb" onclick="savePhone()">Saqlash</button>
-      <button class="cb" onclick="tglPhone()">Bekor qilish</button>
+      <button class="sb" onclick="savePhone()" data-i18n="btn_save">Saqlash</button>
+      <button class="cb" onclick="tglPhone()" data-i18n="btn_cancel">Bekor qilish</button>
     </div>
-    <div style="font-weight:700;font-size:15px;margin-bottom:10px">📦 Buyurtmalar tarixi</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:10px" data-i18n="order_history">📦 Buyurtmalar tarixi</div>
     <div id="uords"></div>
   </div>
 
   <!-- ADMIN -->
   <div id="pg-admin" class="pg">
-    <button class="bk" onclick="nav('profile')">← Profilga qaytish</button>
+    <button class="bk" onclick="nav('profile')">← Ortga</button>
     <div class="ph">👑 Admin Panel</div>
     <div class="at">
       <div class="atb on" onclick="aTab(this,'ads')">📊 Statistika</div>
@@ -252,10 +252,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 <!-- BOTTOM NAV -->
 <nav id="bnav">
   <div class="nr">
-    <div class="nt on" id="nt-home" onclick="nav('home')"><div class="ni">🏠</div>Asosiy</div>
-    <div class="nt" id="nt-search" onclick="nav('search')"><div class="ni">🔍</div>Qidiruv</div>
-    <div class="nt" id="nt-favs" onclick="nav('favs')"><div class="ni">❤️</div>Sevimlilar</div>
-    <div class="nt" id="nt-profile" onclick="nav('profile')"><div class="ni">👤</div>Profil</div>
+    <div class="nt on" id="nt-home" onclick="nav('home')"><div class="ni">🏠</div><span data-i18n="nav_home">Asosiy</span></div>
+    <div class="nt" id="nt-search" onclick="nav('search')"><div class="ni">🔍</div><span data-i18n="nav_search">Qidiruv</span></div>
+    <div class="nt" id="nt-favs" onclick="nav('favs')"><div class="ni">❤️</div><span data-i18n="nav_favs">Sevimlilar</span></div>
+    <div class="nt" id="nt-profile" onclick="nav('profile')"><div class="ni">👤</div><span data-i18n="nav_profile">Profil</span></div>
   </div>
 </nav>
 
@@ -266,127 +266,127 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 
     <!-- Step: cart -->
     <div id="st-cart" class="step on">
-      <div class="stit">🛒 Savat</div>
+      <div class="stit" data-i18n="cart_title">🛒 Savat</div>
       <div id="citems"></div>
-      <div class="tr"><span>Jami:</span><span id="csub" style="color:var(--accent)">0</span></div>
-      <button class="cob" style="margin-top:14px" onclick="gstep('dlv')">Davom etish →</button>
-      <button class="cl" onclick="closeM()">✕ Yopish</button>
+      <div class="tr"><span data-i18n="total">Jami:</span><span id="csub" style="color:var(--accent)">0</span></div>
+      <button class="cob" style="margin-top:14px" onclick="gstep('dlv')" data-i18n="btn_continue">Davom etish →</button>
+      <button class="cl" onclick="closeM()" data-i18n="btn_close">✕ Yopish</button>
     </div>
 
     <!-- Step: delivery type -->
     <div id="st-dlv" class="step">
-      <button class="bk" onclick="gstep('cart')">← Ortga</button>
-      <div class="stit">🚴 Yetkazib berish turi</div>
+      <button class="bk" onclick="gstep('cart')" data-i18n="btn_back">← Ortga</button>
+      <div class="stit" data-i18n="delivery_title">🚴 Yetkazib berish turi</div>
       <div class="dt">
         <div class="do on" id="d-delivery" onclick="selDlv('delivery')">
-          <div class="di">🛵</div>Yetkazib berish
+          <div class="di">🛵</div><span data-i18n="btn_delivery">Yetkazib berish</span>
         </div>
         <div class="do" id="d-eat_in" onclick="selDlv('eat_in')">
-          <div class="di">🍽</div>Shu yerda
+          <div class="di">🍽</div><span data-i18n="btn_eatin">Shu yerda</span>
         </div>
       </div>
-      <button class="cob" onclick="gstep('addr')">Davom etish →</button>
+      <button class="cob" onclick="gstep('addr')" data-i18n="btn_continue">Davom etish →</button>
     </div>
 
     <!-- Step: address -->
     <div id="st-addr" class="step">
-      <button class="bk" onclick="gstep('dlv')">← Ortga</button>
-      <div class="stit">📍 Manzil</div>
-      <div id="eat-note" style="display:none;background:var(--sec);padding:12px;border-radius:10px;margin-bottom:12px;font-size:14px;color:var(--hint)">
+      <button class="bk" onclick="gstep('dlv')" data-i18n="btn_back">← Ortga</button>
+      <div class="stit" data-i18n="addr_title">📍 Manzil</div>
+      <div id="eat-note" style="display:none;background:var(--sec);padding:12px;border-radius:10px;margin-bottom:12px;font-size:14px;color:var(--hint)" data-i18n="eat_in_note">
         🍽 Shu yerda ovqatlanasiz. Stol raqami yoki joy izoh kiriting:
       </div>
 
-      <!-- 3 ta manzil usuli (faqat delivery uchun) -->
+      <!-- 3 ta manzil usuli -->
       <div id="addr-opts" class="aop">
         <div class="aob on" id="ao-gps" onclick="selAddr('gps')">
           <div class="ai">📡</div>
-          <div class="aoc"><div class="aot">Lokatsiya yuborilsin</div><div class="aod">GPS orqali aniqlanadi</div></div>
+          <div class="aoc"><div class="aot" data-i18n="opt_gps">Lokatsiya yuborilsin</div><div class="aod" data-i18n="opt_gps_desc">GPS orqali aniqlanadi</div></div>
         </div>
         <div class="aob" id="ao-text" onclick="selAddr('text')">
           <div class="ai">✍️</div>
-          <div class="aoc"><div class="aot">Yozma tarzda</div><div class="aod">Manzilni o'zingiz yozing</div></div>
+          <div class="aoc"><div class="aot" data-i18n="opt_text">Yozma tarzda</div><div class="aod" data-i18n="opt_text_desc">Manzilni o'zingiz yozing</div></div>
         </div>
         <div class="aob" id="ao-map" onclick="selAddr('map')">
           <div class="ai">🗺</div>
-          <div class="aoc"><div class="aot">Xaritadan tanlash</div><div class="aod">Aniq manzilni xaritada belgilash</div></div>
+          <div class="aoc"><div class="aot" data-i18n="opt_map">Xaritadan tanlash</div><div class="aod" data-i18n="opt_map_desc">Aniq manzilni xaritada belgilash</div></div>
         </div>
       </div>
 
       <!-- GPS section -->
       <div id="sec-gps" class="addr-section on">
-        <button class="loc-btn" onclick="getGPS()">📡 GPS lokatsiyamni yuborish</button>
+        <button class="loc-btn" onclick="getGPS()" data-i18n="btn_gps">📡 GPS lokatsiyamni yuborish</button>
         <div id="gps-st" class="gps-status"></div>
         <div id="gps-addr" style="font-size:13px;color:var(--text);margin-top:8px;display:none"></div>
       </div>
 
       <!-- Text section -->
       <div id="sec-text" class="addr-section">
-        <textarea id="taddr" class="tin" rows="3" placeholder="Masalan: Chilonzor 14-kvartal, 25-uy, 3-qavat"></textarea>
+        <textarea id="taddr" class="tin" rows="3" data-i18n="placeholder_text_addr" placeholder="Masalan: Chilonzor 14-kvartal..."></textarea>
       </div>
 
       <!-- Map section -->
       <div id="sec-map" class="addr-section">
-        <div style="font-size:13px;color:var(--hint);margin-bottom:10px">Xaritadan buyurtma yetkaziladigan joyni belgilang (markerni suring):</div>
+        <div style="font-size:13px;color:var(--hint);margin-bottom:10px" data-i18n="map_instruction">Xaritadan buyurtma yetkaziladigan joyni belgilang (markerni suring):</div>
         <div id="map-canvas" style="width:100%;height:240px;border-radius:12px;margin-bottom:10px;border:1.5px solid var(--sec);position:relative;z-index:10"></div>
         <div id="map-addr" style="font-size:13px;color:var(--text);margin-top:8px;line-height:1.4;font-weight:600"></div>
       </div>
 
       <!-- Eat-in note section -->
       <div id="sec-eatin" class="addr-section" style="display:none">
-        <input id="eaddr" class="tin" type="text" placeholder="Masalan: Stol 5, yoki 2-qavat...">
+        <input id="eaddr" class="tin" type="text" data-i18n="placeholder_eatin" placeholder="Masalan: Stol 5...">
       </div>
 
-      <button class="cob" style="margin-top:14px" onclick="gstep('phone-confirm')">Davom etish →</button>
+      <button class="cob" style="margin-top:14px" onclick="gstep('phone-confirm')" data-i18n="btn_continue">Davom etish →</button>
     </div>
 
     <!-- Step: phone confirm -->
     <div id="st-phone-confirm" class="step">
-      <button class="bk" onclick="gstep('addr')">← Ortga</button>
-      <div class="stit">📞 Telefon raqami</div>
-      <div style="font-size:13px;color:var(--hint);margin-bottom:12px">Buyurtma uchun telefon raqamingizni tasdiqlang:</div>
+      <button class="bk" onclick="gstep('addr')" data-i18n="btn_back">← Ortga</button>
+      <div class="stit" data-i18n="phone_confirm_title">📞 Telefon raqami</div>
+      <div style="font-size:13px;color:var(--hint);margin-bottom:12px" data-i18n="phone_confirm_desc">Buyurtma uchun telefon raqamingizni tasdiqlang:</div>
       
       <div style="background:var(--sec);padding:14px;border-radius:12px;margin-bottom:16px;text-align:center">
-        <div style="font-size:12px;color:var(--hint);margin-bottom:4px">Profil raqamingiz:</div>
+        <div style="font-size:12px;color:var(--hint);margin-bottom:4px" data-i18n="label_profile_phone">Profil raqamingiz:</div>
         <div id="confirm-phone-val" style="font-size:18px;font-weight:700;color:var(--accent)">+998 ...</div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
-        <button id="btn-own-phone" class="cob" style="margin-top:0;background:var(--green)" onclick="confirmOwnPhone()">✅ O'zining raqami</button>
-        <button class="cob" style="margin-top:0;background:var(--blue)" onclick="changeToOtherPhone()">✏️ Boshqa raqam</button>
+        <button id="btn-own-phone" class="cob" style="margin-top:0;background:var(--green)" onclick="confirmOwnPhone()" data-i18n="btn_own_phone">✅ O'zining raqami</button>
+        <button class="cob" style="margin-top:0;background:var(--blue)" onclick="changeToOtherPhone()" data-i18n="btn_other_phone">✏️ Boshqa raqam</button>
       </div>
 
       <div id="other-phone-section" style="display:none;background:var(--sec);padding:14px;border-radius:12px;margin-bottom:14px">
-        <div style="font-weight:600;margin-bottom:8px;font-size:13px">📱 Yangi telefon raqamini kiriting:</div>
+        <div style="font-weight:600;margin-bottom:8px;font-size:13px" data-i18n="label_new_phone">📱 Yangi telefon raqamini kiriting:</div>
         <input id="other-phone-inp" class="tin" type="tel" placeholder="+998 90 123 45 67">
-        <button class="cob" style="width:100%;margin-top:10px" onclick="saveAndConfirmOtherPhone()">Saqlash va davom etish</button>
+        <button class="cob" style="width:100%;margin-top:10px" onclick="saveAndConfirmOtherPhone()" data-i18n="btn_save_continue">Saqlash va davom etish</button>
       </div>
     </div>
 
     <!-- Step: payment -->
     <div id="st-pay" class="step">
-      <button class="bk" onclick="gstep('phone-confirm')">← Ortga</button>
-      <div class="stit">💳 To'lov</div>
+      <button class="bk" onclick="gstep('phone-confirm')" data-i18n="btn_back">← Ortga</button>
+      <div class="stit" data-i18n="payment_title">💳 To'lov</div>
       <div class="po">
-        <div class="pob on" id="p-cash" onclick="selPay('cash')">💵 Naqd pul</div>
+        <div class="pob on" id="p-cash" onclick="selPay('cash')" data-i18n="label_cash">💵 Naqd pul</div>
       </div>
-      <div style="font-weight:600;margin-bottom:8px;font-size:14px">🎁 Promo kod (ixtiyoriy)</div>
+      <div style="font-weight:600;margin-bottom:8px;font-size:14px" data-i18n="promo_title">🎁 Promo kod (ixtiyoriy)</div>
       <div class="pr2">
         <input id="promo" class="tin" placeholder="Promo kod...">
-        <button class="pab" onclick="chkPromo()">Tekshirish</button>
+        <button class="pab" onclick="chkPromo()" data-i18n="promo_check">Tekshirish</button>
       </div>
       <div id="pmsg" class="pm"></div>
-      <div class="tr" style="margin-bottom:6px"><span>Yetkazish:</span><span id="dfee">—</span></div>
-      <div class="tr" style="font-size:18px"><span>Jami:</span><span id="ctot" style="color:var(--accent)">—</span></div>
-      <button class="cob" onclick="placeOrder()">✅ Buyurtma berish</button>
+      <div class="tr" style="margin-bottom:6px"><span data-i18n="delivery_fee">Yetkazish:</span><span id="dfee">—</span></div>
+      <div class="tr" style="font-size:18px"><span data-i18n="total">Jami:</span><span id="ctot" style="color:var(--accent)">—</span></div>
+      <button class="cob" onclick="placeOrder()" data-i18n="btn_place_order">✅ Buyurtma berish</button>
     </div>
 
     <!-- Success -->
     <div id="st-ok" class="step">
       <div class="sv2">
         <div class="si2">🎉</div>
-        <div class="stt">Buyurtma qabul qilindi!</div>
-        <div class="stx">Bot orqali buyurtma holati haqida xabar olasiz.</div>
-        <button class="cob" style="margin-top:20px" onclick="closeM()">Yopish</button>
+        <div class="stt" data-i18n="order_success_title">Buyurtma qabul qilindi!</div>
+        <div class="stx" data-i18n="order_success_desc">Bot orqali buyurtma holati haqida xabar olasiz.</div>
+        <button class="cob" style="margin-top:20px" onclick="closeM()" data-i18n="btn_close">Yopish</button>
       </div>
     </div>
   </div>
@@ -396,6 +396,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
 const tg = window.Telegram.WebApp;
 tg.expand();
 const API = window.location.origin;
+
+// ─── LocalStorage User ID persistence ──────────────────────────────────
 let uid = tg.initDataUnsafe?.user?.id || 0;
 if(uid) {
   localStorage.setItem('tg_uid', uid);
@@ -416,6 +418,253 @@ let discount = 0, promoCode = '';
 let savedPhone = localStorage.getItem('user_phone') || '';
 const DEF_FEE = 10000;
 
+// ─── 3 Language Translation Dictionary ─────────────────────────────────
+const i18n = {
+  uz: {
+    title_menu: "🍽 Menyu",
+    title_search: "🔍 Qidiruv",
+    title_favs: "❤️ Sevimlilar",
+    title_profile: "👤 Profil",
+    nav_home: "Asosiy",
+    nav_search: "Qidiruv",
+    nav_favs: "Sevimlilar",
+    nav_profile: "Profil",
+    placeholder_search: "Taom nomini yozing...",
+    search_hint: "Qidirish uchun taom nomini yozing",
+    empty_search: "Hech narsa topilmadi 🔎",
+    empty_favs: "Hali sevimli taomlar yo'q",
+    no_phone: "Telefon raqam yo'q",
+    btn_edit_phone: "✏️ Telefon qo'shish / o'zgartirish",
+    btn_admin: "👑 Admin Panel",
+    label_phone: "📱 Telefon raqam",
+    btn_save: "Saqlash",
+    btn_cancel: "Bekor qilish",
+    no_orders: "Hali buyurtmalar yo'q",
+    order_history: "📦 Buyurtmalar tarixi",
+    cart_title: "🛒 Savat",
+    btn_continue: "Davom etish →",
+    btn_close: "✕ Yopish",
+    btn_back: "← Ortga",
+    delivery_title: "🚴 Yetkazib berish turi",
+    btn_delivery: "Yetkazib berish",
+    btn_eatin: "Shu yerda",
+    addr_title: "📍 Manzil",
+    eat_in_note: "🍽 Shu yerda ovqatlanasiz. Stol raqami yoki joy izoh kiriting:",
+    opt_gps: "Lokatsiya yuborilsin",
+    opt_gps_desc: "GPS orqali aniqlanadi",
+    opt_text: "Yozma tarzda",
+    opt_text_desc: "Manzilni o'zingiz yozing",
+    opt_map: "Xaritadan tanlash",
+    opt_map_desc: "Aniq manzilni xaritada belgilash",
+    btn_gps: "📡 GPS lokatsiyamni yuborish",
+    gps_locating: "📡 Aniqlanmoqda...",
+    gps_success: "📍 Lokatsiya saqlandi!",
+    placeholder_text_addr: "Masalan: Chilonzor 14-kvartal, 25-uy, 3-qavat",
+    map_instruction: "Xaritadan buyurtma yetkaziladigan joyni belgilang (markerni suring):",
+    map_locating: "🔍 Manzil aniqlanmoqda...",
+    placeholder_eatin: "Masalan: Stol 5, yoki 2-qavat...",
+    phone_confirm_title: "📞 Telefon raqami",
+    phone_confirm_desc: "Buyurtma uchun telefon raqamingizni tasdiqlang:",
+    label_profile_phone: "Profil raqamingiz:",
+    btn_own_phone: "✅ O'zining raqami",
+    btn_other_phone: "✏️ Boshqa raqam",
+    label_new_phone: "📱 Yangi telefon raqamini kiriting:",
+    btn_save_continue: "Saqlash va davom etish",
+    payment_title: "💳 To'lov",
+    label_cash: "💵 Naqd pul",
+    promo_title: "🎁 Promo kod (ixtiyoriy)",
+    promo_check: "Tekshirish",
+    promo_applied: "✅ Promo kod muvaffaqiyatli qo'llanildi!",
+    promo_invalid: "❌ Promo kod yaroqsiz",
+    delivery_fee: "Yetkazish:",
+    total: "Jami:",
+    btn_place_order: "✅ Buyurtma berish",
+    order_success_title: "Buyurtma qabul qilindi!",
+    order_success_desc: "Bot orqali buyurtma holati haqida xabar olasiz.",
+    btn_cart_add: "Savatga +",
+    cart_total_btn: "Savatga o'tish",
+    loading: "Yuklanmoqda...",
+    failed_load: "Yuklab bo'lmadi",
+    status_pending: "Kutilmoqda",
+    status_preparing: "Tayyorlanmoqda",
+    status_delivering: "Yetkazilmoqda",
+    status_completed: "Yakunlandi",
+    status_cancelled: "Bekor qilindi"
+  },
+  ru: {
+    title_menu: "🍽 Меню",
+    title_search: "🔍 Поиск",
+    title_favs: "❤️ Избранное",
+    title_profile: "👤 Профиль",
+    nav_home: "Главная",
+    nav_search: "Поиск",
+    nav_favs: "Избранное",
+    nav_profile: "Профиль",
+    placeholder_search: "Введите название блюда...",
+    search_hint: "Введите название для поиска",
+    empty_search: "Ничего не найдено 🔎",
+    empty_favs: "Пока нет избранных блюд",
+    no_phone: "Нет номера телефона",
+    btn_edit_phone: "✏️ Добавить / изменить телефон",
+    btn_admin: "👑 Админ Панель",
+    label_phone: "📱 Номер телефона",
+    btn_save: "Сохранить",
+    btn_cancel: "Отмена",
+    no_orders: "Пока нет заказов",
+    order_history: "📦 История заказов",
+    cart_title: "🛒 Корзина",
+    btn_continue: "Продолжить →",
+    btn_close: "✕ Закрыть",
+    btn_back: "← Назад",
+    delivery_title: "🚴 Способ доставки",
+    btn_delivery: "Доставка",
+    btn_eatin: "На месте",
+    addr_title: "📍 Адрес",
+    eat_in_note: "🍽 Вы кушаете на месте. Введите номер стола или примечание:",
+    opt_gps: "Отправить локацию",
+    opt_gps_desc: "Определяется по GPS",
+    opt_text: "Вручную письменно",
+    opt_text_desc: "Введите адрес сами",
+    opt_map: "Выбрать на карте",
+    opt_map_desc: "Указать точный адрес на карте",
+    btn_gps: "📡 Отправить мою GPS локацию",
+    gps_locating: "📡 Определение...",
+    gps_success: "📍 Локация сохранена!",
+    placeholder_text_addr: "Например: Чиланзар 14-квартал, дом 25, 3-й этаж",
+    map_instruction: "Укажите место доставки на карте (перетащите маркер):",
+    map_locating: "🔍 Определение адреса...",
+    placeholder_eatin: "Например: Стол 5, или 2-й этаж...",
+    phone_confirm_title: "📞 Номер телефона",
+    phone_confirm_desc: "Подтвердите номер телефона для заказа:",
+    label_profile_phone: "Ваш профильный номер:",
+    btn_own_phone: "✅ Свой номер",
+    btn_other_phone: "✏️ Другой номер",
+    label_new_phone: "📱 Введите новый номер телефона:",
+    btn_save_continue: "Сохранить и продолжить",
+    payment_title: "💳 Оплата",
+    label_cash: "💵 Наличными",
+    promo_title: "🎁 Промокод (опционально)",
+    promo_check: "Проверить",
+    promo_applied: "✅ Промокод успешно применен!",
+    promo_invalid: "❌ Неверный промокод",
+    delivery_fee: "Доставка:",
+    total: "Итого:",
+    btn_place_order: "✅ Оформить заказ",
+    order_success_title: "Заказ принят!",
+    order_success_desc: "Вы получите уведомление о статусе заказа в боте.",
+    btn_cart_add: "В корзину +",
+    cart_total_btn: "Перейти в корзину",
+    loading: "Загрузка...",
+    failed_load: "Не удалось загрузить",
+    status_pending: "В ожидании",
+    status_preparing: "Готовится",
+    status_delivering: "Доставляется",
+    status_completed: "Завершен",
+    status_cancelled: "Отменен"
+  },
+  en: {
+    title_menu: "🍽 Menu",
+    title_search: "🔍 Search",
+    title_favs: "❤️ Favorites",
+    title_profile: "👤 Profile",
+    nav_home: "Home",
+    nav_search: "Search",
+    nav_favs: "Favorites",
+    nav_profile: "Profile",
+    placeholder_search: "Type food name...",
+    search_hint: "Type food name to search",
+    empty_search: "Nothing found 🔎",
+    empty_favs: "No favorite foods yet",
+    no_phone: "No phone number",
+    btn_edit_phone: "✏️ Add / change phone",
+    btn_admin: "👑 Admin Panel",
+    label_phone: "📱 Phone number",
+    btn_save: "Save",
+    btn_cancel: "Cancel",
+    no_orders: "No orders yet",
+    order_history: "📦 Order history",
+    cart_title: "🛒 Cart",
+    btn_continue: "Continue →",
+    btn_close: "✕ Close",
+    btn_back: "← Back",
+    delivery_title: "🚴 Delivery Type",
+    btn_delivery: "Delivery",
+    btn_eatin: "Eat In",
+    addr_title: "📍 Address",
+    eat_in_note: "🍽 Eating in. Enter table number or notes:",
+    opt_gps: "Send location",
+    opt_gps_desc: "Determined via GPS",
+    opt_text: "Written address",
+    opt_text_desc: "Type the address yourself",
+    opt_map: "Choose on map",
+    opt_map_desc: "Mark the exact address on the map",
+    btn_gps: "📡 Send my GPS location",
+    gps_locating: "📡 Locating...",
+    gps_success: "📍 Location saved!",
+    placeholder_text_addr: "E.g.: Chilonzor 14-quarter, house 25, 3rd floor",
+    map_instruction: "Mark the delivery location on map (drag the marker):",
+    map_locating: "🔍 Determining address...",
+    placeholder_eatin: "E.g.: Table 5, or 2nd floor...",
+    phone_confirm_title: "📞 Phone number",
+    phone_confirm_desc: "Confirm your phone number for the order:",
+    label_profile_phone: "Your profile phone:",
+    btn_own_phone: "✅ Own number",
+    btn_other_phone: "✏️ Other number",
+    label_new_phone: "📱 Enter new phone number:",
+    btn_save_continue: "Save and continue",
+    payment_title: "💳 Payment",
+    label_cash: "💵 Cash",
+    promo_title: "🎁 Promo code (optional)",
+    promo_check: "Check",
+    promo_applied: "✅ Promo code applied successfully!",
+    promo_invalid: "❌ Invalid promo code",
+    delivery_fee: "Delivery fee:",
+    total: "Total:",
+    btn_place_order: "✅ Place Order",
+    order_success_title: "Order accepted!",
+    order_success_desc: "You will receive order status notifications in the bot.",
+    btn_cart_add: "Add to cart +",
+    cart_total_btn: "Go to cart",
+    loading: "Loading...",
+    failed_load: "Failed to load",
+    status_pending: "Pending",
+    status_preparing: "Preparing",
+    status_delivering: "Delivering",
+    status_completed: "Completed",
+    status_cancelled: "Cancelled"
+  }
+};
+
+// Til parametrini URL dan olish
+const urlParams = new URLSearchParams(window.location.search);
+let currentLang = urlParams.get('lang') || 'uz';
+
+function translatePage() {
+  const trans = i18n[currentLang] || i18n.uz;
+  
+  // HTML teglardagi data-i18n attributlarni tarjima qilish
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (trans[key]) {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        el.placeholder = trans[key];
+      } else {
+        // Ikonkalarni saqlab qolish
+        const emoji = el.innerHTML.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF]|[\u2000-\u3300])/);
+        if (emoji) {
+          el.innerHTML = emoji[0] + ' ' + trans[key];
+        } else {
+          el.textContent = trans[key];
+        }
+      }
+    }
+  });
+
+  // Dynamic input placholderlar
+  $('sinp').placeholder = trans.placeholder_search;
+  $('promo').placeholder = trans.promo_title;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────
 const fmt = n => Number(n||0).toLocaleString('ru-RU').replace(/,/g,' ');
 const $  = id => document.getElementById(id);
@@ -424,10 +673,14 @@ async function GET(url){ const r=await fetch(API+url); if(!r.ok) throw r; return
 async function POST(url,b){ const r=await fetch(API+url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw r; return r.json(); }
 
 function badgeCls(s){ return {pending:'sp',preparing:'sa',delivering:'sl',completed:'sc',cancelled:'sx'}[s]||'sp'; }
-function badgeTxt(s){ return {pending:'Kutilmoqda',preparing:'Tayyorlanmoqda',delivering:'Yetkazilmoqda',completed:'Yakunlandi',cancelled:'Bekor qilindi'}[s]||s; }
+function badgeTxt(s){
+  const trans = i18n[currentLang] || i18n.uz;
+  return trans['status_' + s] || s;
+}
 
 // ─── BOOT ─────────────────────────────────────────────────────────────
 async function boot(){
+  translatePage();
   try{
     const md = await GET('/api/menu');
     cats = md.categories||[];
@@ -438,15 +691,21 @@ async function boot(){
         if(pd.user){
           const u=pd.user;
           isAdmin=u.is_admin;
+          if (u.lang) {
+            currentLang = u.lang;
+            translatePage();
+          }
           $('av').textContent=(u.name||'?')[0].toUpperCase();
           $('un').textContent=u.name||'Foydalanuvchi';
           savedPhone=u.phone||savedPhone;
           if(savedPhone) localStorage.setItem('user_phone', savedPhone);
-          $('up').textContent=savedPhone||'Telefon raqam yo\'q';
+          $('up').textContent=savedPhone || (i18n[currentLang] || i18n.uz).no_phone;
           if(isAdmin) $('alink').style.display='block';
           renderOrds(pd.orders||[]);
         }
-      }catch(e){}
+      }catch(e){
+        console.error("Profile yuklash xatosi:", e);
+      }
 
       try{
         const fd=await GET('/api/favorites?user_id='+uid);
@@ -461,7 +720,7 @@ async function boot(){
     $('app').style.display='block';
     $('bnav').style.display='block';
   }catch(e){
-    $('loader').innerHTML='<div style="font-size:40px">😔</div><div style="margin-top:10px">Yuklab bo\'lmadi</div>';
+    $('loader').innerHTML='<div style="font-size:40px">😔</div><div style="margin-top:10px">' + (i18n[currentLang] || i18n.uz).failed_load + '</div>';
   }
 }
 
@@ -497,13 +756,14 @@ function rmItem(id){
 }
 
 function updQty(){
+  const trans = i18n[currentLang] || i18n.uz;
   document.querySelectorAll('[data-pid]').forEach(el=>{
     const id=parseInt(el.getAttribute('data-pid'));
     const q=cart[id]?cart[id].qty:0;
     const cc=el.querySelector('.cc');
     if(!cc) return;
     if(q===0){
-      cc.innerHTML=`<button class="ab" onclick="addItem(window._pr[${id}])">Savatga +</button>`;
+      cc.innerHTML=`<button class="ab" onclick="addItem(window._pr[${id}])">${trans.btn_cart_add}</button>`;
     }else{
       cc.innerHTML=`<div class="qb"><button class="qm" onclick="rmItem(${id})">−</button><span class="qc">${q}</span><button class="qm" onclick="addItem(window._pr[${id}])">+</button></div><span class="qt">${fmt(window._pr[id].price*q)} so'm</span>`;
     }
@@ -512,8 +772,9 @@ function updQty(){
 
 function updBtn(){
   const n=cartCnt();
+  const trans = i18n[currentLang] || i18n.uz;
   if(n>0&&!$('pg-admin').classList.contains('on')){
-    tg.MainButton.text=`🛒 Savatga o'tish · ${fmt(cartTotal())} so'm`;
+    tg.MainButton.text=`🛒 ${trans.cart_total_btn} · ${fmt(cartTotal())} UZS`;
     tg.MainButton.color='#e85d04';
     tg.MainButton.show();
   }else{
@@ -522,23 +783,39 @@ function updBtn(){
 }
 tg.MainButton.onClick(openM);
 
-// ─── Render ───────────────────────────────────────────────────────────
+// ─── Render products in 3 languages ────────────────────────────────────
+function getProdName(p) {
+  if (currentLang === 'ru' && p.name_ru) return p.name_ru;
+  if (currentLang === 'en' && p.name_en) return p.name_en;
+  return p.name;
+}
+
+function getProdDesc(p) {
+  if (currentLang === 'ru' && p.description_ru) return p.description_ru;
+  if (currentLang === 'en' && p.description_en) return p.description_en;
+  return p.description || '';
+}
+
 function card(p){
   window._pr[p.id]=p;
   const fav=favs.has(p.id);
   const q=cart[p.id]?cart[p.id].qty:0;
+  const trans = i18n[currentLang] || i18n.uz;
+  const pName = getProdName(p);
+  const pDesc = getProdDesc(p);
+  
   const ctrl=q===0
-    ?`<button class="ab" onclick="addItem(window._pr[${p.id}])">Savatga +</button>`
+    ?`<button class="ab" onclick="addItem(window._pr[${p.id}])">${trans.btn_cart_add}</button>`
     :`<div class="qb"><button class="qm" onclick="rmItem(${p.id})">−</button><span class="qc">${q}</span><button class="qm" onclick="addItem(window._pr[${p.id}])">+</button></div><span class="qt">${fmt(p.price*q)} so'm</span>`;
   const img=p.image_url
-    ?`<img class="pi" src="${p.image_url}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:'';
+    ?`<img class="pi" src="${p.image_url}" alt="${pName}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:'';
   const ph=`<div class="pp" ${p.image_url?'style="display:none"':''}>🍽</div>`;
   return `<div class="pc" data-pid="${p.id}">
     <button class="fb" onclick="togFav(${p.id},this)">${fav?'❤️':'🤍'}</button>
     ${img}${ph}
     <div class="pb">
-      <div class="pn">${p.name}</div>
-      <div class="pd">${p.description||''}</div>
+      <div class="pn">${pName}</div>
+      <div class="pd">${pDesc}</div>
       <div class="pr">${fmt(p.price)} so'm</div>
       <div class="cc">${ctrl}</div>
     </div>
@@ -553,9 +830,10 @@ function renderGrid(cid, prods){
 
 function renderChips(){
   const el=$('chips');
-  el.innerHTML=cats.map((c,i)=>
-    `<div class="chip${i===0?' on':''}" onclick="selCat(${c.id},this)">${c.emoji||'🍽'} ${c.name}</div>`
-  ).join('');
+  el.innerHTML=cats.map((c,i)=>{
+    const cName = (currentLang === 'ru' && c.name_ru) ? c.name_ru : (currentLang === 'en' && c.name_en) ? c.name_en : c.name;
+    return `<div class="chip${i===0?' on':''}" onclick="selCat(${c.id},this)">${c.emoji||'🍽'} ${cName}</div>`;
+  }).join('');
   if(cats.length) window._catId=cats[0].id;
 }
 
@@ -606,7 +884,8 @@ function tglPhone(){
   const b=$('pebox');
   const show=b.style.display==='none'||!b.style.display;
   b.style.display=show?'block':'none';
-  if(show){ const cur=$('up').textContent; $('pinp').value=cur==='Telefon raqam yo\'q'?'':cur; }
+  const trans = i18n[currentLang] || i18n.uz;
+  if(show){ const cur=$('up').textContent; $('pinp').value=cur===trans.no_phone?'':cur; }
 }
 
 async function savePhone(){
@@ -624,7 +903,8 @@ async function savePhone(){
 
 function renderOrds(ords){
   const el=$('uords');
-  if(!ords.length){ el.innerHTML='<div class="es"><div class="ei">📦</div>Hali buyurtmalar yo\'q</div>'; return; }
+  const trans = i18n[currentLang] || i18n.uz;
+  if(!ords.length){ el.innerHTML=`<div class="es"><div class="ei">📦</div>${trans.no_orders}</div>`; return; }
   el.innerHTML=ords.slice(0,20).map(o=>{
     let dt = '';
     try {
@@ -731,7 +1011,8 @@ function gstep(s){
   if(s==='pay') updPaySum();
   if(s==='addr') setupAddr();
   if(s==='phone-confirm'){
-    $('confirm-phone-val').textContent = savedPhone || 'Kiritilmagan';
+    const trans = i18n[currentLang] || i18n.uz;
+    $('confirm-phone-val').textContent = savedPhone || trans.no_phone;
     $('btn-own-phone').style.display = savedPhone ? 'block' : 'none';
     $('other-phone-section').style.display = 'none';
     $('other-phone-inp').value = '';
@@ -740,7 +1021,8 @@ function gstep(s){
 
 function confirmOwnPhone(){
   if(!savedPhone){
-    alert('Profil raqamingiz topilmadi, iltimos boshqa raqam kiriting.');
+    const trans = i18n[currentLang] || i18n.uz;
+    alert(trans.no_phone);
     return;
   }
   gstep('pay');
@@ -770,7 +1052,7 @@ async function saveAndConfirmOtherPhone(){
 
 function renderCart(){
   const its=Object.values(cart);
-  $('citems').innerHTML=its.map(i=>`<div class="ci2"><span><span class="cn2">${i.name}</span><span class="cq">×${i.qty}</span></span><span class="cp2">${fmt(i.price*i.qty)} so'm</span></div>`).join('');
+  $('citems').innerHTML=its.map(i=>`<div class="ci2"><span><span class="cn2">${getProdName(i)}</span><span class="cq">×${i.qty}</span></span><span class="cp2">${fmt(i.price*i.qty)} so'm</span></div>`).join('');
   $('csub').textContent=fmt(cartTotal())+' so\'m';
 }
 
@@ -807,21 +1089,21 @@ function selAddr(t){
 async function getGPS(){
   const st=$('gps-st');
   const adr=$('gps-addr');
-  st.textContent='📡 Aniqlanmoqda...';
+  const trans = i18n[currentLang] || i18n.uz;
+  st.textContent=trans.gps_locating;
   adr.style.display='none';
   savedLat=null; savedLon=null;
-  if(!navigator.geolocation){ st.textContent='❌ Brauzeringiz lokatsiyani qo\'llamaydi'; return; }
+  if(!navigator.geolocation){ st.textContent='❌ GPS error'; return; }
   navigator.geolocation.getCurrentPosition(
     async pos=>{
       savedLat=pos.coords.latitude;
       savedLon=pos.coords.longitude;
-      st.textContent=`✅ Aniqlandi: ${savedLat.toFixed(4)}, ${savedLon.toFixed(4)}`;
+      st.textContent=`✅ ${savedLat.toFixed(4)}, ${savedLon.toFixed(4)}`;
       adr.style.display='block';
-      adr.textContent='📍 Lokatsiya saqlandi!';
+      adr.textContent=trans.gps_success;
     },
     err=>{
-      if(err.code===1) st.textContent='❌ Lokatsiyaga ruxsat berilmadi. Boshqa usul tanlang.';
-      else st.textContent='❌ Lokatsiyani aniqlab bo\'lmadi.';
+      st.textContent='❌ GPS error';
     },
     {enableHighAccuracy:true,timeout:10000}
   );
@@ -879,11 +1161,12 @@ function initLeafletMap() {
 
 async function updateMapAddress(lat, lon) {
   const el = $('map-addr');
+  const trans = i18n[currentLang] || i18n.uz;
   el.style.display = 'block';
-  el.innerHTML = '<span style="color:var(--hint)">🔍 Manzil aniqlanmoqda...</span>';
+  el.innerHTML = `<span style="color:var(--hint)">${trans.map_locating}</span>`;
   
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=17&addressdetails=1&accept-language=uz`);
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=17&addressdetails=1&accept-language=${currentLang}`);
     if (res.ok) {
       const data = await res.json();
       const display_name = data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
@@ -918,18 +1201,19 @@ function selPay(m){
 
 async function chkPromo(){
   const code=$('promo').value.trim();
-  if(!code){ $('pmsg').innerHTML='<span style="color:var(--red)">Kodni kiriting</span>'; return; }
+  const trans = i18n[currentLang] || i18n.uz;
+  if(!code){ $('pmsg').innerHTML=`<span style="color:var(--red)">${trans.promo_title}</span>`; return; }
   try{
     const d=await GET('/api/promo?code='+encodeURIComponent(code)+'&user_id='+uid);
     if(d.valid){
       discount=d.discount_percent||0;
       promoCode=code;
-      $('pmsg').innerHTML=`<span style="color:var(--green)">✅ ${discount}% chegirma!</span>`;
+      $('pmsg').innerHTML=`<span style="color:var(--green)">${trans.promo_applied} (-${discount}%)</span>`;
       updPaySum();
     }else{
-      $('pmsg').innerHTML='<span style="color:var(--red)">❌ Promo kod yaroqsiz</span>';
+      $('pmsg').innerHTML=`<span style="color:var(--red)">${trans.promo_invalid}</span>`;
     }
-  }catch(e){ $('pmsg').innerHTML='<span style="color:var(--red)">Tekshirib bo\'lmadi</span>'; }
+  }catch(e){ $('pmsg').innerHTML='<span style="color:var(--red)">Error</span>'; }
 }
 
 function updPaySum(){
@@ -937,13 +1221,15 @@ function updPaySum(){
   const fee=(dlvType==='delivery')?DEF_FEE:0;
   const disc=Math.round(sub*discount/100);
   const tot=sub-disc+fee;
-  $('dfee').textContent=dlvType==='delivery'?fmt(fee)+' so\'m':'Bepul';
+  const trans = i18n[currentLang] || i18n.uz;
+  $('dfee').textContent=dlvType==='delivery'?fmt(fee)+' so\'m':trans.status_completed;
   $('ctot').textContent=fmt(tot)+' so\'m';
 }
 
 async function placeOrder(){
   if(!savedPhone){
-    alert('Iltimos, buyurtma berishdan oldin profilingizda telefon raqamingizni kiriting!');
+    const trans = i18n[currentLang] || i18n.uz;
+    alert(trans.no_phone);
     nav('profile');
     closeM();
     return;

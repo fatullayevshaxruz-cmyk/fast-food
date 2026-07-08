@@ -36,7 +36,14 @@ async def api_user_profile(request):
         async with pool.acquire() as conn:
             user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
             if not user:
-                return add_cors_headers(web.json_response({"error": "User not found"}, status=404))
+                try:
+                    await conn.execute(
+                        "INSERT INTO users (user_id, username, full_name) VALUES ($1, $2, $3)",
+                        user_id, "User", "Foydalanuvchi"
+                    )
+                except Exception:
+                    pass
+                user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
             
             orders = await conn.fetch("""
                 SELECT * FROM orders 
