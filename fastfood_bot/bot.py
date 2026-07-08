@@ -68,6 +68,16 @@ async def on_startup(dp):
     await init_database()
     await seed_data()
     await init_dynamic_menu_db()
+    # Komandalarni avtomatik ro'yxatdan o'tkazish (BotFather ga kirmaslik uchun)
+    from aiogram.types import BotCommand
+    await bot.set_my_commands([
+        BotCommand("start", "Botni qayta ishga tushirish"),
+        BotCommand("webapp", "🌐 Interaktiv WebApp menyuni ochish"),
+        BotCommand("menu_refresh", "🔄 Menyu klaviaturasini yangilash"),
+        BotCommand("help", "Yordam va ma'lumot"),
+        BotCommand("cancel", "Jarayonni bekor qilish")
+    ])
+    
     logging.info("Database initialized, connected, and seeded.")
 
 
