@@ -103,8 +103,29 @@ if __name__ == '__main__':
     # ── REST API: WebApp uchun menyu ma'lumotlari ──────────────────
     async def api_menu_handler(request):
         """GET /api/menu — Barcha kategoriyalar va mahsulotlarni JSON da qaytaradi."""
+        # CORS preflight
+        if request.method == "OPTIONS":
+            return web.Response(
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                }
+            )
         try:
             from database.crud import get_categories, get_products_by_category
+            from database.connection import get_db_pool
+
+            # DB pool hali tayyor bo'lmagan bo'lishi mumkin — sabr bilan kutamiz
+            for attempt in range(5):
+                try:
+                    pool = await get_db_pool()
+                    if pool:
+                        break
+                except Exception:
+                    pass
+                await asyncio.sleep(1)
+
             categories = await get_categories()
             result = []
             for cat in categories:
@@ -139,27 +160,31 @@ if __name__ == '__main__':
             return web.json_response({"categories": result}, headers=headers)
         except Exception as e:
             logging.error(f"/api/menu xatosi: {e}", exc_info=True)
-            return web.json_response({"error": str(e)}, status=500)
+            return web.json_response({"error": str(e)}, status=500,
+                                     headers={"Access-Control-Allow-Origin": "*"})
 
     async def start_web_server():
         app = web.Application()
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
-        app.router.add_get('/api/menu', api_menu_handler)  # 🌐 WebApp API
+        app.router.add_get('/api/menu', api_menu_handler)   # 🌐 WebApp menyu API
+        app.router.add_options('/api/menu', api_menu_handler)  # CORS preflight
 
         # ── WebApp (Telegram Mini App) uchun statik fayllar ─────
-        # map.html: xarita, menu.html: interaktiv menyu
         webapp_dir = os.path.join(os.path.dirname(__file__), 'webapp')
         if os.path.isdir(webapp_dir):
             app.router.add_static('/webapp', webapp_dir, show_index=True)
-            logging.info(f"WebApp static files served from: {webapp_dir}")
+            webapp_url = f"{RENDER_URL}/webapp/menu.html"
+            logging.info(f"🌐 WebApp menyu URL: {webapp_url}")
+        else:
+            logging.warning("⚠️  webapp/ papkasi topilmadi!")
 
         runner = web.AppRunner(app)
         await runner.setup()
         port = int(os.getenv("PORT", 8080))
         site = web.TCPSite(runner, '0.0.0.0', port)
         await site.start()
-        logging.info(f"Web server started on port {port}")
+        logging.info(f"✅ Web server started on port {port}")
 
     # ── Tasklar ishga tushirish ──────────────────────────────────────
     loop.create_task(start_web_server())

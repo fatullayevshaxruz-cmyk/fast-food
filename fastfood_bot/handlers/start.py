@@ -1,7 +1,8 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from database.crud import create_user, get_user_language, set_user_language
-from keyboards.main_menu import get_user_main_menu, get_admin_main_menu, get_language_keyboard
+from keyboards.main_menu import get_user_main_menu, get_admin_main_menu, get_language_keyboard, MENU_WEBAPP_URL
 from utils.states import LanguageStates
 from utils.i18n import get_text
 from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
@@ -56,7 +57,7 @@ async def process_language_choice(message: types.Message, state: FSMContext):
     # Tanlangan til haqida tasdiqlash
     await message.answer(get_text("language_selected", lang))
 
-    # Asosiy menyu
+    # Asosiy menyu (yangi WebApp tugmasi bilan)
     keyboard = get_admin_main_menu(lang) if _is_admin(user.id) else get_user_main_menu(lang)
     await message.answer(
         get_text("welcome", lang,
@@ -68,6 +69,53 @@ async def process_language_choice(message: types.Message, state: FSMContext):
         reply_markup=keyboard,
         parse_mode="HTML"
     )
+
+
+async def cmd_webapp(message: types.Message, state: FSMContext):
+    """
+    /webapp — WebApp interaktiv menyuni to'g'ridan-to'g'ri ochish.
+    Keyboard yangilanmaganda ham ishlaydi.
+    """
+    try:
+        lang = await get_user_language(message.from_user.id)
+    except Exception:
+        lang = "uz"
+
+    webapp_url = f"{MENU_WEBAPP_URL}?lang={lang}"
+
+    # Inline klaviatura orqali WebApp tugmasi yuborish
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton(
+            text="🌐 Interaktiv menyuni ochish",
+            web_app=WebAppInfo(url=webapp_url)
+        )
+    )
+    labels = {
+        "uz": "👇 Quyidagi tugmani bosib interaktiv menyuni oching:",
+        "ru": "👇 Нажмите кнопку ниже для открытия интерактивного меню:",
+        "en": "👇 Press the button below to open the interactive menu:",
+    }
+    await message.answer(labels.get(lang, labels["uz"]), reply_markup=markup)
+
+
+async def cmd_refresh_menu(message: types.Message, state: FSMContext):
+    """
+    /menu_refresh — Klaviaturani yangilash (WebApp tugmasi ko'rinmasa).
+    """
+    try:
+        lang = await get_user_language(message.from_user.id)
+    except Exception:
+        lang = "uz"
+    await state.finish()
+    keyboard = get_admin_main_menu(lang) if _is_admin(message.from_user.id) else get_user_main_menu(lang)
+    labels = {
+        "uz": "✅ Menyu yangilandi! Endi <b>🌐 Tezkor buyurtma</b> tugmasini ko'rishingiz mumkin.",
+        "ru": "✅ Меню обновлено! Теперь вы увидите кнопку <b>🌐 Быстрый заказ</b>.",
+        "en": "✅ Menu refreshed! You can now see the <b>🌐 Quick Order</b> button.",
+    }
+    await message.answer(labels.get(lang, labels["uz"]), reply_markup=keyboard, parse_mode="HTML")
 
 
 async def cmd_help(message: types.Message):
@@ -101,3 +149,6 @@ def register_start_handlers(dp: Dispatcher):
                                 state=LanguageStates.choosing_language)
     dp.register_message_handler(cmd_help, commands=['help'])
     dp.register_message_handler(cmd_cancel, commands=['cancel'], state="*")
+    dp.register_message_handler(cmd_webapp, commands=['webapp'], state="*")           # 🌐 WebApp
+    dp.register_message_handler(cmd_refresh_menu, commands=['menu_refresh'], state="*")  # 🔄 Yangilash
+
