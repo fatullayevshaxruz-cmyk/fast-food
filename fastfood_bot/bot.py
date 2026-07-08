@@ -139,28 +139,30 @@ if __name__ == '__main__':
             categories = await get_categories()
             result = []
             for cat in categories:
-                products = await get_products_by_category(cat['id'])
-                active = [p for p in products if p.get('is_active', True) is not False]
+                cat_dict = dict(cat)
+                products = await get_products_by_category(cat_dict['id'])
+                active = [p for p in products if dict(p).get('is_active', True) is not False]
                 if not active:
                     continue
                 prod_list = []
                 for p in active:
+                    p_dict = dict(p)
                     prod_list.append({
-                        "id":           p['id'],
-                        "name":         p.get('name') or '',
-                        "name_ru":      p.get('name_ru') or p.get('name') or '',
-                        "name_en":      p.get('name_en') or p.get('name') or '',
-                        "description":  p.get('description') or '',
-                        "price":        p['price'],
-                        "old_price":    p.get('old_price'),
-                        "image_url":    p.get('image_url') or '',
+                        "id":           p_dict['id'],
+                        "name":         p_dict.get('name') or '',
+                        "name_ru":      p_dict.get('name_ru') or p_dict.get('name') or '',
+                        "name_en":      p_dict.get('name_en') or p_dict.get('name') or '',
+                        "description":  p_dict.get('description') or '',
+                        "price":        p_dict['price'],
+                        "old_price":    p_dict.get('old_price'),
+                        "image_url":    p_dict.get('image_url') or '',
                     })
                 result.append({
-                    "id":      cat['id'],
-                    "name":    cat.get('name') or '',
-                    "name_ru": cat.get('name_ru') or cat.get('name') or '',
-                    "name_en": cat.get('name_en') or cat.get('name') or '',
-                    "emoji":   cat.get('emoji') or '🍽',
+                    "id":      cat_dict['id'],
+                    "name":    cat_dict.get('name') or '',
+                    "name_ru": cat_dict.get('name_ru') or cat_dict.get('name') or '',
+                    "name_en": cat_dict.get('name_en') or cat_dict.get('name') or '',
+                    "emoji":   cat_dict.get('emoji') or '🍽',
                     "products": prod_list,
                 })
             headers = {

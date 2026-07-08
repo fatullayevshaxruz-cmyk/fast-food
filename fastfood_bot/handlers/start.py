@@ -88,14 +88,14 @@ async def cmd_webapp(message: types.Message, state: FSMContext):
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton(
-            text="🌐 Interaktiv menyuni ochish",
+            text="Menu",
             web_app=WebAppInfo(url=webapp_url)
         )
     )
     labels = {
-        "uz": "👇 Quyidagi tugmani bosib interaktiv menyuni oching:",
-        "ru": "👇 Нажмите кнопку ниже для открытия интерактивного меню:",
-        "en": "👇 Press the button below to open the interactive menu:",
+        "uz": "👇 Quyidagi tugmani bosib menyuni oching:",
+        "ru": "👇 Нажмите кнопку ниже для открытия меню:",
+        "en": "👇 Press the button below to open the menu:",
     }
     await message.answer(labels.get(lang, labels["uz"]), reply_markup=markup)
 

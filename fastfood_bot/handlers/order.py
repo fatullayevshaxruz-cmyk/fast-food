@@ -492,6 +492,13 @@ async def finish_order(message: types.Message, state: FSMContext,
                     delivery_fee = DELIVERY_FEE
             else:
                 delivery_fee = DELIVERY_FEE
+            
+            # Narxni yaxlitlash: masalan, 12500 -> 12000, 12550 -> 13000
+            remainder = delivery_fee % 1000
+            if remainder <= 500:
+                delivery_fee = delivery_fee - remainder
+            else:
+                delivery_fee = delivery_fee + (1000 - remainder)
         else:
             delivery_fee = 0
 
