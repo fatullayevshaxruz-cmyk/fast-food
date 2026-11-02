@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     # ── Health check web server ──────────────────────────────────────
     async def health_check(request):
-        return web.Response(text="OK — Fast Food Bot is running! 🍔")
+        return web.Response(text="OK — Darxan Burger Bot is running! 🍔")
 
     # ── REST API: WebApp uchun menyu ma'lumotlari ──────────────────
     async def api_menu_handler(request):

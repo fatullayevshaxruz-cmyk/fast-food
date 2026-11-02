@@ -140,13 +140,13 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         await state.update_data(payment_method=get_text("btn_pay_online", lang))
 
         if lang == "ru":
-            inv_title = "🍔 Fast Food — Заказ"
+            inv_title = "🍔 Darxan Burger — Заказ"
             inv_desc = f"Товаров: {len(items)} шт.\nИтого: {total_amount:,} сум"
         elif lang == "en":
-            inv_title = "🍔 Fast Food — Order"
+            inv_title = "🍔 Darxan Burger — Order"
             inv_desc = f"Items: {len(items)}\nTotal: {total_amount:,} sum"
         else:
-            inv_title = "🍔 Fast Food Buyurtmasi"
+            inv_title = "🍔 Darxan Burger Buyurtmasi"
             inv_desc = f"Buyurtmangiz: {len(items)} ta mahsulot\nJami: {total_amount:,} so'm"
 
         await message.bot.send_invoice(

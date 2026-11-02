@@ -33,7 +33,7 @@ TRANSLATIONS = {
     # ── Start xabari ──────────────────────────────────────────────
     "welcome": {
         "uz": (
-            "🍔 <b>Fast Food</b> ga xush kelibsiz, <b>{name}</b>!\n\n"
+            "🍔 <b>Darxan Burger</b> ga xush kelibsiz, <b>{name}</b>!\n\n"
             "Tez va mazali taomlar — bir tugma bilan! 🚀\n\n"
             "📱 <b>Buyurtma berish:</b> \"🍽 Menyu\" tugmasini bosing\n"
             "🔍 <b>Mahsulot izlash:</b> \"🔍 Izlash\" tugmasini bosing\n"
@@ -44,7 +44,7 @@ TRANSLATIONS = {
             "Yoqimli ishtaha tilaymiz! 😋"
         ),
         "ru": (
-            "🍔 Добро пожаловать в <b>Fast Food</b>, <b>{name}</b>!\n\n"
+            "🍔 Добро пожаловать в <b>Darxan Burger</b>, <b>{name}</b>!\n\n"
             "Быстрая и вкусная еда — в один клик! 🚀\n\n"
             "📱 <b>Заказать:</b> нажмите \"🍽 Меню\"\n"
             "🔍 <b>Поиск блюд:</b> нажмите \"🔍 Поиск\"\n"
@@ -55,7 +55,7 @@ TRANSLATIONS = {
             "Приятного аппетита! 😋"
         ),
         "en": (
-            "🍔 Welcome to <b>Fast Food</b>, <b>{name}</b>!\n\n"
+            "🍔 Welcome to <b>Darxan Burger</b>, <b>{name}</b>!\n\n"
             "Fast and delicious food — in one tap! 🚀\n\n"
             "📱 <b>Order:</b> press \"🍽 Menu\"\n"
             "🔍 <b>Search:</b> press \"🔍 Search\"\n"
