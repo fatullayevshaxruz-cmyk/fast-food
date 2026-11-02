@@ -22,6 +22,9 @@ async def init_database():
             # Ko'p tilli nom ustunlari (kategoriyalar)
             "ALTER TABLE categories ADD COLUMN name_ru TEXT",
             "ALTER TABLE categories ADD COLUMN name_en TEXT",
+            # To'lov holati va tranzaksiya ID ustunlari
+            "ALTER TABLE orders ADD COLUMN payment_status VARCHAR(20) DEFAULT 'unpaid'",
+            "ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(150)",
         ]:
             try:
                 await conn.execute(alter)
@@ -171,16 +174,19 @@ async def remove_from_cart(cart_item_id):
 
 async def create_order(user_id, total_amount, address, payment_method,
                        latitude=None, longitude=None, phone_number=None,
-                       note=None, delivery_type="delivery"):
+                       note=None, delivery_type="delivery",
+                       payment_status="unpaid", transaction_id=None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("""
             INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
-                                latitude, longitude, phone_number, note, delivery_type)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                                latitude, longitude, phone_number, note, delivery_type,
+                                payment_status, transaction_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING id
         """, user_id, total_amount, address, payment_method,
-             latitude, longitude, phone_number, note, delivery_type)
+             latitude, longitude, phone_number, note, delivery_type,
+             payment_status, transaction_id)
         return row['id']
 
 async def add_order_items(order_id, cart_items):

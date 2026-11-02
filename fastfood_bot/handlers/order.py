@@ -223,10 +223,11 @@ async def process_table_number(message: types.Message, state: FSMContext):
             parse_mode="HTML"
         )
         return
-    # Shu yerda: izoh so'ralmasdan to'g'ridan buyurtmani yakunlash
+    # Stol raqami saqlandi — endi izoh so'ralib, keyin to'lov usuli tanlanadi
     await state.update_data(address=f"Stol raqami: {text}", lat=None, lon=None,
-                            phone=None, note=None, promo_code=None, discount_percent=0)
-    await finish_order(message, state)
+                            phone=None)
+    await _ask_for_note(message, state, lang,
+                        prefix=f"✅ <b>Stol:</b> #{text}\n\n")
 
 
 async def cancel_order(message: types.Message, state: FSMContext):

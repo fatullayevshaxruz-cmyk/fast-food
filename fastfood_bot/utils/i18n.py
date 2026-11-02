@@ -738,27 +738,30 @@ TRANSLATIONS = {
     # ── To'lov ────────────────────────────────────────────────────
     "ask_payment_method": {
         "uz": (
-            "💰 <b>To'lov turi:</b>\n\n"
-            "  💵 <b>Naqd pul</b> — kuryer mahsulotni yetkazganda to'lanadi"
+            "💰 <b>To'lov turini tanlang:</b>\n\n"
+            "  💵 <b>Naqd</b> — buyurtmani olganingizda to'lanadi\n"
+            "  💳 <b>Karta</b> — hozir online to'lash (Click / Payme)"
         ),
         "ru": (
-            "💰 <b>Способ оплаты:</b>\n\n"
-            "  💵 <b>Наличные</b> — оплата при получении товара"
+            "💰 <b>Выберите способ оплаты:</b>\n\n"
+            "  💵 <b>Наличные</b> — оплата при получении заказа\n"
+            "  💳 <b>Карта</b> — оплатить онлайн сейчас (Click / Payme)"
         ),
         "en": (
-            "💰 <b>Payment type:</b>\n\n"
-            "  💵 <b>Cash</b> — pay when the courier delivers your order"
+            "💰 <b>Choose payment type:</b>\n\n"
+            "  💵 <b>Cash</b> — pay when you receive your order\n"
+            "  💳 <b>Card</b> — pay online now (Click / Payme)"
         ),
     },
     "btn_pay_cash": {
-        "uz": "💵 Naqd pul (Yetkazib berilganda)",
-        "ru": "💵 Наличные (При получении)",
-        "en": "💵 Cash (On Delivery)",
+        "uz": "💵 Naqd",
+        "ru": "💵 Наличные",
+        "en": "💵 Cash",
     },
     "btn_pay_online": {
-        "uz": "💳 Online to'lov (Click / Payme)",
-        "ru": "💳 Онлайн (Click / Payme)",
-        "en": "💳 Online (Click / Payme)",
+        "uz": "💳 Karta",
+        "ru": "💳 Карта",
+        "en": "💳 Card",
     },
     "cart_empty_retry": {
         "uz": "⚠️ Savatingiz bo'shab qoldi. Qaytadan mahsulot tanlang.",

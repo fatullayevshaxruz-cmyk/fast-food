@@ -367,7 +367,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);paddi
       <button class="bk" onclick="gstep('phone-confirm')" data-i18n="btn_back">← Ortga</button>
       <div class="stit" data-i18n="payment_title">💳 To'lov</div>
       <div class="po">
-        <div class="pob on" id="p-cash" onclick="selPay('cash')" data-i18n="label_cash">💵 Naqd pul</div>
+        <div class="pob on" id="p-cash" onclick="selPay('cash')" data-i18n="label_cash">💵 Naqd</div>
+        <div class="pob" id="p-online" onclick="selPay('online')" data-i18n="label_online">💳 Karta</div>
       </div>
       <div style="font-weight:600;margin-bottom:8px;font-size:14px" data-i18n="promo_title">🎁 Promo kod (ixtiyoriy)</div>
       <div class="pr2">
@@ -471,7 +472,8 @@ const i18n = {
     label_new_phone: "📱 Yangi telefon raqamini kiriting:",
     btn_save_continue: "Saqlash va davom etish",
     payment_title: "💳 To'lov",
-    label_cash: "💵 Naqd pul",
+    label_cash: "💵 Naqd",
+    label_online: "💳 Karta",
     promo_title: "🎁 Promo kod (ixtiyoriy)",
     promo_check: "Tekshirish",
     promo_applied: "✅ Promo kod muvaffaqiyatli qo'llanildi!",
@@ -489,7 +491,8 @@ const i18n = {
     status_preparing: "Tayyorlanmoqda",
     status_delivering: "Yetkazilmoqda",
     status_completed: "Yakunlandi",
-    status_cancelled: "Bekor qilindi"
+    status_cancelled: "Bekor qilindi",
+    payment_cancelled: "To'lov bekor qilindi. Qayta urinib ko'ring."
   },
   ru: {
     title_menu: "🍽 Меню",
@@ -543,6 +546,7 @@ const i18n = {
     btn_save_continue: "Сохранить и продолжить",
     payment_title: "💳 Оплата",
     label_cash: "💵 Наличными",
+    label_online: "💳 Карта",
     promo_title: "🎁 Промокод (опционально)",
     promo_check: "Проверить",
     promo_applied: "✅ Промокод успешно применен!",
@@ -560,7 +564,8 @@ const i18n = {
     status_preparing: "Готовится",
     status_delivering: "Доставляется",
     status_completed: "Завершен",
-    status_cancelled: "Отменен"
+    status_cancelled: "Отменен",
+    payment_cancelled: "Оплата отменена. Попробуйте снова."
   },
   en: {
     title_menu: "🍽 Menu",
@@ -614,6 +619,7 @@ const i18n = {
     btn_save_continue: "Save and continue",
     payment_title: "💳 Payment",
     label_cash: "💵 Cash",
+    label_online: "💳 Card",
     promo_title: "🎁 Promo code (optional)",
     promo_check: "Check",
     promo_applied: "✅ Promo code applied successfully!",
@@ -631,7 +637,8 @@ const i18n = {
     status_preparing: "Preparing",
     status_delivering: "Delivering",
     status_completed: "Completed",
-    status_cancelled: "Cancelled"
+    status_cancelled: "Cancelled",
+    payment_cancelled: "Payment cancelled. Please try again."
   }
 };
 
@@ -1246,7 +1253,7 @@ async function placeOrder(){
     items,
     delivery_type: dlvType,
     address: addr||'Manzil kiritilmagan',
-    payment_method: payMeth==='cash'?'Naqd (Yetkazib berilganda)':'Karta',
+    payment_method: payMeth==='cash'?'💵 Naqd (Yetkazib berilganda)':'💳 Online to\'lov (Karta)',
     promo_code: promoCode||null,
     lat, lon
   };
@@ -1255,19 +1262,57 @@ async function placeOrder(){
   if(btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
   
   try {
-    const res = await POST('/api/order/create', payload);
-    if(res.success) {
-      gstep('ok');
-      cart = {};
-      updQty();
-      updBtn();
-      setTimeout(()=>{
-        closeM();
-        tg.close();
-      }, 3000);
+    if(payMeth==='online'){
+      // Online to'lov: avval buyurtma yaratiladi, keyin Telegram invoice ochiladi
+      const res = await POST('/api/order/create', payload);
+      if(res.success && res.invoice_url) {
+        // Telegram WebApp orqali invoice ochish
+        tg.openInvoice(res.invoice_url, function(status){
+          if(status === 'paid'){
+            gstep('ok');
+            cart = {};
+            updQty();
+            updBtn();
+            setTimeout(()=>{
+              closeM();
+              tg.close();
+            }, 3000);
+          } else {
+            const trans = i18n[currentLang] || i18n.uz;
+            alert(trans.payment_cancelled || 'To\'lov bekor qilindi');
+            if(btn) { btn.disabled = false; btn.textContent = '✅ Buyurtma berish'; }
+          }
+        });
+      } else if(res.success) {
+        // Invoice URL yo'q — oddiy buyurtma sifatida qabul qilindi
+        gstep('ok');
+        cart = {};
+        updQty();
+        updBtn();
+        setTimeout(()=>{
+          closeM();
+          tg.close();
+        }, 3000);
+      } else {
+        alert(res.error || 'Buyurtma berishda xato yuz berdi');
+        if(btn) { btn.disabled = false; btn.textContent = '✅ Buyurtma berish'; }
+      }
     } else {
-      alert(res.error || 'Buyurtma berishda xato yuz berdi');
-      if(btn) { btn.disabled = false; btn.textContent = '✅ Buyurtma berish'; }
+      // Naqd to'lov — oddiy buyurtma
+      const res = await POST('/api/order/create', payload);
+      if(res.success) {
+        gstep('ok');
+        cart = {};
+        updQty();
+        updBtn();
+        setTimeout(()=>{
+          closeM();
+          tg.close();
+        }, 3000);
+      } else {
+        alert(res.error || 'Buyurtma berishda xato yuz berdi');
+        if(btn) { btn.disabled = false; btn.textContent = '✅ Buyurtma berish'; }
+      }
     }
   } catch(e) {
     console.error(e);

@@ -20,6 +20,12 @@ REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 
 PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN") # Click or Payme token
 
+# Test provayder tokeni — Render'da PAYMENT_PROVIDER_TOKEN o'rnatilmagan bo'lsa ishlatiladi.
+# Haqiqiy to'lov uchun Render → Environment da PAYMENT_PROVIDER_TOKEN ni haqiqiy token bilan qo'ying.
+_DEFAULT_TEST_PAYMENT_TOKEN = "1650291590:TEST:1780943696815_x3KZ2Ie4RN3hPegD"
+if not (PAYMENT_PROVIDER_TOKEN and PAYMENT_PROVIDER_TOKEN.strip()):
+    PAYMENT_PROVIDER_TOKEN = _DEFAULT_TEST_PAYMENT_TOKEN
+
 # ── Yangi sozlamalar ─────────────────────────────────────────────────
 
 # Ish vaqti (soat)
@@ -32,9 +38,9 @@ DELIVERY_FEE = int(os.getenv("DELIVERY_FEE", "10000"))             # 10,000 so'm
 # Minimal buyurtma summasi (yetkazish uchun)
 MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm
 
-# Online to'lov (karta) — vaqtincha o'chirish/yoqish
-# .env da ONLINE_PAYMENT_ENABLED=1 qilib yoqish mumkin
-ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "0") == "1"
+# Online to'lov (karta) — standart holatda YOQILGAN
+# .env / Render da ONLINE_PAYMENT_ENABLED=0 qilib o'chirish mumkin
+ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "1") == "1"
 
 # ── Restoran joylashuvi (yetkazish masofasi hisoblash uchun) ──────────
 # .env da RESTAURANT_LAT va RESTAURANT_LON ni to'g'rilang!

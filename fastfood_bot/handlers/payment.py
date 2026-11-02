@@ -36,6 +36,11 @@ from config import ADMIN_ID
 
 log = logging.getLogger(__name__)
 
+# Bazaga va admin kanaliga yoziladigan to'lov usuli nomlari (tildan qat'i nazar bir xil).
+# "Online" so'zi utils/helpers.py da karta to'lovini aniqlash uchun ishlatiladi.
+CASH_METHOD   = "💵 Naqd (Yetkazib berilganda)"
+ONLINE_METHOD = "💳 Online to'lov (Karta)"
+
 
 # ── Yordamchi funksiyalar ─────────────────────────────────────────────
 
@@ -64,6 +69,21 @@ def _build_payload(user_id: int, order_data: dict) -> str:
 
 
 def _parse_payload(payload: str) -> dict:
+    # WebApp invoice: "webapp:user_id:delivery_type:discount_percent:promo_code"
+    # Manzil, telefon va boshqalar FSM state dan olinadi
+    if payload.startswith("webapp:"):
+        parts = payload.split(":", 4)
+        parts += [""] * (5 - len(parts))
+        return {
+            "user_id": int(parts[1] or 0),
+            "delivery_type": parts[2],
+            "address": "",
+            "phone": "",
+            "note": "",
+            "discount_percent": int(parts[3] or 0),
+            "promo_code": parts[4],
+        }
+
     parts = payload.split(":", 6)
     keys = ["user_id", "delivery_type", "address", "phone", "note",
             "discount_percent", "promo_code"]
@@ -83,12 +103,17 @@ async def ask_payment_method(message: types.Message, state: FSMContext):
 
     await OrderStates.waiting_for_payment_method.set()
 
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(KeyboardButton(get_text("btn_pay_cash", lang)))
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 
-    # Online to'lov faqat yoqilgan va token mavjud bo'lganda ko'rsatiladi
+    # 💳 Karta (online to'lov) faqat yoqilgan va token mavjud bo'lganda ko'rsatiladi
     if ONLINE_PAYMENT_ENABLED and _has_payment_token():
-        markup.add(KeyboardButton(get_text("btn_pay_online", lang)))
+        markup.row(
+            KeyboardButton(get_text("btn_pay_cash", lang)),
+            KeyboardButton(get_text("btn_pay_online", lang)),
+        )
+    else:
+        log.warning("Online to'lov o'chiq: ONLINE_PAYMENT_ENABLED yoki PAYMENT_PROVIDER_TOKEN yo'q")
+        markup.add(KeyboardButton(get_text("btn_pay_cash", lang)))
 
     markup.add(KeyboardButton(get_text("btn_cancel", lang)))
 
@@ -104,7 +129,7 @@ async def ask_payment_method(message: types.Message, state: FSMContext):
 async def process_payment_cash(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
     from handlers.order import finish_order
-    await finish_order(message, state, payment_method=get_text("btn_pay_cash", lang))
+    await finish_order(message, state, payment_method=CASH_METHOD)
 
 
 async def process_payment_online(message: types.Message, state: FSMContext):
@@ -127,7 +152,36 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         discount_amt  = int(items_total * discount_pct / 100) if discount_pct > 0 else 0
         after_discount = items_total - discount_amt
         delivery_type  = data.get("delivery_type", "delivery")
-        delivery_fee   = DELIVERY_FEE if delivery_type == "delivery" else 0
+
+        # ── Masofaga qarab yetkazish narxi ─────────────────────────
+        if delivery_type == "delivery":
+            lat = data.get("lat")
+            lon = data.get("lon")
+            if lat is not None and lon is not None:
+                try:
+                    from utils.delivery_fee import calculate_delivery_fee
+                    from config import (RESTAURANT_LAT, RESTAURANT_LON, DELIVERY_BASE_FEE,
+                                       DELIVERY_EXTRA_PER_KM, DELIVERY_FREE_KM)
+                    delivery_fee, _dist_km = await calculate_delivery_fee(
+                        float(lat), float(lon),
+                        RESTAURANT_LAT, RESTAURANT_LON,
+                        DELIVERY_BASE_FEE, DELIVERY_EXTRA_PER_KM,
+                        DELIVERY_FREE_KM, DELIVERY_FEE,
+                    )
+                except Exception:
+                    delivery_fee = DELIVERY_FEE
+            else:
+                delivery_fee = DELIVERY_FEE
+
+            # Narxni yaxlitlash: masalan, 12500 -> 12000, 12550 -> 13000
+            remainder = delivery_fee % 1000
+            if remainder <= 500:
+                delivery_fee = delivery_fee - remainder
+            else:
+                delivery_fee = delivery_fee + (1000 - remainder)
+        else:
+            delivery_fee = 0
+
         total_amount   = after_discount + delivery_fee
 
         if total_amount <= 0:
@@ -137,7 +191,7 @@ async def process_payment_online(message: types.Message, state: FSMContext):
 
         prices = [LabeledPrice(label="Buyurtma", amount=total_amount * 100)]
         payload = _build_payload(user_id, data)
-        await state.update_data(payment_method=get_text("btn_pay_online", lang))
+        await state.update_data(payment_method=ONLINE_METHOD)
 
         if lang == "ru":
             inv_title = "🍔 Darxan Burger — Заказ"
@@ -241,12 +295,14 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             user_id=user_id,
             total_amount=total_amount,
             address=address if address else "Noma'lum",
-            payment_method=get_text("btn_pay_online", lang),
+            payment_method=ONLINE_METHOD,
             latitude=lat,
             longitude=lon,
             phone_number=phone,
             note=note,
             delivery_type=delivery_type,
+            payment_status="paid",
+            transaction_id=payment.provider_payment_charge_id,
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -263,7 +319,7 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             location={"lat": lat, "lon": lon},
             note=note,
             delivery_type=delivery_type,
-            payment_method=get_text("btn_pay_online", lang),
+            payment_method=ONLINE_METHOD,
         ))
 
         # Chek matn (til bo'yicha)
@@ -310,16 +366,18 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
 
 def register_payment_handlers(dp: Dispatcher):
     # To'lov tugmalarining barcha 3 tildagi variantlari
-    _CASH_TEXTS   = [
+    _LANGS = ("uz", "ru", "en")
+    _CASH_TEXTS = {get_text("btn_pay_cash", l) for l in _LANGS} | {
+        # eski tugma matnlari (eski klaviaturasi qolgan foydalanuvchilar uchun)
         "💵 Naqd pul (Yetkazib berilganda)",
         "💵 Наличные (При получении)",
         "💵 Cash (On Delivery)",
-    ]
-    _ONLINE_TEXTS = [
+    }
+    _ONLINE_TEXTS = {get_text("btn_pay_online", l) for l in _LANGS} | {
         "💳 Online to'lov (Click / Payme)",
         "💳 Онлайн (Click / Payme)",
         "💳 Online (Click / Payme)",
-    ]
+    }
 
     dp.register_message_handler(
         process_payment_cash,

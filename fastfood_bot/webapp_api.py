@@ -422,90 +422,195 @@ async def api_order_create(request):
         phone = user_row['phone_number'] if user_row else None
 
         # ── 6. Buyurtmani DB ga saqlash ───────────────────────────────
-        order_id = await create_order(
-            user_id=user_id,
-            total_amount=total_amount,
-            address=address or "Manzil kiritilmagan",
-            payment_method=payment_method,
-            latitude=lat,
-            longitude=lon,
-            phone_number=phone,
-            note=None,
-            delivery_type=delivery_type,
-        )
-        await add_order_items(order_id, items)
-        await clear_cart(user_id)
+        is_online = "Online" in payment_method or "online" in payment_method.lower()
 
-        # ── 7. Telegram bot orqali bildirishnomalar yuborish ──────────
-        bot = request.app.get('bot')
-        if bot:
-            class SimpleUser:
-                def __init__(self, uid, name, username=None):
-                    self.id = uid
-                    self.full_name = name
-                    self.username = username
+        if is_online:
+            # Online to'lov: avval invoice yaratamiz, to'lov muvaffaqiyatli bo'lganda order saved bo'ladi
+            # Telegram Payments API orqali invoice link yaratish
+            from config import PAYMENT_PROVIDER_TOKEN, ONLINE_PAYMENT_ENABLED
+            bot = request.app.get('bot')
 
-            full_name = user_row['full_name'] if user_row else "Mijoz"
-            username = user_row['username'] if user_row else None
-            tg_user = SimpleUser(user_id, full_name, username)
+            if not bot or not ONLINE_PAYMENT_ENABLED or not PAYMENT_PROVIDER_TOKEN:
+                # Online to'lov yoqilmagan — oddiy naqd buyurtma sifatida qabul qilamiz
+                order_id = await create_order(
+                    user_id=user_id,
+                    total_amount=total_amount,
+                    address=address or "Manzil kiritilmagan",
+                    payment_method="Naqd (Yetkazib berilganda)",
+                    latitude=lat,
+                    longitude=lon,
+                    phone_number=phone,
+                    note=None,
+                    delivery_type=delivery_type,
+                )
+                await add_order_items(order_id, items)
+                await clear_cart(user_id)
+                # Naqd sifatida qabul qilindi — bildirishnomalar yuborilsin
+                is_online = False
+                payment_method = "Naqd (Yetkazib berilganda)"
+            else:
+                # Invoice yaratish va WebApp ga qaytarish
+                try:
+                    from aiogram.types import LabeledPrice
 
-            asyncio.create_task(notify_admins_new_order(
-                bot=bot,
-                order_id=order_id,
+                    if lang == "ru":
+                        inv_title = "🍔 Darxan Burger — Заказ"
+                        inv_desc = f"Товаров: {len(items)} шт.\nИтого: {total_amount:,} сум"
+                    elif lang == "en":
+                        inv_title = "🍔 Darxan Burger — Order"
+                        inv_desc = f"Items: {len(items)}\nTotal: {total_amount:,} sum"
+                    else:
+                        inv_title = "🍔 Darxan Burger Buyurtmasi"
+                        inv_desc = f"Buyurtmangiz: {len(items)} ta mahsulot\nJami: {total_amount:,} so'm"
+
+                    prices = [LabeledPrice(label="Buyurtma", amount=total_amount * 100)]
+                    payload_str = f"webapp:{user_id}:{delivery_type}:{discount_pct}:{promo_code or ''}"
+
+                    # Savatni state da saqlash — payment handler uchun
+                    # Avval savatni tozalamasdan qoldiramiz — successful_payment handler oladi
+
+                    invoice_link = await bot.create_invoice_link(
+                        title=inv_title,
+                        description=inv_desc,
+                        payload=payload_str,
+                        provider_token=PAYMENT_PROVIDER_TOKEN,
+                        currency="UZS",
+                        prices=prices,
+                    )
+
+                    # Foydalanuvchiga savatni va buyurtma ma'lumotlarini
+                    # FSM state orqali saqlaymiz (successful_payment handler ishlatadi)
+                    try:
+                        dp = request.app.get('dp')
+                        state = dp.current_state(chat=user_id, user=user_id)
+                        await state.update_data(
+                            delivery_type=delivery_type,
+                            address=address or "Manzil kiritilmagan",
+                            phone=phone,
+                            note=None,
+                            lat=lat,
+                            lon=lon,
+                            discount_percent=discount_pct,
+                            promo_code=promo_code,
+                            payment_method=payment_method,
+                        )
+                    except Exception as e:
+                        logging.warning(f"FSM state saqlashda xatolik: {e}")
+
+                    return add_cors_headers(web.json_response({
+                        'success': True,
+                        'invoice_url': invoice_link,
+                        'total_amount': total_amount
+                    }))
+
+                except Exception as e:
+                    logging.error(f"Invoice yaratishda xatolik: {e}", exc_info=True)
+                    # Fallback: naqd buyurtma sifatida qabul qilish
+                    order_id = await create_order(
+                        user_id=user_id,
+                        total_amount=total_amount,
+                        address=address or "Manzil kiritilmagan",
+                        payment_method="Naqd (Yetkazib berilganda)",
+                        latitude=lat,
+                        longitude=lon,
+                        phone_number=phone,
+                        note=None,
+                        delivery_type=delivery_type,
+                    )
+                    await add_order_items(order_id, items)
+                    await clear_cart(user_id)
+                    # Naqd sifatida qabul qilindi — bildirishnomalar yuborilsin
+                    is_online = False
+                    payment_method = "Naqd (Yetkazib berilganda)"
+        else:
+            # Naqd to'lov — darhol buyurtma yaratish
+            order_id = await create_order(
+                user_id=user_id,
                 total_amount=total_amount,
-                user=tg_user,
-                items=items,
-                phone=phone,
-                address=address,
-                location={'lat': lat, 'lon': lon},
+                address=address or "Manzil kiritilmagan",
+                payment_method=payment_method,
+                latitude=lat,
+                longitude=lon,
+                phone_number=phone,
                 note=None,
                 delivery_type=delivery_type,
-                payment_method=payment_method,
-            ))
-
-            receipt = "".join(
-                get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
-                         total=i['price'] * i['quantity']) + "\n"
-                for i in items
             )
+            await add_order_items(order_id, items)
+            await clear_cart(user_id)
 
-            discount_text = (get_text("promo_line", lang, code=promo_code, amt=discount_amt)
-                             if discount_amt > 0 else "")
+        # ── 7. Telegram bot orqali bildirishnomalar yuborish ──────────
+        # Online to'lov uchun bu qadam o'tkazib yuboriladi —
+        # bildirishnoma successful_payment handler tomonidan yuboriladi
+        if not is_online:
+            bot = request.app.get('bot')
+            if bot:
+                class SimpleUser:
+                    def __init__(self, uid, name, username=None):
+                        self.id = uid
+                        self.full_name = name
+                        self.username = username
 
-            if delivery_type == "eat_in":
-                success_text = get_text("order_success_eat_in", lang,
-                                        order_id=order_id,
-                                        address=address,
-                                        receipt=receipt,
-                                        discount=discount_text,
-                                        total=after_discount,
-                                        note="")
-            else:
-                success_text = get_text("order_success_delivery", lang,
-                                        order_id=order_id,
-                                        receipt=receipt,
-                                        discount=discount_text,
-                                        delivery_fee=delivery_fee_val,
-                                        total=total_amount,
-                                        note="")
+                full_name = user_row['full_name'] if user_row else "Mijoz"
+                username = user_row['username'] if user_row else None
+                tg_user = SimpleUser(user_id, full_name, username)
 
-            try:
-                from keyboards.main_menu import get_admin_main_menu, get_user_main_menu
-                is_admin = str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
-                markup = get_admin_main_menu(lang) if is_admin else get_user_main_menu(lang)
-                
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=success_text,
-                    reply_markup=markup,
-                    parse_mode="HTML"
+                asyncio.create_task(notify_admins_new_order(
+                    bot=bot,
+                    order_id=order_id,
+                    total_amount=total_amount,
+                    user=tg_user,
+                    items=items,
+                    phone=phone,
+                    address=address,
+                    location={'lat': lat, 'lon': lon},
+                    note=None,
+                    delivery_type=delivery_type,
+                    payment_method=payment_method,
+                ))
+
+                receipt = "".join(
+                    get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
+                             total=i['price'] * i['quantity']) + "\n"
+                    for i in items
                 )
-            except Exception as e:
-                logging.error(f"Mijozga bot orqali xabar yuborishda xato: {e}")
+
+                discount_text = (get_text("promo_line", lang, code=promo_code, amt=discount_amt)
+                                 if discount_amt > 0 else "")
+
+                if delivery_type == "eat_in":
+                    success_text = get_text("order_success_eat_in", lang,
+                                            order_id=order_id,
+                                            address=address,
+                                            receipt=receipt,
+                                            discount=discount_text,
+                                            total=after_discount,
+                                            note="")
+                else:
+                    success_text = get_text("order_success_delivery", lang,
+                                            order_id=order_id,
+                                            receipt=receipt,
+                                            discount=discount_text,
+                                            delivery_fee=delivery_fee_val,
+                                            total=total_amount,
+                                            note="")
+
+                try:
+                    from keyboards.main_menu import get_admin_main_menu, get_user_main_menu
+                    is_admin = str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
+                    markup = get_admin_main_menu(lang) if is_admin else get_user_main_menu(lang)
+                    
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=success_text,
+                        reply_markup=markup,
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    logging.error(f"Mijozga bot orqali xabar yuborishda xato: {e}")
 
         return add_cors_headers(web.json_response({
             'success': True,
-            'order_id': order_id,
+            'order_id': order_id if not is_online else 0,
             'total_amount': total_amount
         }))
 

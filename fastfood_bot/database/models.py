@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS orders (
     longitude FLOAT,
     phone_number VARCHAR(20),
     payment_method VARCHAR(50),
+    payment_status VARCHAR(20) DEFAULT 'unpaid',
+    transaction_id VARCHAR(150),
     delivery_type VARCHAR(20) DEFAULT 'delivery',
     status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
