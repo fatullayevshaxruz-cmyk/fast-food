@@ -55,6 +55,21 @@ def _has_payment_token() -> bool:
     return bool(PAYMENT_PROVIDER_TOKEN and PAYMENT_PROVIDER_TOKEN.strip())
 
 
+def _get_bot():
+    try:
+        from aiogram import Bot
+        b = Bot.get_current()
+        if b:
+            return b
+    except Exception:
+        pass
+    try:
+        from bot import bot as main_bot
+        return main_bot
+    except Exception:
+        return None
+
+
 def _build_payload(user_id: int, order_data: dict) -> str:
     parts = [
         str(user_id),
@@ -240,22 +255,23 @@ async def process_payment_online(message: types.Message, state: FSMContext):
 # ── Pre-Checkout Query ────────────────────────────────────────────────
 
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
+    b = getattr(pre_checkout_query, 'bot', None) or _get_bot()
     try:
-        await pre_checkout_query.bot.answer_pre_checkout_query(
+        await b.answer_pre_checkout_query(
             pre_checkout_query.id, ok=True,
         )
-        log.info(f"PreCheckoutQuery OK: user_id={pre_checkout_query.from_user.id}")
+        log.info(f"✅ PreCheckoutQuery OK: id={pre_checkout_query.id}, user_id={pre_checkout_query.from_user.id}")
     except Exception as e:
-        log.error(f"PreCheckoutQuery xatosi: {e}", exc_info=True)
-        lang = await get_user_language(pre_checkout_query.from_user.id)
+        log.error(f"❌ PreCheckoutQuery xatosi: {e}", exc_info=True)
         try:
-            await pre_checkout_query.bot.answer_pre_checkout_query(
+            lang = await get_user_language(pre_checkout_query.from_user.id)
+            await b.answer_pre_checkout_query(
                 pre_checkout_query.id,
                 ok=False,
                 error_message=get_text("precheckout_error", lang),
             )
-        except Exception:
-            pass
+        except Exception as e2:
+            log.error(f"❌ PreCheckoutQuery fallback xatosi: {e2}")
 
 
 # ── Successful Payment ────────────────────────────────────────────────
@@ -382,16 +398,17 @@ def register_payment_handlers(dp: Dispatcher):
     dp.register_message_handler(
         process_payment_cash,
         lambda m: m.text in _CASH_TEXTS,
-        state=OrderStates.waiting_for_payment_method,
+        state="*",
     )
     dp.register_message_handler(
         process_payment_online,
         lambda m: m.text in _ONLINE_TEXTS,
-        state=OrderStates.waiting_for_payment_method,
+        state="*",
     )
     dp.register_pre_checkout_query_handler(
         process_pre_checkout,
         lambda q: True,
+        state="*",
     )
     dp.register_message_handler(
         process_successful_payment,
