@@ -281,39 +281,39 @@ TRANSLATIONS = {
     },
     "order_success_eat_in": {
         "uz": (
-            "✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
+            "⏳ <b>Buyurtmangiz kafe qabul qilishini kutyapmiz...</b>\n\n"
             "📋 <b>Buyurtma #{order_id}</b>\n"
             "🍽️ <b>Shu yerda</b> | {address}\n\n"
             "{receipt}"
             "{discount}\n"
             "  💰 <b>Jami: {total:,} so'm</b>"
             "{note}\n\n"
-            "🍖 Ofitsiant olib keladi. Yoqimli ishtaha! 😋"
+            "✨ <i>Buyurtmangiz <b>Darxan Burger</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
         ),
         "ru": (
-            "✅ <b>Ваш заказ принят!</b>\n\n"
+            "⏳ <b>Ожидаем подтверждения заказа от кафе...</b>\n\n"
             "📋 <b>Заказ #{order_id}</b>\n"
             "🍽️ <b>На месте</b> | {address}\n\n"
             "{receipt}"
             "{discount}\n"
             "  💰 <b>Итого: {total:,} сум</b>"
             "{note}\n\n"
-            "🍖 Официант принесёт заказ. Приятного аппетита! 😋"
+            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
         ),
         "en": (
-            "✅ <b>Your order has been placed!</b>\n\n"
+            "⏳ <b>Waiting for the cafe to accept your order...</b>\n\n"
             "📋 <b>Order #{order_id}</b>\n"
             "🍽️ <b>Dine In</b> | {address}\n\n"
             "{receipt}"
             "{discount}\n"
             "  💰 <b>Total: {total:,} sum</b>"
             "{note}\n\n"
-            "🍖 A waiter will bring your order. Enjoy! 😋"
+            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔"
         ),
     },
     "order_success_delivery": {
         "uz": (
-            "✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n"
+            "⏳ <b>Buyurtmangiz kafe qabul qilishini kutyapmiz...</b>\n\n"
             "📋 <b>Buyurtma #{order_id}</b>\n"
             "🛵 <b>Yetkazib berish</b>\n\n"
             "{receipt}"
@@ -322,12 +322,10 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Jami: {total:,} so'm</b>"
             "{note}\n\n"
-            "🛵 Yetkazib beruvchi siz bilan bog'lanadi.\n"
-            "<i>(To'lovni mahsulotni qabul qilganda to'laysiz)</i>\n\n"
-            "Rahmat! Yoqimli ishtaha! 😋"
+            "✨ <i>Buyurtmangiz <b>Darxan Burger</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
         ),
         "ru": (
-            "✅ <b>Ваш заказ принят!</b>\n\n"
+            "⏳ <b>Ожидаем подтверждения заказа от кафе...</b>\n\n"
             "📋 <b>Заказ #{order_id}</b>\n"
             "🛵 <b>Доставка</b>\n\n"
             "{receipt}"
@@ -336,12 +334,10 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Итого: {total:,} сум</b>"
             "{note}\n\n"
-            "🛵 Курьер свяжется с вами.\n"
-            "<i>(Оплата при получении)</i>\n\n"
-            "Спасибо! Приятного аппетита! 😋"
+            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
         ),
         "en": (
-            "✅ <b>Your order has been placed!</b>\n\n"
+            "⏳ <b>Waiting for the cafe to accept your order...</b>\n\n"
             "📋 <b>Order #{order_id}</b>\n"
             "🛵 <b>Delivery</b>\n\n"
             "{receipt}"
@@ -350,9 +346,73 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Total: {total:,} sum</b>"
             "{note}\n\n"
-            "🛵 Delivery person will contact you.\n"
-            "<i>(Pay on delivery)</i>\n\n"
-            "Thank you! Enjoy your meal! 😋"
+            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
+        ),
+    },
+    "cafe_order_accepted_delivery": {
+        "uz": (
+            "🎉🍔 <b>Xushxabar! Buyurtmangiz #{order_id} kafe tomonidan qabul qilindi!</b> 🔥\n\n"
+            "👨‍🍳 <b>Darxan Burger</b>ning mohir oshpazlari hoziroq siz uchun eng barra va shirali masalliqlardan taomingizni tayyorlashni boshlab yuborishdi!\n\n"
+            "🛵 <i>Taomingiz tayyor bo'lishi bilan chaqqon kuryerimiz issiqqina holatda manzilingizga yetkazib beradi!</i>\n\n"
+            "❤️ <b>Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha tilaymiz!</b> 😋✨"
+        ),
+        "ru": (
+            "🎉🍔 <b>Отличная новость! Ваш заказ #{order_id} принят кафе!</b> 🔥\n\n"
+            "👨‍🍳 Лучшие повара <b>Darxan Burger</b> уже начали готовить для вас из самых свежих и сочных ингредиентов!\n\n"
+            "🛵 <i>Как только всё будет готово, наш быстрый курьер доставит ваш заказ горячим прямо к вам!</i>\n\n"
+            "❤️ <b>Спасибо, что выбрали нас! Приятного аппетита!</b> 😋✨"
+        ),
+        "en": (
+            "🎉🍔 <b>Great news! Your order #{order_id} has been accepted by the cafe!</b> 🔥\n\n"
+            "👨‍🍳 The master chefs at <b>Darxan Burger</b> have already started preparing your meal with the freshest, juiciest ingredients!\n\n"
+            "🛵 <i>As soon as it's ready, our fast courier will deliver it piping hot right to your door!</i>\n\n"
+            "❤️ <b>Thank you for choosing us! Enjoy your meal!</b> 😋✨"
+        ),
+    },
+    "cafe_order_accepted_eat_in": {
+        "uz": (
+            "🎉🍔 <b>Xushxabar! Buyurtmangiz #{order_id} kafe tomonidan qabul qilindi!</b> 🔥\n\n"
+            "👨‍🍳 <b>Darxan Burger</b>ning mohir oshpazlari hoziroq siz uchun eng barra va shirali masalliqlardan taomingizni mehr bilan tayyorlashni boshlashdi!\n\n"
+            "🍽️ <i>Issiqqina va mazali taomingiz tayyor bo'lishi bilan ofitsiantimiz stolingizga olib keladi!</i>\n\n"
+            "❤️ <b>Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha tilaymiz!</b> 😋✨"
+        ),
+        "ru": (
+            "🎉🍔 <b>Отличная новость! Ваш заказ #{order_id} принят кафе!</b> 🔥\n\n"
+            "👨‍🍳 Лучшие повара <b>Darxan Burger</b> уже с любовью готовят для вас из самых свежих и сочных ингредиентов!\n\n"
+            "🍽️ <i>Как только блюдо будет готово, официант сразу принесёт его к вашему столику!</i>\n\n"
+            "❤️ <b>Спасибо, что выбрали нас! Приятного аппетита!</b> 😋✨"
+        ),
+        "en": (
+            "🎉🍔 <b>Great news! Your order #{order_id} has been accepted by the cafe!</b> 🔥\n\n"
+            "👨‍🍳 The master chefs at <b>Darxan Burger</b> have already started preparing your meal with love and the freshest ingredients!\n\n"
+            "🍽️ <i>As soon as your delicious meal is ready, our waiter will bring it right to your table!</i>\n\n"
+            "❤️ <b>Thank you for choosing us! Enjoy your meal!</b> 😋✨"
+        ),
+    },
+    "cafe_order_rejected": {
+        "uz": (
+            "😔💔 <b>Hurmatli mijoz, ming bor uzr so'raymiz!</b>\n\n"
+            "📋 <b>Buyurtma #{order_id}</b> ayni vaqtda kafe tomonidan <b>bekor qilindi</b>.\n"
+            "<i>(Oshxonada buyurtmalar juda ko'payib ketgani yoki ayrim masalliqlar vaqtincha tugab qolgani sababli bo'lishi mumkin).</i>\n\n"
+            "🌟 Sizning vaqtingiz va ishonchingiz biz uchun juda qadrli! Iltimos, birozdan so'ng qayta urinib ko'ring yoki menyudan boshqa mazali taomlarimizni tanlang.\n\n"
+            "📞 Savollar bo'lsa, biz bilan bog'laning: <b>+998943265755</b>\n"
+            "🍔 <b>Darxan Burger</b> — sizga xizmat ko'rsatishdan doim mamnunmiz! ❤️"
+        ),
+        "ru": (
+            "😔💔 <b>Уважаемый клиент, приносим искренние извинения!</b>\n\n"
+            "📋 <b>Заказ #{order_id}</b>, к сожалению, был <b>отменён</b> кафе.\n"
+            "<i>(Возможно, из-за высокой загруженности кухни или временного отсутствия некоторых ингредиентов).</i>\n\n"
+            "🌟 Мы очень ценим ваше время и доверие! Пожалуйста, попробуйте оформить заказ чуть позже или выберите другие вкусные блюда из нашего меню.\n\n"
+            "📞 По всем вопросам: <b>+998943265755</b>\n"
+            "🍔 <b>Darxan Burger</b> — всегда рады вам! ❤️"
+        ),
+        "en": (
+            "😔💔 <b>Dear customer, we sincerely apologize!</b>\n\n"
+            "📋 <b>Order #{order_id}</b> could not be fulfilled at this moment and was <b>cancelled</b> by the cafe.\n"
+            "<i>(This may be due to high kitchen demand or temporary unavailability of certain ingredients).</i>\n\n"
+            "🌟 We truly value your time and trust! Please try again shortly or explore other delicious items on our menu.\n\n"
+            "📞 For any questions, contact us: <b>+998943265755</b>\n"
+            "🍔 <b>Darxan Burger</b> — always happy to serve you! ❤️"
         ),
     },
 
@@ -806,63 +866,66 @@ TRANSLATIONS = {
     },
     "payment_accepted_eat_in": {
         "uz": (
-            "✅ <b>To'lov qabul qilindi va buyurtma tasdiqlandi!</b>\n\n"
+            "✅ <b>To'lov qabul qilindi!</b>\n"
+            "⏳ <b>Buyurtmangiz kafe qabul qilishini kutyapmiz...</b>\n\n"
             "📋 <b>Buyurtma #{order_id}</b>\n"
             "🍽️ <b>Shu yerda</b> | {address}\n\n"
             "{receipt}"
             "  💰 <b>Jami: {total:,} so'm</b>\n\n"
             "💳 <i>Online to'lov: {charge_id}</i>\n\n"
-            "🍖 Ofitsiant olib keladi. Yoqimli ishtaha! 😋"
+            "✨ <i>Buyurtmangiz <b>Darxan Burger</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
         ),
         "ru": (
-            "✅ <b>Оплата принята и заказ подтверждён!</b>\n\n"
+            "✅ <b>Оплата принята!</b>\n"
+            "⏳ <b>Ожидаем подтверждения заказа от кафе...</b>\n\n"
             "📋 <b>Заказ #{order_id}</b>\n"
             "🍽️ <b>На месте</b> | {address}\n\n"
             "{receipt}"
             "  💰 <b>Итого: {total:,} сум</b>\n\n"
             "💳 <i>Онлайн оплата: {charge_id}</i>\n\n"
-            "🍖 Официант принесёт заказ. Приятного аппетита! 😋"
+            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
         ),
         "en": (
-            "✅ <b>Payment accepted and order confirmed!</b>\n\n"
+            "✅ <b>Payment accepted!</b>\n"
+            "⏳ <b>Waiting for the cafe to accept your order...</b>\n\n"
             "📋 <b>Order #{order_id}</b>\n"
             "🍽️ <b>Dine In</b> | {address}\n\n"
             "{receipt}"
             "  💰 <b>Total: {total:,} sum</b>\n\n"
             "💳 <i>Online payment: {charge_id}</i>\n\n"
-            "🍖 A waiter will bring your order. Enjoy! 😋"
+            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔"
         ),
     },
     "payment_accepted_delivery": {
         "uz": (
-            "✅ <b>To'lov qabul qilindi va buyurtma tasdiqlandi!</b>\n\n"
+            "✅ <b>To'lov qabul qilindi!</b>\n"
+            "⏳ <b>Buyurtmangiz kafe qabul qilishini kutyapmiz...</b>\n\n"
             "📋 <b>Buyurtma #{order_id}</b>\n"
             "🛵 <b>Yetkazib berish</b>\n\n"
             "{receipt}"
             "  💰 <b>Jami: {total:,} so'm</b>\n\n"
             "💳 <i>Online to'lov amalga oshirildi</i>\n\n"
-            "🛵 Yetkazib beruvchi siz bilan bog'lanadi.\n"
-            "Rahmat! Yoqimli ishtaha! 😋"
+            "✨ <i>Buyurtmangiz <b>Darxan Burger</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
         ),
         "ru": (
-            "✅ <b>Оплата принята и заказ подтверждён!</b>\n\n"
+            "✅ <b>Оплата принята!</b>\n"
+            "⏳ <b>Ожидаем подтверждения заказа от кафе...</b>\n\n"
             "📋 <b>Заказ #{order_id}</b>\n"
             "🛵 <b>Доставка</b>\n\n"
             "{receipt}"
             "  💰 <b>Итого: {total:,} сум</b>\n\n"
             "💳 <i>Оплата прошла успешно</i>\n\n"
-            "🛵 Курьер свяжется с вами.\n"
-            "Спасибо! Приятного аппетита! 😋"
+            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
         ),
         "en": (
-            "✅ <b>Payment accepted and order confirmed!</b>\n\n"
+            "✅ <b>Payment accepted!</b>\n"
+            "⏳ <b>Waiting for the cafe to accept your order...</b>\n\n"
             "📋 <b>Order #{order_id}</b>\n"
             "🛵 <b>Delivery</b>\n\n"
             "{receipt}"
             "  💰 <b>Total: {total:,} sum</b>\n\n"
             "💳 <i>Online payment completed</i>\n\n"
-            "🛵 Delivery person will contact you.\n"
-            "Thank you! Enjoy your meal! 😋"
+            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
         ),
     },
     "payment_accepted_empty_cart": {

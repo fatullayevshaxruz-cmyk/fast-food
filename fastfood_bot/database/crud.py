@@ -317,7 +317,7 @@ async def get_order_items_detail(order_id):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         return await conn.fetch("""
-            SELECT oi.*, p.name, p.name_ru, p.name_en
+            SELECT oi.*, p.name, p.name_ru, p.name_en, p.image_url, p.price
             FROM order_items oi 
             JOIN products p ON oi.product_id = p.id 
             WHERE oi.order_id = $1

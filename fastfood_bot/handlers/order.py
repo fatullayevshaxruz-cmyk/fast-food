@@ -527,7 +527,8 @@ async def finish_order(message: types.Message, state: FSMContext,
         asyncio.create_task(notify_admins_new_order(
             bot=message.bot, order_id=order_id, total_amount=total_amount,
             user=message.from_user, items=items, phone=phone, address=address,
-            location={'lat': lat, 'lon': lon}, note=note, delivery_type=delivery_type
+            location={'lat': lat, 'lon': lon}, note=note, delivery_type=delivery_type,
+            payment_method=payment_method
         ))
 
         note_text     = f"\n  📝 <i>{note}</i>" if note else ""

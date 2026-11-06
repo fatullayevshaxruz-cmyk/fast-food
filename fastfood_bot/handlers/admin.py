@@ -774,6 +774,161 @@ async def admin_csv_export(message: types.Message):
     await message.answer_document(doc, caption=f"📥 <b>Buyurtmalar hisoboti</b>\n{len(orders)} ta buyurtma", parse_mode="HTML")
 
 
+# ── Kafe kanalidagi (-1003885234768) Qabul qilish / Bekor qilish tugmalari ──
+
+async def cafe_accept_order_callback(call: types.CallbackQuery):
+    """
+    -1003885234768 kanalda "✅ Buyurtmani qabul qilish" tugmasi bosilganda:
+      1. Buyurtma holati 'preparing' ga o'zgartiriladi.
+      2. Kanaldagi xabar yangilanadi (Qabul qilindi).
+      3. Mijozga kreativ va xursand qiluvchi xabar yuboriladi.
+      4. Va AYNAN SHUNDAN KEYIN -1003943860489 (yetkazib berish) kanaliga buyurtma yuboriladi!
+    """
+    try:
+        order_id = int(call.data.split("_")[2])
+    except Exception:
+        await call.answer("⚠️ Noto'g'ri buyurtma raqami", show_alert=True)
+        return
+
+    order_row = await get_order_by_id(order_id)
+    if not order_row:
+        await call.answer("⚠️ Buyurtma topilmadi!", show_alert=True)
+        return
+    order = dict(order_row)
+
+    current_status = order.get("status") or "pending"
+    if current_status in ("preparing", "delivering", "completed"):
+        await call.answer("ℹ️ Bu buyurtma allaqachon qabul qilingan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+    if current_status == "cancelled":
+        await call.answer("ℹ️ Bu buyurtma allaqachon bekor qilingan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+
+    # 1. Holatni yangilash
+    await update_order_status(order_id, "preparing")
+    await call.answer("✅ Buyurtma qabul qilindi!", show_alert=False)
+
+    # 2. Kanaldagi xabarni yangilash
+    try:
+        orig_html = call.message.html_text or call.message.caption or call.message.text or ""
+        updated_html = orig_html.replace(
+            "⏳ <i>Holat: Kafe tasdiqlashi kutilmoqda...</i>",
+            "✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>"
+        )
+        if "✅ <b>Holat:" not in updated_html:
+            updated_html += "\n\n✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>"
+
+        if call.message.caption is not None:
+            await call.message.edit_caption(updated_html, parse_mode="HTML", reply_markup=None)
+        else:
+            await call.message.edit_text(updated_html, parse_mode="HTML", reply_markup=None)
+    except Exception as e:
+        logging.warning(f"Kanal xabarini yangilashda xatolik: {e}")
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+    # 3. Mijozga kreativ xabar yuborish
+    user_id = order["user_id"]
+    user_lang = await get_user_language(user_id)
+    is_eat_in = (
+        order.get("delivery_type") == "eat_in"
+        or (order.get("delivery_address") and "Stol raqami" in str(order.get("delivery_address", "")))
+    )
+    msg_key = "cafe_order_accepted_eat_in" if is_eat_in else "cafe_order_accepted_delivery"
+    customer_msg = get_text(msg_key, user_lang, order_id=order_id)
+
+    try:
+        await call.bot.send_message(user_id, customer_msg, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Mijozga qabul qilinganlik xabarini yuborishda xato: {e}")
+
+    # 4. Endi -1003943860489 (Yetkazib berish kanali)ga buyurtmani yuborish!
+    from utils.helpers import send_accepted_order_to_delivery_channel
+    asyncio.create_task(send_accepted_order_to_delivery_channel(call.bot, order_id))
+
+
+async def cafe_reject_order_callback(call: types.CallbackQuery):
+    """
+    -1003885234768 kanalda "❌ Bekor qilish" tugmasi bosilganda:
+      1. Buyurtma holati 'cancelled' ga o'zgartiriladi.
+      2. Kanaldagi xabar yangilanadi (Bekor qilindi).
+      3. Mijozga kreativ, muloyim uzr xabari yuboriladi.
+      4. -1003943860489 kanaliga HECH NARSA yuborilmaydi!
+    """
+    try:
+        order_id = int(call.data.split("_")[2])
+    except Exception:
+        await call.answer("⚠️ Noto'g'ri buyurtma raqami", show_alert=True)
+        return
+
+    order_row = await get_order_by_id(order_id)
+    if not order_row:
+        await call.answer("⚠️ Buyurtma topilmadi!", show_alert=True)
+        return
+    order = dict(order_row)
+
+    current_status = order.get("status") or "pending"
+    if current_status == "cancelled":
+        await call.answer("ℹ️ Bu buyurtma allaqachon bekor qilingan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+    if current_status in ("preparing", "delivering", "completed"):
+        await call.answer("ℹ️ Bu buyurtma allaqachon qabul qilingan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+
+    # 1. Holatni yangilash
+    await update_order_status(order_id, "cancelled")
+    await call.answer("❌ Buyurtma bekor qilindi!", show_alert=False)
+
+    # 2. Kanaldagi xabarni yangilash
+    try:
+        orig_html = call.message.html_text or call.message.caption or call.message.text or ""
+        updated_html = orig_html.replace(
+            "⏳ <i>Holat: Kafe tasdiqlashi kutilmoqda...</i>",
+            "❌ <b>Holat: BEKOR QILINDI</b>"
+        )
+        if "❌ <b>Holat:" not in updated_html:
+            updated_html += "\n\n❌ <b>Holat: BEKOR QILINDI</b>"
+
+        if call.message.caption is not None:
+            await call.message.edit_caption(updated_html, parse_mode="HTML", reply_markup=None)
+        else:
+            await call.message.edit_text(updated_html, parse_mode="HTML", reply_markup=None)
+    except Exception as e:
+        logging.warning(f"Kanal xabarini yangilashda xatolik: {e}")
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+    # 3. Mijozga kreativ bekor qilinganlik xabarini yuborish
+    user_id = order["user_id"]
+    user_lang = await get_user_language(user_id)
+    customer_msg = get_text("cafe_order_rejected", user_lang, order_id=order_id)
+
+    try:
+        await call.bot.send_message(user_id, customer_msg, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Mijozga bekor qilinganlik xabarini yuborishda xato: {e}")
+
+
 # ── Handlerlarni ro'yxatdan o'tkazish ────────────────────────────────
 
 def register_admin_handlers(dp: Dispatcher):
@@ -786,6 +941,18 @@ def register_admin_handlers(dp: Dispatcher):
     _ADDPROD_TEXTS = ["➕ Mahsulot qo'shish", "➕ Добавить продукт", "➕ Add Product"]
     _PROMO_TEXTS   = ["🎟 Promo kodlar", "🎟 Промо-коды", "🎟 Promo Codes"]
     _CSV_TEXTS     = ["📥 Hisobot (CSV)", "📥 Отчёт (CSV)", "📥 Report (CSV)"]
+
+    # Kafe kanalidagi (-1003885234768) Qabul qilish / Bekor qilish inline tugmalari
+    dp.register_callback_query_handler(
+        cafe_accept_order_callback,
+        lambda c: c.data and c.data.startswith("cafe_accept_"),
+        state="*",
+    )
+    dp.register_callback_query_handler(
+        cafe_reject_order_callback,
+        lambda c: c.data and c.data.startswith("cafe_reject_"),
+        state="*",
+    )
 
     dp.register_message_handler(cmd_admin, commands=['admin'])
     dp.register_message_handler(stats_handler,   lambda m: m.text in _STATS_TEXTS)

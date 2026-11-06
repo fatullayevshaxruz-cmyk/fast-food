@@ -5,7 +5,8 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID") # Can be a list of IDs separated by comma
-ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID")
+ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID", "-1003885234768")
+DELIVERY_CHANNEL_ID = os.getenv("DELIVERY_CHANNEL_ID", "-1003943860489")
 DB_USER = os.getenv("DB_USER", "postgres")
 
 DB_PASS = os.getenv("DB_PASS", "postgres")
