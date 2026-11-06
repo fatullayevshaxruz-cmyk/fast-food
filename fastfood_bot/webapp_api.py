@@ -373,15 +373,14 @@ async def api_order_create(request):
         # ── 3. Promo kod tekshirish ───────────────────────────────────
         discount_pct = 0
         if promo_code:
+            promo_code = promo_code.strip().upper()
             try:
-                promo = await get_promo_code(promo_code.upper())
+                promo = await get_promo_code(promo_code)
                 if promo:
                     promo_d = dict(promo)
-                    already_used = await check_user_promo_used(user_id, promo_code.upper())
-                    if not already_used:
-                        if promo_d.get("max_uses", 0) == 0 or promo_d.get("used_count", 0) < promo_d["max_uses"]:
-                            discount_pct = promo_d.get("discount_percent", 0)
-                            await use_promo_code(promo_code.upper(), user_id=user_id)
+                    if promo_d.get("max_uses", 0) == 0 or promo_d.get("used_count", 0) < promo_d["max_uses"]:
+                        discount_pct = promo_d.get("discount_percent", 0)
+                        await use_promo_code(promo_code, user_id=user_id)
             except Exception as e:
                 logging.warning(f"Promo kod xatosi: {e}")
 
@@ -442,6 +441,8 @@ async def api_order_create(request):
                     phone_number=phone,
                     note=None,
                     delivery_type=delivery_type,
+                    promo_code=promo_code if discount_amt > 0 else None,
+                    discount_amount=discount_amt,
                 )
                 await add_order_items(order_id, items)
                 await clear_cart(user_id)
@@ -516,6 +517,8 @@ async def api_order_create(request):
                         phone_number=phone,
                         note=None,
                         delivery_type=delivery_type,
+                        promo_code=promo_code if discount_amt > 0 else None,
+                        discount_amount=discount_amt,
                     )
                     await add_order_items(order_id, items)
                     await clear_cart(user_id)
@@ -534,6 +537,8 @@ async def api_order_create(request):
                 phone_number=phone,
                 note=None,
                 delivery_type=delivery_type,
+                promo_code=promo_code if discount_amt > 0 else None,
+                discount_amount=discount_amt,
             )
             await add_order_items(order_id, items)
             await clear_cart(user_id)
@@ -566,6 +571,9 @@ async def api_order_create(request):
                     note=None,
                     delivery_type=delivery_type,
                     payment_method=payment_method,
+                    promo_code=promo_code if discount_amt > 0 else None,
+                    discount_pct=discount_pct,
+                    discount_amt=discount_amt,
                 ))
 
                 receipt = "".join(
@@ -574,8 +582,17 @@ async def api_order_create(request):
                     for i in items
                 )
 
-                discount_text = (get_text("promo_line", lang, code=promo_code, amt=discount_amt)
-                                 if discount_amt > 0 else "")
+                discount_text = (
+                    get_text(
+                        "promo_line", lang,
+                        code=promo_code or "PROMO",
+                        pct=discount_pct,
+                        items_total=items_total,
+                        amt=discount_amt,
+                        after_discount=after_discount,
+                    )
+                    if discount_amt > 0 else ""
+                )
 
                 if delivery_type == "eat_in":
                     success_text = get_text("order_success_eat_in", lang,

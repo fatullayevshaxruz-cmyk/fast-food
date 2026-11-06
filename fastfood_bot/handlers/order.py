@@ -392,14 +392,7 @@ async def process_note(message: types.Message, state: FSMContext):
     skip_texts = [get_text("btn_skip", l) for l in ("uz", "ru", "en")]
     note = None if message.text.strip() in skip_texts else message.text.strip()
     await state.update_data(note=note)
-
-    data = await state.get_data()
-    if data.get('delivery_type') == 'eat_in':
-        await state.update_data(promo_code=None, discount_percent=0)
-        from handlers.payment import ask_payment_method
-        await ask_payment_method(message, state)
-    else:
-        await _ask_for_promo(message, state, lang)
+    await _ask_for_promo(message, state, lang)
 
 
 async def _ask_for_promo(message: types.Message, state: FSMContext, lang: str = "uz"):
@@ -415,7 +408,7 @@ async def _ask_for_promo(message: types.Message, state: FSMContext, lang: str = 
 
 
 async def process_promo(message: types.Message, state: FSMContext):
-    from database.crud import get_promo_code, use_promo_code, check_user_promo_used
+    from database.crud import get_promo_code, use_promo_code
     from handlers.payment import ask_payment_method
 
     lang = await get_user_language(message.from_user.id)
@@ -431,18 +424,15 @@ async def process_promo(message: types.Message, state: FSMContext):
     if not promo:
         await message.answer(get_text("promo_not_found", lang))
         return
-    if promo['max_uses'] > 0 and promo['used_count'] >= promo['max_uses']:
+    promo_d = dict(promo)
+    if promo_d.get('max_uses', 0) > 0 and promo_d.get('used_count', 0) >= promo_d['max_uses']:
         await message.answer(get_text("promo_expired", lang))
-        return
-    already_used = await check_user_promo_used(message.from_user.id, code)
-    if already_used:
-        await message.answer(get_text("promo_already_used", lang))
         return
 
     await use_promo_code(code, user_id=message.from_user.id)
-    await state.update_data(promo_code=code, discount_percent=promo['discount_percent'])
+    await state.update_data(promo_code=code, discount_percent=promo_d['discount_percent'])
     await message.answer(
-        get_text("promo_applied", lang, code=code, pct=promo['discount_percent']),
+        get_text("promo_applied", lang, code=code, pct=promo_d['discount_percent']),
         parse_mode="HTML"
     )
     await ask_payment_method(message, state)
@@ -509,7 +499,8 @@ async def finish_order(message: types.Message, state: FSMContext,
             user_id=user_id, total_amount=total_amount,
             address=address, payment_method=payment_method,
             latitude=lat, longitude=lon, phone_number=phone,
-            note=note, delivery_type=delivery_type
+            note=note, delivery_type=delivery_type,
+            promo_code=promo_code, discount_amount=discount_amt
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -528,12 +519,22 @@ async def finish_order(message: types.Message, state: FSMContext,
             bot=message.bot, order_id=order_id, total_amount=total_amount,
             user=message.from_user, items=items, phone=phone, address=address,
             location={'lat': lat, 'lon': lon}, note=note, delivery_type=delivery_type,
-            payment_method=payment_method
+            payment_method=payment_method,
+            promo_code=promo_code, discount_pct=discount_pct, discount_amt=discount_amt
         ))
 
         note_text     = f"\n  📝 <i>{note}</i>" if note else ""
-        discount_text = (get_text("promo_line", lang, code=promo_code, amt=discount_amt)
-                         if discount_amt > 0 else "")
+        discount_text = (
+            get_text(
+                "promo_line", lang,
+                code=promo_code or "PROMO",
+                pct=discount_pct,
+                items_total=items_total,
+                amt=discount_amt,
+                after_discount=after_discount,
+            )
+            if discount_amt > 0 else ""
+        )
 
         if delivery_type == "eat_in":
             success_text = get_text("order_success_eat_in", lang,

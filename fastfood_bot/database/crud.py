@@ -25,6 +25,8 @@ async def init_database():
             # To'lov holati va tranzaksiya ID ustunlari
             "ALTER TABLE orders ADD COLUMN payment_status VARCHAR(20) DEFAULT 'unpaid'",
             "ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(150)",
+            "ALTER TABLE orders ADD COLUMN promo_code VARCHAR(50)",
+            "ALTER TABLE orders ADD COLUMN discount_amount INTEGER DEFAULT 0",
         ]:
             try:
                 await conn.execute(alter)
@@ -175,18 +177,30 @@ async def remove_from_cart(cart_item_id):
 async def create_order(user_id, total_amount, address, payment_method,
                        latitude=None, longitude=None, phone_number=None,
                        note=None, delivery_type="delivery",
-                       payment_status="unpaid", transaction_id=None):
+                       payment_status="unpaid", transaction_id=None,
+                       promo_code=None, discount_amount=0):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
-                                latitude, longitude, phone_number, note, delivery_type,
-                                payment_status, transaction_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING id
-        """, user_id, total_amount, address, payment_method,
-             latitude, longitude, phone_number, note, delivery_type,
-             payment_status, transaction_id)
+        try:
+            row = await conn.fetchrow("""
+                INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
+                                    latitude, longitude, phone_number, note, delivery_type,
+                                    payment_status, transaction_id, promo_code, discount_amount)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                RETURNING id
+            """, user_id, total_amount, address, payment_method,
+                 latitude, longitude, phone_number, note, delivery_type,
+                 payment_status, transaction_id, promo_code, int(discount_amount or 0))
+        except Exception:
+            row = await conn.fetchrow("""
+                INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
+                                    latitude, longitude, phone_number, note, delivery_type,
+                                    payment_status, transaction_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            """, user_id, total_amount, address, payment_method,
+                 latitude, longitude, phone_number, note, delivery_type,
+                 payment_status, transaction_id)
         return row['id']
 
 async def add_order_items(order_id, cart_items):

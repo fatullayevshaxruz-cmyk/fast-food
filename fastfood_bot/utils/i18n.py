@@ -871,6 +871,7 @@ TRANSLATIONS = {
             "📋 <b>Buyurtma #{order_id}</b>\n"
             "🍽️ <b>Shu yerda</b> | {address}\n\n"
             "{receipt}"
+            "{discount}\n"
             "  💰 <b>Jami: {total:,} so'm</b>\n\n"
             "💳 <i>Online to'lov: {charge_id}</i>\n\n"
             "✨ <i>Buyurtmangiz <b>Darxan Burger</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
@@ -881,6 +882,7 @@ TRANSLATIONS = {
             "📋 <b>Заказ #{order_id}</b>\n"
             "🍽️ <b>На месте</b> | {address}\n\n"
             "{receipt}"
+            "{discount}\n"
             "  💰 <b>Итого: {total:,} сум</b>\n\n"
             "💳 <i>Онлайн оплата: {charge_id}</i>\n\n"
             "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
@@ -891,6 +893,7 @@ TRANSLATIONS = {
             "📋 <b>Order #{order_id}</b>\n"
             "🍽️ <b>Dine In</b> | {address}\n\n"
             "{receipt}"
+            "{discount}\n"
             "  💰 <b>Total: {total:,} sum</b>\n\n"
             "💳 <i>Online payment: {charge_id}</i>\n\n"
             "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔"
@@ -903,6 +906,9 @@ TRANSLATIONS = {
             "📋 <b>Buyurtma #{order_id}</b>\n"
             "🛵 <b>Yetkazib berish</b>\n\n"
             "{receipt}"
+            "{discount}\n"
+            "  🛵 Yetkazish: <b>{delivery_fee:,} so'm</b>\n"
+            "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Jami: {total:,} so'm</b>\n\n"
             "💳 <i>Online to'lov amalga oshirildi</i>\n\n"
             "✨ <i>Buyurtmangiz <b>Darxan Burger</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
@@ -913,6 +919,9 @@ TRANSLATIONS = {
             "📋 <b>Заказ #{order_id}</b>\n"
             "🛵 <b>Доставка</b>\n\n"
             "{receipt}"
+            "{discount}\n"
+            "  🛵 Доставка: <b>{delivery_fee:,} сум</b>\n"
+            "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Итого: {total:,} сум</b>\n\n"
             "💳 <i>Оплата прошла успешно</i>\n\n"
             "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
@@ -923,6 +932,9 @@ TRANSLATIONS = {
             "📋 <b>Order #{order_id}</b>\n"
             "🛵 <b>Delivery</b>\n\n"
             "{receipt}"
+            "{discount}\n"
+            "  🛵 Delivery: <b>{delivery_fee:,} sum</b>\n"
+            "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Total: {total:,} sum</b>\n\n"
             "💳 <i>Online payment completed</i>\n\n"
             "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
@@ -1042,9 +1054,21 @@ TRANSLATIONS = {
     },
     # Promo chegirma satri (buyurtma yakuni)
     "promo_line": {
-        "uz": "\n  🎟 Promo ({code}): <b>-{amt:,} so'm</b>",
-        "ru": "\n  🎟 Promo ({code}): <b>-{amt:,} сум</b>",
-        "en": "\n  🎟 Promo ({code}): <b>-{amt:,} sum</b>",
+        "uz": (
+            "\n  💵 Mahsulotlar narxi: <b>{items_total:,} so'm</b>"
+            "\n  🎟 Promokod (<b>{code}</b> — {pct}%): <b>-{amt:,} so'm</b>"
+            "\n  🏷 Chegirma bilan: <b>{after_discount:,} so'm</b>"
+        ),
+        "ru": (
+            "\n  💵 Сумма товаров: <b>{items_total:,} сум</b>"
+            "\n  🎟 Промокод (<b>{code}</b> — {pct}%): <b>-{amt:,} сум</b>"
+            "\n  🏷 Со скидкой: <b>{after_discount:,} сум</b>"
+        ),
+        "en": (
+            "\n  💵 Items subtotal: <b>{items_total:,} sum</b>"
+            "\n  🎟 Promo code (<b>{code}</b> — {pct}%): <b>-{amt:,} sum</b>"
+            "\n  🏷 After discount: <b>{after_discount:,} sum</b>"
+        ),
     },
     # Admin narx so'rash (admin panelida qolsin o'zbek)
     "admin_price_ask": {

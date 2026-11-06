@@ -1248,13 +1248,15 @@ async function placeOrder(){
   if(dlvType==='delivery'&&addrType==='gps'&&!savedLat){ alert('GPS lokatsiyani oling yoki boshqa usulni tanlang.'); return; }
 
   const items=Object.values(cart).map(i=>({product_id:i.id,quantity:i.qty}));
+  const typedPromo = $('promo') ? $('promo').value.trim() : '';
+  const activePromo = promoCode || typedPromo || null;
   const payload={
     user_id: uid,
     items,
     delivery_type: dlvType,
     address: addr||'Manzil kiritilmagan',
     payment_method: payMeth==='cash'?'💵 Naqd (Yetkazib berilganda)':'💳 Online to\'lov (Karta)',
-    promo_code: promoCode||null,
+    promo_code: activePromo,
     lat, lon
   };
 

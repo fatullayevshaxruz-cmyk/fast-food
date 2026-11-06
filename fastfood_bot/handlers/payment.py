@@ -307,6 +307,11 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             await state.finish()
             return
 
+        items_total    = sum(i['price'] * i['quantity'] for i in items)
+        discount_amt   = int(items_total * discount_pct / 100) if discount_pct > 0 else 0
+        after_discount = items_total - discount_amt
+        delivery_fee   = max(0, total_amount - after_discount) if delivery_type == "delivery" else 0
+
         order_id = await create_order(
             user_id=user_id,
             total_amount=total_amount,
@@ -319,6 +324,8 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             delivery_type=delivery_type,
             payment_status="paid",
             transaction_id=payment.provider_payment_charge_id,
+            promo_code=promo_code,
+            discount_amount=discount_amt,
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -336,6 +343,9 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             note=note,
             delivery_type=delivery_type,
             payment_method=ONLINE_METHOD,
+            promo_code=promo_code,
+            discount_pct=discount_pct,
+            discount_amt=discount_amt,
         ))
 
         # Chek matn (til bo'yicha)
@@ -345,17 +355,33 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             for i in items
         )
 
+        discount_text = (
+            get_text(
+                "promo_line", lang,
+                code=promo_code or "PROMO",
+                pct=discount_pct,
+                items_total=items_total,
+                amt=discount_amt,
+                after_discount=after_discount,
+            )
+            if discount_amt > 0 else ""
+        )
+
         if delivery_type == "eat_in":
             result_text = get_text(
                 "payment_accepted_eat_in", lang,
                 order_id=order_id, address=address,
-                receipt=receipt, total=total_amount,
+                receipt=receipt, discount=discount_text,
+                total=total_amount,
                 charge_id=payment.provider_payment_charge_id
             )
         else:
             result_text = get_text(
                 "payment_accepted_delivery", lang,
-                order_id=order_id, receipt=receipt, total=total_amount
+                order_id=order_id, receipt=receipt,
+                discount=discount_text,
+                delivery_fee=delivery_fee,
+                total=total_amount
             )
 
         await message.answer(

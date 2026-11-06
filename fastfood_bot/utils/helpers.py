@@ -32,7 +32,8 @@ def get_cafe_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
 
 async def notify_admins_new_order(bot, order_id, total_amount, user, items, phone, address,
                                    location=None, note=None, delivery_type="delivery",
-                                   payment_method="Naqd (Yetkazib berilganda)"):
+                                   payment_method="Naqd (Yetkazib berilganda)",
+                                   promo_code=None, discount_pct=0, discount_amt=0):
     """
     Mijoz buyurtma qilganda:
       1. Faqat ADMIN_CHANNEL_ID (-1003885234768) kanaliga yuboriladi
@@ -55,6 +56,7 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     # ── Mahsulotlar va rasmlarni yig'ish ─────────────────────────────
     items_with_price_text = ""
     photo_urls            = []
+    items_subtotal        = 0
 
     for i in items:
         try:
@@ -66,6 +68,7 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
         except Exception:
             qty, price, name, image_url = 1, 0, "Mahsulot", None
 
+        items_subtotal += price * qty
         items_with_price_text += f"  ▫️ {name} x {qty} = {price * qty:,} so'm\n"
 
         if image_url:
@@ -83,6 +86,18 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     phone_display = phone or "ko'rsatilmagan"
     username_text = f"(@{user.username})" if getattr(user, 'username', None) else ""
     full_name     = getattr(user, 'full_name', None) or "Mijoz"
+
+    # ── Promokod haqida ma'lumot (agar qo'llanilgan bo'lsa) ──────────
+    promo_block = ""
+    if discount_amt and discount_amt > 0:
+        code_str = promo_code or "PROMO"
+        pct_str  = f" — {discount_pct}%" if discount_pct else ""
+        after_disc = max(0, items_subtotal - discount_amt)
+        promo_block = (
+            f"\n💵 <b>Mahsulotlar narxi:</b> {items_subtotal:,} so'm"
+            f"\n🎟 <b>Promokod ({code_str}{pct_str}):</b> -{discount_amt:,} so'm"
+            f"\n🏷 <b>Chegirma bilan:</b> {after_disc:,} so'm\n"
+        )
 
     # ── To'lov usuli belgisi ─────────────────────────────────────────
     is_online = payment_method and "Online" in str(payment_method)
@@ -103,7 +118,8 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
             f"{order_type_emoji} <b>Turi:</b> {order_type_label}\n"
             f"📍 <b>Manzil:</b> {address_label}"
             f"{note_text}\n\n"
-            f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}\n"
+            f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}"
+            f"{promo_block}\n"
             f"💰 <b>Umumiy summa:</b> {total_amount:,} so'm\n"
             f"{payment_emoji} <b>To'lov:</b> {payment_label}"
         )
@@ -154,6 +170,8 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
         username_text  = f"(@{username})" if username else ""
         lat            = order_d.get("latitude")
         lon            = order_d.get("longitude")
+        promo_code     = order_d.get("promo_code")
+        discount_amt   = order_d.get("discount_amount") or 0
 
         is_delivery = (delivery_type == "delivery" and
                        not (address and "Stol raqami" in str(address)))
@@ -165,12 +183,14 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
 
         items_with_price_text = ""
         photo_urls = []
+        items_subtotal = 0
 
         for i in items:
             qty       = i.get("quantity", 1)
             price     = i.get("price_at_time") or i.get("price") or 0
             name      = i.get("name") or "Mahsulot"
             image_url = i.get("image_url")
+            items_subtotal += price * qty
             items_with_price_text += f"  ▫️ {name} x {qty} = {price * qty:,} so'm\n"
             if image_url:
                 photo_urls.append(str(image_url))
@@ -183,6 +203,16 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
                 unique_photos.append(url)
 
         note_text = f"\n📝 <b>Izoh:</b> <i>{note}</i>" if note else ""
+
+        promo_block = ""
+        if discount_amt and discount_amt > 0:
+            code_str = promo_code or "PROMO"
+            after_disc = max(0, items_subtotal - discount_amt)
+            promo_block = (
+                f"\n💵 <b>Mahsulotlar narxi:</b> {items_subtotal:,} so'm"
+                f"\n🎟 <b>Promokod ({code_str}):</b> -{discount_amt:,} so'm"
+                f"\n🏷 <b>Chegirma bilan:</b> {after_disc:,} so'm\n"
+            )
 
         is_online = payment_method and "Online" in str(payment_method)
         if is_online:
@@ -199,7 +229,8 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
             f"📞 <b>Telefon:</b> {phone_display}\n"
             f"📍 <b>Manzil:</b> {address}"
             f"{note_text}\n\n"
-            f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}\n"
+            f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}"
+            f"{promo_block}\n"
             f"💰 <b>Umumiy summa:</b> {total_amount:,} so'm\n"
             f"{payment_emoji} <b>To'lov:</b> {payment_label}"
         )
