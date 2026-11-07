@@ -23,12 +23,17 @@ export function PaymentMethodsCard({ selected, onSelect }) {
       id: 'cash',
       title: 'Наличные',
       icon: (
-        <svg className="w-8 h-8 shrink-0" viewBox="0 0 36 36" fill="none">
-          <rect x="4" y="8" width="24" height="16" rx="4" stroke="#6E6E73" strokeWidth="2.4" fill="none" />
-          <circle cx="16" cy="16" r="3" stroke="#6E6E73" strokeWidth="2.2" />
-          <line x1="9" y1="13" x2="9" y2="19" stroke="#6E6E73" strokeWidth="2.2" strokeLinecap="round" />
-          <line x1="23" y1="13" x2="23" y2="19" stroke="#6E6E73" strokeWidth="2.2" strokeLinecap="round" />
-          <path d="M8 27.5H26C28.7614 27.5 31 25.2614 31 22.5V13" stroke="#6E6E73" strokeWidth="2.4" strokeLinecap="round" />
+        <svg className="w-[27px] h-[22px] shrink-0" viewBox="0 0 32 26" fill="none">
+          <rect x="1.5" y="2" width="23" height="15.5" rx="4" stroke="#68686E" strokeWidth="2.1" fill="none" />
+          <line x1="6.5" y1="6.8" x2="6.5" y2="12.7" stroke="#68686E" strokeWidth="2.1" strokeLinecap="round" />
+          <circle cx="13" cy="9.75" r="2.8" stroke="#68686E" strokeWidth="2.1" fill="none" />
+          <line x1="19.5" y1="6.8" x2="19.5" y2="12.7" stroke="#68686E" strokeWidth="2.1" strokeLinecap="round" />
+          <path
+            d="M5.5 21H23.5C26.2614 21 28.5 18.7614 28.5 16V6.5"
+            stroke="#68686E"
+            strokeWidth="2.1"
+            strokeLinecap="round"
+          />
         </svg>
       ),
     },
@@ -36,59 +41,66 @@ export function PaymentMethodsCard({ selected, onSelect }) {
       id: 'payme',
       title: 'Payme',
       icon: (
-        <div className="flex flex-col items-start justify-center leading-none select-none shrink-0">
-          <span className="text-[13px] font-extrabold tracking-tight text-[#2B2B30] mb-[2px]">
+        <svg className="w-[34px] h-[26px] shrink-0" viewBox="0 0 44 34" fill="none">
+          <text
+            x="1"
+            y="12.5"
+            fill="#2B2B30"
+            fontSize="13.5"
+            fontWeight="800"
+            letterSpacing="-0.3"
+            fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, sans-serif"
+          >
             Pay
-          </span>
-          <svg className="w-[34px] h-[16px]" viewBox="0 0 38 18" fill="none">
-            <path
-              d="M0 3.5C0 1.567 1.567 0 3.5 0H28.5C29.6 0 30.63 0.52 31.29 1.4L37.1 9L31.29 16.6C30.63 17.48 29.6 18 28.5 18H3.5C1.567 18 0 16.433 0 14.5V3.5Z"
-              fill="#38C6C6"
-            />
-            <text
-              x="4.5"
-              y="13"
-              fill="#FFFFFF"
-              fontSize="11.5"
-              fontWeight="800"
-              fontFamily="-apple-system, BlinkMacSystemFont, Inter, sans-serif"
-            >
-              me
-            </text>
-          </svg>
-        </div>
+          </text>
+          <path
+            d="M1 18C1 16.3431 2.34315 15 4 15H26.5C27.5 15 28.44 15.47 29.04 16.27L34.2 23.2C34.68 23.85 34.68 24.75 34.2 25.4L29.04 32.33C28.44 33.13 27.5 33.6 26.5 33.6H4C2.34315 33.6 1 32.2569 1 30.6V18Z"
+            fill="#3CC4C7"
+          />
+          <text
+            x="4.5"
+            y="27.8"
+            fill="#FFFFFF"
+            fontSize="12.5"
+            fontWeight="800"
+            letterSpacing="-0.3"
+            fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, sans-serif"
+          >
+            me
+          </text>
+        </svg>
       ),
     },
     {
       id: 'click',
       title: 'Click',
       icon: (
-        <svg className="w-8 h-8 shrink-0" viewBox="0 0 36 36" fill="none">
+        <svg className="w-[26px] h-[26px] shrink-0" viewBox="0 0 32 32" fill="none">
           <rect
-            x="18"
-            y="3.5"
-            width="20.5"
-            height="20.5"
-            rx="6.5"
-            transform="rotate(45 18 3.5)"
+            x="16"
+            y="2.2"
+            width="19.5"
+            height="19.5"
+            rx="6.2"
+            transform="rotate(45 16 2.2)"
             fill="#0077FF"
           />
-          <circle cx="18" cy="18" r="5.5" fill="#FFFFFF" />
+          <circle cx="16" cy="16" r="5" fill="#FFFFFF" />
         </svg>
       ),
     },
   ];
 
   return (
-    <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-100">
-      <h3 className="text-[22px] font-bold tracking-tight text-black leading-tight">
+    <div className="bg-white rounded-[24px] px-5 py-5">
+      <h3 className="text-[22px] font-bold tracking-[-0.02em] text-black leading-none">
         Оплата
       </h3>
-      <p className="text-[15px] font-normal text-[#76767A] mt-2 mb-3.5">
+      <p className="text-[15px] font-normal text-[#707070] mt-4 mb-3.5">
         Способы оплаты
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-[12px]">
         {methods.map((m) => {
           const isActive = selected === m.id;
           return (
@@ -96,14 +108,14 @@ export function PaymentMethodsCard({ selected, onSelect }) {
               key={m.id}
               type="button"
               onClick={() => onSelect(m.id)}
-              className={`h-[66px] px-4 rounded-[18px] bg-[#F4F4F6] flex items-center justify-between transition-all duration-150 active:scale-[0.98] ${
+              className={`h-[52px] px-[18px] rounded-[14px] bg-[#F5F5F5] flex items-center justify-between transition-all duration-150 active:scale-[0.98] ${
                 isActive
-                  ? 'border-2 border-[#E50914]'
-                  : 'border-2 border-transparent hover:border-neutral-200'
+                  ? 'border-[1.8px] border-[#E50914]'
+                  : 'border-[1.8px] border-transparent'
               }`}
             >
               {m.icon}
-              <span className="text-[16px] font-medium text-black">{m.title}</span>
+              <span className="text-[15px] font-normal text-black tracking-[-0.01em]">{m.title}</span>
             </button>
           );
         })}
