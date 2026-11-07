@@ -78,16 +78,18 @@ async def on_startup(dp):
         BotCommand("cancel", "Jarayonni bekor qilish")
     ])
     try:
-        await bot.request(
-            "setChatMenuButton",
-            {
-                "menu_button": {
-                    "type": "web_app",
-                    "text": "Меню",
-                    "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=8"},
-                }
-            },
-        )
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            await session.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/setChatMenuButton",
+                json={
+                    "menu_button": {
+                        "type": "web_app",
+                        "text": "Меню",
+                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=8"},
+                    }
+                },
+                timeout=aiohttp.ClientTimeout(total=8),
+            )
     except Exception as e:
         logging.warning(f"setChatMenuButton warning: {e}")
     
@@ -226,14 +228,34 @@ if __name__ == '__main__':
         await site.start()
         logging.info(f"✅ Web server started on port {port}")
 
-    # ── Tasklar ishga tushirish ──────────────────────────────────────
-    loop.create_task(start_web_server())
-    loop.create_task(keep_alive())   # 🔁 Self-ping har 10 daqiqada
+    async def run_resilient_bot():
+        """
+        Render redeploy vaqtida eski va yangi konteyner bir necha soniya ustma-ust ishlaganda
+        Telegram Conflict xatosi sababli polling to'xtab qolmasligi uchun o'z-o'zini tiklovchi (self-healing) sikl.
+        """
+        await on_startup(dp)
+        await start_web_server()
+        asyncio.create_task(keep_alive())
 
-    executor.start_polling(
-        dp,
-        on_startup=on_startup,
-        on_shutdown=on_shutdown,
-        skip_updates=True,
-        loop=loop
-    )
+        while True:
+            try:
+                logging.info("🚀 Starting Telegram bot polling...")
+                await bot.delete_webhook(drop_pending_updates=False)
+                dp._polling = False
+                await dp.start_polling(reset_webhook=False, timeout=20, fast=True)
+                logging.warning("⚠️ dp.start_polling() returned; restarting in 5s...")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.error(f"⚠️ Bot polling error (retrying in 5s): {e}")
+            finally:
+                try:
+                    dp.stop_polling()
+                except Exception:
+                    pass
+            await asyncio.sleep(5)
+
+    try:
+        loop.run_until_complete(run_resilient_bot())
+    finally:
+        loop.run_until_complete(on_shutdown(dp))
