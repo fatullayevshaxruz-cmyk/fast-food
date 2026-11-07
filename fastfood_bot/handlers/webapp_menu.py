@@ -26,6 +26,13 @@ from database.crud import (
 from utils.helpers import notify_admins_new_order
 from utils.i18n import get_text
 from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
+from security.rate_limiter import check_and_record_order_idempotency
+from security.sanitization import (
+    sanitize_text,
+    clamp_quantity,
+    validate_coordinates,
+    MAX_CART_DISTINCT_ITEMS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -83,16 +90,28 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         data = json.loads(raw)
         items_raw = data.get("items", [])
 
-        if not items_raw:
+        if not items_raw or not isinstance(items_raw, list):
             await message.answer(get_text("webapp_cart_empty", lang))
+            return
+
+        delivery_type  = sanitize_text(data.get("delivery_type", "delivery"), max_len=20)
+        if delivery_type not in ("delivery", "eat_in"):
+            delivery_type = "delivery"
+        address        = sanitize_text(data.get("address", ""), max_len=250)
+        payment_method = sanitize_text(data.get("payment_method", "Naqd (Yetkazib berilganda)"), max_len=80)
+        promo_code     = sanitize_text(data.get("promo_code") or "", max_len=30) or None
+        lat, lon       = validate_coordinates(data.get("lat"), data.get("lon"))
+
+        # ── 0. Dublikat buyurtma (Replay / Flood) himoyasi ────────────
+        if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
             return
 
         # ── 1. Savatni tozalash va yangi mahsulotlarni qo'shish ──────
         await clear_cart(user_id)
         added = 0
-        for item in items_raw:
+        for item in items_raw[:MAX_CART_DISTINCT_ITEMS]:
             pid = item.get("product_id")
-            qty = max(1, int(item.get("quantity", 1)))
+            qty = clamp_quantity(item.get("quantity", 1))
             if pid and qty > 0:
                 await add_to_cart(user_id, int(pid), qty)
                 added += qty
@@ -108,13 +127,6 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
             return
         items = [dict(i) for i in raw_items]
 
-        delivery_type  = data.get("delivery_type", "delivery")
-        address        = data.get("address", "")
-        payment_method = data.get("payment_method", "Naqd (Yetkazib berilganda)")
-        promo_code     = data.get("promo_code") or None
-        lat            = data.get("lat")
-        lon            = data.get("lon")
-
         # Yetkazib berish turi belgisi
         if delivery_type == "eat_in":
             delivery_label = "Shu yerda"
@@ -126,8 +138,9 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         if promo_code:
             promo_code = promo_code.strip().upper()
             try:
+                already_used = await check_user_promo_used(user_id, promo_code)
                 promo = await get_promo_code(promo_code)
-                if promo:
+                if promo and not already_used:
                     promo_d = dict(promo)
                     if promo_d.get("max_uses", 0) == 0 or promo_d.get("used_count", 0) < promo_d["max_uses"]:
                         discount_pct = promo_d.get("discount_percent", 0)

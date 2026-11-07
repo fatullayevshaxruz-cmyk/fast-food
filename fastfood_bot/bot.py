@@ -94,6 +94,11 @@ if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    # ── Kiberxavfsizlik: Bot Anti-Flood / Anti-Spam Middleware ───────
+    from security.rate_limiter import BotAntiFloodMiddleware, security_and_rate_limit_middleware
+    from security.payment_guard import payme_webhook_handler, click_webhook_handler
+    dp.middleware.setup(BotAntiFloodMiddleware())
+
     # Handlerlarni ro'yxatdan o'tkazish
     register_start_handlers(dp)
     register_menu_handlers(dp)
@@ -119,7 +124,7 @@ if __name__ == '__main__':
                 headers={
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "GET, OPTIONS",
-                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data, Authorization",
                 }
             )
         try:
@@ -172,26 +177,21 @@ if __name__ == '__main__':
             return web.json_response({"categories": result}, headers=headers)
         except Exception as e:
             logging.error(f"/api/menu xatosi: {e}", exc_info=True)
-            return web.json_response({"error": str(e)}, status=500,
+            return web.json_response({"error": "Internal server error"}, status=500,
                                      headers={"Access-Control-Allow-Origin": "*"})
 
-    @web.middleware
-    async def no_cache_webapp_middleware(request, handler):
-        response = await handler(request)
-        if request.path.startswith('/webapp'):
-            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
-        return response
-
     async def start_web_server():
-        app = web.Application(middlewares=[no_cache_webapp_middleware])
+        app = web.Application(middlewares=[security_and_rate_limit_middleware])
         app['bot'] = bot
         app['dp'] = dp
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
         app.router.add_get('/api/menu', api_menu_handler)   # 🌐 WebApp menyu API
         app.router.add_options('/api/menu', api_menu_handler)  # CORS preflight
+
+        # ── Click va Payme Xavfsiz Webhook Endpointlari ──
+        app.router.add_post('/api/webhooks/payme', payme_webhook_handler)
+        app.router.add_post('/api/webhooks/click', click_webhook_handler)
         
         # ── Yangi SPA API larni ro'yxatdan o'tkazish ──
         from webapp_api import register_webapp_api

@@ -33,6 +33,13 @@ from utils.helpers import notify_admins_new_order
 from utils.i18n import get_text
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu
 from config import ADMIN_ID
+from security.payment_guard import (
+    sign_invoice_payload,
+    verify_and_strip_invoice_payload,
+    is_transaction_already_used,
+    mark_transaction_used,
+    verify_cart_payment_amount,
+)
 
 log = logging.getLogger(__name__)
 
@@ -74,20 +81,26 @@ def _build_payload(user_id: int, order_data: dict) -> str:
     parts = [
         str(user_id),
         order_data.get("delivery_type", "delivery"),
-        (order_data.get("address") or "").replace(":", "-"),
-        (order_data.get("phone") or ""),
-        (order_data.get("note") or "").replace(":", "-"),
+        (order_data.get("address") or "")[:20].replace(":", "-").replace("|", "-"),
+        (order_data.get("phone") or "")[:16],
+        (order_data.get("note") or "")[:15].replace(":", "-").replace("|", "-"),
         str(order_data.get("discount_percent", 0)),
-        (order_data.get("promo_code") or ""),
+        (order_data.get("promo_code") or "")[:15],
     ]
-    return ":".join(parts)
+    raw = ":".join(parts)
+    return sign_invoice_payload(raw)
 
 
 def _parse_payload(payload: str) -> dict:
+    # HMAC-SHA256 imzoni tekshirish va olib tashlash
+    is_valid, clean_payload = verify_and_strip_invoice_payload(payload)
+    if not is_valid:
+        raise ValueError("Soxta to'lov payload imzosi (HMAC verification failed)")
+
     # WebApp invoice: "webapp:user_id:delivery_type:discount_percent:promo_code"
     # Manzil, telefon va boshqalar FSM state dan olinadi
-    if payload.startswith("webapp:"):
-        parts = payload.split(":", 4)
+    if clean_payload.startswith("webapp:"):
+        parts = clean_payload.split(":", 4)
         parts += [""] * (5 - len(parts))
         return {
             "user_id": int(parts[1] or 0),
@@ -99,7 +112,7 @@ def _parse_payload(payload: str) -> dict:
             "promo_code": parts[4],
         }
 
-    parts = payload.split(":", 6)
+    parts = clean_payload.split(":", 6)
     keys = ["user_id", "delivery_type", "address", "phone", "note",
             "discount_percent", "promo_code"]
     result = {}
@@ -257,10 +270,48 @@ async def process_payment_online(message: types.Message, state: FSMContext):
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
     b = getattr(pre_checkout_query, 'bot', None) or _get_bot()
     try:
+        user_id = pre_checkout_query.from_user.id
+        # 1. Payload HMAC imzosini va user_id mosligini tekshirish
+        try:
+            order_data = _parse_payload(pre_checkout_query.invoice_payload)
+        except Exception as sig_err:
+            log.warning(f"🚨 PreCheckout: Soxta payload! user_id={user_id}, err={sig_err}")
+            await b.answer_pre_checkout_query(
+                pre_checkout_query.id,
+                ok=False,
+                error_message="To'lov imzosi noto'g'ri (Xavfsizlik tekshiruvidan o'tmadi).",
+            )
+            return
+
+        if order_data.get("user_id") and int(order_data["user_id"]) != user_id:
+            log.warning(f"🚨 PreCheckout: User ID mos kelmadi! payload={order_data.get('user_id')}, actual={user_id}")
+            await b.answer_pre_checkout_query(
+                pre_checkout_query.id,
+                ok=False,
+                error_message="Foydalanuvchi identifikatori mos kelmadi.",
+            )
+            return
+
+        # 2. Bazadagi mahsulot narxlari bilan to'lov summasini solishtirish
+        ok_amount, reason, _ = await verify_cart_payment_amount(
+            user_id=user_id,
+            paid_amount_tiyin=pre_checkout_query.total_amount,
+            currency=pre_checkout_query.currency,
+            discount_pct=order_data.get("discount_percent", 0),
+            promo_code=order_data.get("promo_code") or None,
+        )
+        if not ok_amount:
+            await b.answer_pre_checkout_query(
+                pre_checkout_query.id,
+                ok=False,
+                error_message=reason,
+            )
+            return
+
         await b.answer_pre_checkout_query(
             pre_checkout_query.id, ok=True,
         )
-        log.info(f"✅ PreCheckoutQuery OK: id={pre_checkout_query.id}, user_id={pre_checkout_query.from_user.id}")
+        log.info(f"✅ PreCheckoutQuery OK: id={pre_checkout_query.id}, user_id={user_id}")
     except Exception as e:
         log.error(f"❌ PreCheckoutQuery xatosi: {e}", exc_info=True)
         try:
@@ -282,6 +333,12 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
         user_id = message.from_user.id
         payment = message.successful_payment
         payload = payment.invoice_payload
+        tx_id   = payment.provider_payment_charge_id
+
+        # 1. Replay / Double-Spend (bitta tranzaksiyani 2 marta o'tkazish) himoyasi
+        if await is_transaction_already_used(tx_id):
+            log.warning(f"🚨 Replay Payment Attack to'xtatildi: tx_id={tx_id}, user_id={user_id}")
+            return
 
         order_data    = _parse_payload(payload)
         state_data    = await state.get_data()
@@ -307,6 +364,7 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             await state.finish()
             return
 
+        mark_transaction_used(tx_id)
         items_total    = sum(i['price'] * i['quantity'] for i in items)
         discount_amt   = int(items_total * discount_pct / 100) if discount_pct > 0 else 0
         after_discount = items_total - discount_amt
@@ -323,7 +381,7 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             note=note,
             delivery_type=delivery_type,
             payment_status="paid",
-            transaction_id=payment.provider_payment_charge_id,
+            transaction_id=tx_id,
             promo_code=promo_code,
             discount_amount=discount_amt,
         )

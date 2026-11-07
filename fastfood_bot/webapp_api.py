@@ -13,6 +13,17 @@ from database.crud import (
 from database.connection import get_db_pool
 from utils.helpers import notify_admins_new_order
 from utils.i18n import get_text
+from security.webapp_auth import verify_request_user, is_verified_admin
+from security.rate_limiter import check_and_record_order_idempotency
+from security.payment_guard import sign_invoice_payload
+from security.sanitization import (
+    sanitize_text,
+    sanitize_phone,
+    clamp_quantity,
+    validate_coordinates,
+    otp_store,
+    MAX_CART_DISTINCT_ITEMS,
+)
 
 def _is_admin(user_id):
     return str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
@@ -20,7 +31,7 @@ def _is_admin(user_id):
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-Init-Data, Authorization"
     return response
 
 async def options_handler(request):
@@ -28,9 +39,10 @@ async def options_handler(request):
 
 async def api_user_profile(request):
     try:
-        user_id = int(request.query.get("user_id", 0))
+        raw_uid = int(request.query.get("user_id", 0) or 0)
+        user_id = verify_request_user(request, raw_uid)
         if not user_id:
-            return add_cors_headers(web.json_response({"error": "Missing user_id"}, status=400))
+            return add_cors_headers(web.json_response({"error": "Unauthorized WebApp request"}, status=401))
         
         pool = await get_db_pool()
         async with pool.acquire() as conn:
@@ -78,34 +90,36 @@ async def api_user_profile(request):
 
 async def api_favorites(request):
     try:
-        user_id = int(request.query.get("user_id", 0))
+        raw_uid = int(request.query.get("user_id", 0) or 0)
+        user_id = verify_request_user(request, raw_uid)
         if not user_id:
-            return add_cors_headers(web.json_response({"error": "Missing user_id"}, status=400))
+            return add_cors_headers(web.json_response({"error": "Unauthorized"}, status=401))
         
         favs = await get_favorites(user_id)
         fav_list = [dict(f) for f in favs]
         return add_cors_headers(web.json_response({"favorites": fav_list}))
     except Exception as e:
         logging.error(f"/api/favorites error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 async def api_favorites_toggle(request):
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
-        product_id = int(data.get("product_id", 0))
+        raw_uid = int(data.get("user_id", 0) or 0)
+        user_id = verify_request_user(request, raw_uid)
+        product_id = int(data.get("product_id", 0) or 0)
         if not user_id or not product_id:
-            return add_cors_headers(web.json_response({"error": "Missing params"}, status=400))
+            return add_cors_headers(web.json_response({"error": "Unauthorized or missing params"}, status=401))
             
         is_fav = await toggle_favorite(user_id, product_id)
         return add_cors_headers(web.json_response({"success": True, "is_favorite": is_fav}))
     except Exception as e:
         logging.error(f"/api/favorites/toggle error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 async def api_search(request):
     try:
-        q = request.query.get("q", "").strip()
+        q = sanitize_text(request.query.get("q", ""), max_len=100)
         if not q:
             return add_cors_headers(web.json_response({"results": []}))
             
@@ -114,13 +128,13 @@ async def api_search(request):
         return add_cors_headers(web.json_response({"results": res_list}))
     except Exception as e:
         logging.error(f"/api/search error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 async def api_admin_dashboard(request):
     try:
-        user_id = int(request.query.get("user_id", 0))
-        if not _is_admin(user_id):
-            return add_cors_headers(web.json_response({"error": "Forbidden"}, status=403))
+        user_id = int(request.query.get("user_id", 0) or 0)
+        if not is_verified_admin(request, user_id):
+            return add_cors_headers(web.json_response({"error": "401/403 Unauthorized Admin Access (HMAC initData required)"}, status=403))
             
         stats = await get_today_stats()
         pool = await get_db_pool()
@@ -133,14 +147,14 @@ async def api_admin_dashboard(request):
         }, default=str))
     except Exception as e:
         logging.error(f"/api/admin/dashboard error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 async def api_admin_orders(request):
     try:
-        user_id = int(request.query.get("user_id", 0))
+        user_id = int(request.query.get("user_id", 0) or 0)
         status_filter = request.query.get("status")
-        if not _is_admin(user_id):
-            return add_cors_headers(web.json_response({"error": "Forbidden"}, status=403))
+        if not is_verified_admin(request, user_id):
+            return add_cors_headers(web.json_response({"error": "401/403 Unauthorized Admin Access (HMAC initData required)"}, status=403))
             
         pool = await get_db_pool()
         async with pool.acquire() as conn:
@@ -171,12 +185,12 @@ async def api_admin_orders(request):
 async def api_admin_order_status(request):
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
-        order_id = int(data.get("order_id", 0))
-        status = data.get("status")
+        user_id = int(data.get("user_id", 0) or 0)
+        order_id = int(data.get("order_id", 0) or 0)
+        status = sanitize_text(data.get("status"), max_len=30)
         
-        if not _is_admin(user_id):
-            return add_cors_headers(web.json_response({"error": "Forbidden"}, status=403))
+        if not is_verified_admin(request, user_id):
+            return add_cors_headers(web.json_response({"error": "401/403 Unauthorized Admin Access"}, status=403))
             
         if not order_id or not status:
             return add_cors_headers(web.json_response({"error": "Missing params"}, status=400))
@@ -191,42 +205,44 @@ async def api_admin_order_status(request):
         return add_cors_headers(web.json_response({"success": True}))
     except Exception as e:
         logging.error(f"/api/admin/order/status error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 async def api_admin_products(request):
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
-        if not _is_admin(user_id):
-            return add_cors_headers(web.json_response({"error": "Forbidden"}, status=403))
+        user_id = int(data.get("user_id", 0) or 0)
+        if not is_verified_admin(request, user_id):
+            return add_cors_headers(web.json_response({"error": "401/403 Unauthorized Admin Access"}, status=403))
             
         action = data.get("action")
         pool = await get_db_pool()
         
         if action == "add":
             cat_id = int(data['category_id'])
+            price_val = max(100, int(data['price']))
             await add_product(
                 category_id=cat_id,
-                name=data['name'],
-                price=int(data['price']),
-                description=data.get('description', ''),
-                image_url=data.get('image_url', ''),
-                name_ru=data.get('name_ru'),
-                name_en=data.get('name_en')
+                name=sanitize_text(data['name'], 120),
+                price=price_val,
+                description=sanitize_text(data.get('description', ''), 500),
+                image_url=sanitize_text(data.get('image_url', ''), 500),
+                name_ru=sanitize_text(data.get('name_ru'), 120) or None,
+                name_en=sanitize_text(data.get('name_en'), 120) or None
             )
             return add_cors_headers(web.json_response({"success": True}))
             
         elif action == "edit":
             p_id = int(data['product_id'])
+            price_val = max(100, int(data['price']))
             async with pool.acquire() as conn:
                 await conn.execute("""
                     UPDATE products 
                     SET name=$1, price=$2, description=$3, image_url=$4, is_active=$5,
                         name_ru=$6, name_en=$7, category_id=$8
                     WHERE id=$9
-                """, data['name'], int(data['price']), data.get('description', ''), 
-                   data.get('image_url', ''), bool(data.get('is_active', True)),
-                   data.get('name_ru'), data.get('name_en'), int(data['category_id']), p_id)
+                """, sanitize_text(data['name'], 120), price_val, sanitize_text(data.get('description', ''), 500), 
+                   sanitize_text(data.get('image_url', ''), 500), bool(data.get('is_active', True)),
+                   sanitize_text(data.get('name_ru'), 120) or None, sanitize_text(data.get('name_en'), 120) or None, int(data['category_id']), p_id)
             return add_cors_headers(web.json_response({"success": True}))
             
         elif action == "delete":
@@ -238,14 +254,14 @@ async def api_admin_products(request):
         return add_cors_headers(web.json_response({"error": "Invalid action"}, status=400))
     except Exception as e:
         logging.error(f"/api/admin/products error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 async def api_admin_categories(request):
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
-        if not _is_admin(user_id):
-            return add_cors_headers(web.json_response({"error": "Forbidden"}, status=403))
+        user_id = int(data.get("user_id", 0) or 0)
+        if not is_verified_admin(request, user_id):
+            return add_cors_headers(web.json_response({"error": "401/403 Unauthorized Admin Access"}, status=403))
             
         action = data.get("action")
         pool = await get_db_pool()
@@ -255,7 +271,7 @@ async def api_admin_categories(request):
                 await conn.execute("""
                     INSERT INTO categories (name, name_ru, name_en, emoji)
                     VALUES ($1, $2, $3, $4)
-                """, data['name'], data.get('name_ru'), data.get('name_en'), data.get('emoji', '🍽'))
+                """, sanitize_text(data['name'], 80), sanitize_text(data.get('name_ru'), 80) or None, sanitize_text(data.get('name_en'), 80) or None, sanitize_text(data.get('emoji', '🍽'), 10))
             return add_cors_headers(web.json_response({"success": True}))
             
         elif action == "edit":
@@ -265,7 +281,7 @@ async def api_admin_categories(request):
                     UPDATE categories 
                     SET name=$1, name_ru=$2, name_en=$3, emoji=$4
                     WHERE id=$5
-                """, data['name'], data.get('name_ru'), data.get('name_en'), data.get('emoji', '🍽'), c_id)
+                """, sanitize_text(data['name'], 80), sanitize_text(data.get('name_ru'), 80) or None, sanitize_text(data.get('name_en'), 80) or None, sanitize_text(data.get('emoji', '🍽'), 10), c_id)
             return add_cors_headers(web.json_response({"success": True}))
             
         elif action == "delete":
@@ -277,26 +293,22 @@ async def api_admin_categories(request):
         return add_cors_headers(web.json_response({"error": "Invalid action"}, status=400))
     except Exception as e:
         logging.error(f"/api/admin/categories error: {e}")
-        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
-
-_OTP_STORE = {}  # {phone_or_uid: {"code": "123456", "phone": "+998...", "method": "telegram"}}
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 
 async def api_auth_send_otp(request):
     try:
-        import random
         data = await request.json()
-        user_id = int(data.get('user_id') or 0)
-        phone = (data.get('phone') or '').strip()
+        raw_uid = int(data.get('user_id') or 0)
+        user_id = verify_request_user(request, raw_uid) or raw_uid
+        phone = sanitize_text(data.get('phone') or '', max_len=25)
         method = (data.get('method') or 'telegram').strip().lower()
 
-        if not phone:
-            return add_cors_headers(web.json_response({'error': 'Missing phone'}, status=400))
+        if not phone or len(phone) < 9:
+            return add_cors_headers(web.json_response({'error': 'Invalid phone number'}, status=400))
 
-        code = f"{random.randint(100000, 999999)}"
         key = f"{user_id}:{phone}" if user_id else phone
-        _OTP_STORE[key] = {"code": code, "phone": phone, "method": method}
-        _OTP_STORE[phone] = {"code": code, "phone": phone, "method": method}
+        code = otp_store.generate(key=key, phone=phone, method=method)
 
         sent_via_bot = False
         if method == "telegram" and user_id:
@@ -321,36 +333,33 @@ async def api_auth_send_otp(request):
             'success': True,
             'method': method,
             'sent_via_bot': sent_via_bot,
-            'demo_code': code
         }))
     except Exception as e:
         logging.error(f'/api/auth/send-otp error: {e}')
-        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+        return add_cors_headers(web.json_response({'error': 'Internal server error'}, status=500))
 
 
 async def api_auth_verify_otp(request):
     try:
         data = await request.json()
-        user_id = int(data.get('user_id') or 0)
-        phone = (data.get('phone') or '').strip()
+        raw_uid = int(data.get('user_id') or 0)
+        user_id = verify_request_user(request, raw_uid) or raw_uid
+        phone = sanitize_text(data.get('phone') or '', max_len=25)
         code = (data.get('code') or '').strip()
 
-        if not phone or len(code) != 6:
-            return add_cors_headers(web.json_response({'error': 'Invalid code'}, status=400))
+        if not phone or len(code) != 6 or not code.isdigit():
+            return add_cors_headers(web.json_response({'error': 'Invalid code format'}, status=400))
 
         key = f"{user_id}:{phone}" if user_id else phone
-        stored = _OTP_STORE.get(key) or _OTP_STORE.get(phone)
-        if stored and stored.get("code") != code and code != "123456":
-            return add_cors_headers(web.json_response({'success': False, 'error': 'Неверный код подтверждения'}, status=400))
+        ok, err_msg = otp_store.verify(key=key, phone=phone, submitted_code=code)
+        if not ok:
+            return add_cors_headers(web.json_response({'success': False, 'error': err_msg}, status=400))
 
         if user_id and phone:
             try:
-                await update_user_phone(user_id, phone)
+                await update_user_phone(user_id, sanitize_phone(phone))
             except Exception as e:
                 logging.warning(f"update_user_phone warning: {e}")
-
-        _OTP_STORE.pop(key, None)
-        _OTP_STORE.pop(phone, None)
 
         return add_cors_headers(web.json_response({
             'success': True,
@@ -358,22 +367,23 @@ async def api_auth_verify_otp(request):
         }))
     except Exception as e:
         logging.error(f'/api/auth/verify-otp error: {e}')
-        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+        return add_cors_headers(web.json_response({'error': 'Internal server error'}, status=500))
 
 
 async def api_profile_update(request):
     try:
         data = await request.json()
-        user_id = int(data.get('user_id', 0))
+        raw_uid = int(data.get('user_id', 0) or 0)
+        user_id = verify_request_user(request, raw_uid)
         if not user_id:
-            return add_cors_headers(web.json_response({'error': 'Missing user_id'}, status=400))
-        phone = data.get('phone', '').strip()
+            return add_cors_headers(web.json_response({'error': 'Unauthorized'}, status=401))
+        phone = sanitize_phone(data.get('phone', ''))
         if phone:
             await update_user_phone(user_id, phone)
         return add_cors_headers(web.json_response({'success': True}))
     except Exception as e:
         logging.error(f'/api/profile/update error: {e}')
-        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+        return add_cors_headers(web.json_response({'error': 'Internal server error'}, status=500))
 
 
 async def api_promo_check(request):
@@ -407,9 +417,10 @@ def _is_working_hours() -> bool:
 async def api_order_create(request):
     try:
         data = await request.json()
-        user_id = int(data.get('user_id', 0))
+        raw_uid = int(data.get('user_id', 0) or 0)
+        user_id = verify_request_user(request, raw_uid)
         if not user_id:
-            return add_cors_headers(web.json_response({'error': 'Missing user_id'}, status=400))
+            return add_cors_headers(web.json_response({'error': '401 Unauthorized — Telegram WebApp initData signature invalid'}, status=401))
         
         lang = await get_user_language(user_id)
         
@@ -420,15 +431,29 @@ async def api_order_create(request):
             }, status=400))
 
         items_raw = data.get("items", [])
-        if not items_raw:
+        if not items_raw or not isinstance(items_raw, list):
             return add_cors_headers(web.json_response({'error': 'Cart is empty'}, status=400))
+
+        delivery_type  = sanitize_text(data.get("delivery_type", "delivery"), max_len=20)
+        if delivery_type not in ("delivery", "eat_in"):
+            delivery_type = "delivery"
+        address        = sanitize_text(data.get("address", ""), max_len=250)
+        payment_method = sanitize_text(data.get("payment_method", "Naqd (Yetkazib berilganda)"), max_len=80)
+        promo_code     = sanitize_text(data.get("promo_code") or "", max_len=30) or None
+        lat, lon       = validate_coordinates(data.get("lat"), data.get("lon"))
+
+        # ── 0. Dublikat buyurtma (Replay / Double-Click) himoyasi ─────
+        if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
+            return add_cors_headers(web.json_response({
+                'error': 'Buyurtmangiz allaqachon qabul qilingan (15 soniya kuting).'
+            }, status=429))
 
         # ── 1. Savatni tozalash va yangi mahsulotlarni qo'shish ──────
         await clear_cart(user_id)
         added = 0
-        for item in items_raw:
+        for item in items_raw[:MAX_CART_DISTINCT_ITEMS]:
             pid = item.get("product_id")
-            qty = max(1, int(item.get("quantity", 1)))
+            qty = clamp_quantity(item.get("quantity", 1))
             if pid and qty > 0:
                 await add_to_cart(user_id, int(pid), qty)
                 added += qty
@@ -442,23 +467,14 @@ async def api_order_create(request):
             return add_cors_headers(web.json_response({'error': 'Cart is empty'}, status=400))
         items = [dict(i) for i in raw_items]
 
-        delivery_type  = data.get("delivery_type", "delivery")
-        address        = data.get("address", "")
-        payment_method = data.get("payment_method", "Naqd (Yetkazib berilganda)")
-        promo_code     = data.get("promo_code") or None
-        lat            = data.get("lat")
-        lon            = data.get("lon")
-
-        if lat is not None: lat = float(lat)
-        if lon is not None: lon = float(lon)
-
-        # ── 3. Promo kod tekshirish ───────────────────────────────────
+        # ── 3. Promo kod tekshirish (1 foydalanuvchi = 1 marta) ──────
         discount_pct = 0
         if promo_code:
             promo_code = promo_code.strip().upper()
             try:
+                already_used = await check_user_promo_used(user_id, promo_code)
                 promo = await get_promo_code(promo_code)
-                if promo:
+                if promo and not already_used:
                     promo_d = dict(promo)
                     if promo_d.get("max_uses", 0) == 0 or promo_d.get("used_count", 0) < promo_d["max_uses"]:
                         discount_pct = promo_d.get("discount_percent", 0)
@@ -466,8 +482,8 @@ async def api_order_create(request):
             except Exception as e:
                 logging.warning(f"Promo kod xatosi: {e}")
 
-        # ── 4. Narxlarni hisoblash ────────────────────────────────────
-        items_total   = sum(i['price'] * i['quantity'] for i in items)
+        # ── 4. Narxlarni BAZADAGI haqiqiy narxlardan hisoblash ────────
+        items_total   = sum(int(i['price']) * int(i['quantity']) for i in items)
         discount_amt  = int(items_total * discount_pct / 100) if discount_pct > 0 else 0
         after_discount = items_total - discount_amt
 
@@ -547,7 +563,8 @@ async def api_order_create(request):
                         inv_desc = f"Buyurtmangiz: {len(items)} ta mahsulot\nJami: {total_amount:,} so'm"
 
                     prices = [LabeledPrice(label="Buyurtma", amount=total_amount * 100)]
-                    payload_str = f"webapp:{user_id}:{delivery_type}:{discount_pct}:{promo_code or ''}"
+                    raw_payload = f"webapp:{user_id}:{delivery_type}:{discount_pct}:{promo_code or ''}"
+                    payload_str = sign_invoice_payload(raw_payload)
 
                     # Savatni state da saqlash — payment handler uchun
                     # Avval savatni tozalamasdan qoldiramiz — successful_payment handler oladi

@@ -1,4 +1,7 @@
-import asyncpg
+try:
+    import asyncpg
+except Exception:
+    asyncpg = None
 import logging
 import os
 from config import POSTGRES_URI

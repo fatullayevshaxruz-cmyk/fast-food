@@ -127,6 +127,15 @@
       localStorage.setItem('tg_uid', initialUid);
     }
 
+    // ─── Secure Fetch Helper (HMAC-SHA256 Telegram initData header) ────
+    async function secureFetch(url, options = {}) {
+      const headers = {
+        ...(options.headers || {}),
+        'X-Telegram-Init-Data': tg?.initData || '',
+      };
+      return fetch(url, { ...options, headers });
+    }
+
     // ─── Formatters ────────────────────────────────────────────────────
     function formatUzPhone(digitsOnly) {
       const clean = (digitsOnly || '').replace(/\D/g, '').slice(0, 9);
@@ -638,7 +647,7 @@
 
           if (initialUid) {
             try {
-              const uRes = await fetch(`${API_BASE}/api/user?user_id=${initialUid}`);
+              const uRes = await secureFetch(`${API_BASE}/api/user?user_id=${initialUid}`);
               if (uRes.ok) {
                 const uData = await uRes.json();
                 if (uData.user) {
@@ -679,7 +688,7 @@
           const fullPhone = `+998 ${formatUzPhone(phoneDigits)}`;
           (async () => {
             try {
-              await fetch(`${API_BASE}/api/auth/verify-otp`, {
+              const res = await secureFetch(`${API_BASE}/api/auth/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -688,14 +697,21 @@
                   code,
                 }),
               });
+              if (res.ok) {
+                localStorage.setItem('user_phone', fullPhone);
+                setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
+                hapticNotify('success');
+                setAuthNotice('Номер успешно подтвержден!');
+                setTimeout(() => {
+                  setAuthStep('verified');
+                }, 450);
+              } else {
+                const errData = await res.json().catch(() => ({}));
+                hapticNotify('error');
+                setOtpDigits(['', '', '', '', '', '']);
+                alert(errData.error || 'Неверный код подтверждения');
+              }
             } catch (e) {}
-            localStorage.setItem('user_phone', fullPhone);
-            setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
-            hapticNotify('success');
-            setAuthNotice('Номер успешно подтвержден!');
-            setTimeout(() => {
-              setAuthStep('verified');
-            }, 450);
           })();
         }
       }, [otpDigits, authStep, phoneDigits]);
@@ -723,7 +739,7 @@
         setAuthStep('otp');
 
         try {
-          const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
+          const res = await secureFetch(`${API_BASE}/api/auth/send-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -901,7 +917,7 @@
 
         setSubmittingOrder(true);
         try {
-          const res = await fetch(`${API_BASE}/api/order/create`, {
+          const res = await secureFetch(`${API_BASE}/api/order/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
