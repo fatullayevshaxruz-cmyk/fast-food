@@ -83,11 +83,11 @@ async def resolve_human_address(address: str = None, lat: float = None, lon: flo
         f"?format=json&lat={lat_f}&lon={lon_f}&zoom=18&addressdetails=1&accept-language=uz,ru"
     )
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
             async with session.get(
                 nominatim_url,
                 headers={"User-Agent": "DarxanBurgerBot/3.0 (uzbekistan delivery)"},
-                timeout=aiohttp.ClientTimeout(total=5),
+                timeout=aiohttp.ClientTimeout(total=6),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -166,8 +166,8 @@ async def resolve_human_address(address: str = None, lat: float = None, lon: flo
             f"?latitude={lat_f}&longitude={lon_f}&localityLanguage=uz"
         )
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(bdc_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                async with session.get(bdc_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status == 200:
                         bdata = await resp.json()
                         bparts = []
