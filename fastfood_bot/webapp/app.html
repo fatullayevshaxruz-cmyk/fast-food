@@ -595,16 +595,8 @@
       });
       const [orders, setOrders] = useState([]);
 
-      // Cart initialized with 1 item so "Корзина" badge displays "1" out of the box
-      const [cart, setCart] = useState({
-        101: {
-          id: 101,
-          name: 'Darxan Cheese Burger',
-          price: 38000,
-          qty: 1,
-          image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
-        },
-      });
+      // Savat dastlab bo'sh bo'ladi (mijoz o'zi taom qo'shmaguncha Savatda (1) chiqmaydi)
+      const [cart, setCart] = useState({});
 
       // Delivery & Promo State
       const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'eat_in'
@@ -618,6 +610,31 @@
       const [submittingOrder, setSubmittingOrder] = useState(false);
       const [orderSuccessModal, setOrderSuccessModal] = useState(null);
 
+      // Foydalanuvchi va buyurtmalar holatini serverdan yangilash funksiyasi
+      const fetchUserOrders = useCallback(async () => {
+        if (!initialUid) return;
+        try {
+          const uRes = await secureFetch(`${API_BASE}/api/user?user_id=${initialUid}`);
+          if (uRes.ok) {
+            const uData = await uRes.json();
+            if (uData.user) {
+              setUserProfile((prev) => ({
+                ...prev,
+                ...uData.user,
+              }));
+              if (uData.user.phone) {
+                const digits = uData.user.phone.replace(/\D/g, '');
+                const local9 = digits.startsWith('998') ? digits.slice(3, 12) : digits.slice(-9);
+                if (local9.length === 9) setPhoneDigits(local9);
+              }
+            }
+            if (uData.orders) {
+              setOrders(uData.orders);
+            }
+          }
+        } catch (e) {}
+      }, []);
+
       // Load real menu & user data from backend
       useEffect(() => {
         async function fetchInitialData() {
@@ -628,48 +645,23 @@
               if (data.categories && data.categories.length > 0) {
                 setCategories(data.categories);
                 setSelectedCatId(data.categories[0].id);
-                // Put first real product into initial cart if cart still has fallback ID 101
-                const firstProd = data.categories[0]?.products?.[0];
-                if (firstProd) {
-                  setCart({
-                    [firstProd.id]: {
-                      id: firstProd.id,
-                      name: firstProd.name_ru || firstProd.name,
-                      price: firstProd.price,
-                      qty: 1,
-                      image_url: firstProd.image_url,
-                    },
-                  });
-                }
               }
             }
           } catch (e) {}
 
-          if (initialUid) {
-            try {
-              const uRes = await secureFetch(`${API_BASE}/api/user?user_id=${initialUid}`);
-              if (uRes.ok) {
-                const uData = await uRes.json();
-                if (uData.user) {
-                  setUserProfile((prev) => ({
-                    ...prev,
-                    ...uData.user,
-                  }));
-                  if (uData.user.phone) {
-                    const digits = uData.user.phone.replace(/\D/g, '');
-                    const local9 = digits.startsWith('998') ? digits.slice(3, 12) : digits.slice(-9);
-                    if (local9.length === 9) setPhoneDigits(local9);
-                  }
-                }
-                if (uData.orders) {
-                  setOrders(uData.orders);
-                }
-              }
-            } catch (e) {}
-          }
+          await fetchUserOrders();
         }
         fetchInitialData();
-      }, []);
+      }, [fetchUserOrders]);
+
+      // Jonli yangilanish (Real-time polling): Zakaz bo'limida har 4 soniyada kafe javobini tekshiradi
+      useEffect(() => {
+        if (!initialUid) return;
+        const interval = setInterval(() => {
+          fetchUserOrders();
+        }, 4000);
+        return () => clearInterval(interval);
+      }, [fetchUserOrders]);
 
       // OTP Countdown Timer
       useEffect(() => {
@@ -935,6 +927,7 @@
                   payment: paymentMethod.toUpperCase(),
                 });
                 setCart({});
+                fetchUserOrders();
               }
             });
             return;
@@ -942,23 +935,50 @@
 
           if (data.success) {
             hapticNotify('success');
+            const newOrdId = data.order_id || Math.floor(100 + Math.random() * 900);
+            const newOrdTotal = data.total_amount || finalTotal;
+            setOrders((prev) => [
+              {
+                id: newOrdId,
+                status: 'pending',
+                total_amount: newOrdTotal,
+                delivery_type: deliveryType,
+                payment_method: paymentLabelMap[paymentMethod] || 'Payme',
+                items: cartItems.map((i) => ({ name: i.name, quantity: i.qty, price_at_time: i.price })),
+              },
+              ...prev.filter((o) => String(o.id) !== String(newOrdId)),
+            ]);
             setOrderSuccessModal({
-              orderId: data.order_id || 'Новый',
-              total: data.total_amount || finalTotal,
+              orderId: newOrdId,
+              total: newOrdTotal,
               payment: paymentMethod === 'cash' ? 'Наличные' : paymentMethod.toUpperCase(),
             });
             setCart({});
+            fetchUserOrders();
           } else {
             alert(data.error || 'Ошибка при оформлении заказа');
           }
         } catch (e) {
           // Demo / offline preview fallback
           hapticNotify('success');
+          const demoId = Math.floor(100 + Math.random() * 900);
+          setOrders((prev) => [
+            {
+              id: demoId,
+              status: 'pending',
+              total_amount: finalTotal,
+              delivery_type: deliveryType,
+              payment_method: paymentLabelMap[paymentMethod] || 'Payme',
+              items: cartItems.map((i) => ({ name: i.name, quantity: i.qty, price_at_time: i.price })),
+            },
+            ...prev,
+          ]);
           setOrderSuccessModal({
-            orderId: Math.floor(100 + Math.random() * 900),
+            orderId: demoId,
             total: finalTotal,
             payment: paymentMethod === 'cash' ? 'Наличные' : paymentMethod.toUpperCase(),
           });
+          setCart({});
         } finally {
           setSubmittingOrder(false);
         }
@@ -1744,53 +1764,210 @@
                 TAB 3: ЗАКАЗ (Orders History & Active Status)
                ============================================================ */}
             {activeTab === 'orders' && (
-              <div className="space-y-3 animate-ios-in">
+              <div className="space-y-3.5 animate-ios-in">
                 <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-neutral-100">
-                  <h2 className="text-xl font-extrabold text-neutral-900 mb-1">
-                    📦 Мои заказы
-                  </h2>
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-xl font-extrabold text-neutral-900">
+                      📦 Buyurtmalarim / Мои заказы
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticImpact('light');
+                        fetchUserOrders();
+                      }}
+                      className="text-xs font-bold px-3 py-1.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 active:scale-95 transition-all flex items-center gap-1"
+                    >
+                      <span>🔄</span>
+                      <span>Yangilash</span>
+                    </button>
+                  </div>
                   <p className="text-xs text-neutral-500 mb-4">
-                    Статус текущих и завершенных заказов в реальном времени
+                    Buyurtmangiz holati jonli rejimda (avtomatik) yangilanadi
                   </p>
 
                   {orders.length === 0 ? (
-                    <div className="p-4 rounded-2xl bg-[#F9F9FB] border border-neutral-100 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-neutral-900">
-                          Заказ #3 • Доставка
-                        </span>
-                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E50914]/10 text-[#E50914]">
-                          Ожидает подтверждения кафе
-                        </span>
-                      </div>
-                      <p className="text-xs text-neutral-500">
-                        Darxan Cheese Burger × 2
+                    <div className="py-10 px-4 rounded-2xl bg-[#F9F9FB] border border-neutral-100 text-center space-y-3">
+                      <div className="text-5xl">🍔</div>
+                      <h3 className="text-sm font-extrabold text-neutral-800">
+                        Hozircha faol buyurtmalar yo'q
+                      </h3>
+                      <p className="text-xs text-neutral-500 max-w-xs mx-auto leading-relaxed">
+                        Menyudan o'zingizga yoqqan issiq burger va ichimliklarni tanlab buyurtma bering!
                       </p>
-                      <div className="flex items-center justify-between pt-2 border-t border-neutral-200/60 text-xs">
-                        <span className="text-neutral-400">Оплата: Payme</span>
-                        <span className="font-extrabold text-[#E50914]">86 000 сум</span>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('home')}
+                        className="px-5 py-2.5 rounded-2xl bg-[#E50914] text-white text-xs font-bold shadow-sm active:scale-95 transition-transform"
+                      >
+                        🍔 Menyuga o'tish
+                      </button>
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
-                      {orders.map((ord) => (
-                        <div
-                          key={ord.id}
-                          className="p-4 rounded-2xl bg-[#F9F9FB] border border-neutral-100 space-y-1.5"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-extrabold text-neutral-900">
-                              Заказ #{ord.id}
-                            </span>
-                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E50914]/10 text-[#E50914]">
-                              {ord.status}
-                            </span>
+                    <div className="space-y-3.5">
+                      {orders.map((ord) => {
+                        const st = (ord.status || 'pending').toLowerCase();
+
+                        const statusConfigMap = {
+                          pending: {
+                            badge: '⏳ Kafe javobi kutilmoqda',
+                            badgeClass: 'bg-amber-500/15 text-amber-700 border border-amber-500/30',
+                            cardBorder: 'border-amber-200/80 bg-gradient-to-br from-amber-50/70 via-white to-white',
+                            bannerBg: 'bg-amber-500/10 border-amber-500/20 text-amber-900',
+                            icon: '⏳',
+                            title: 'Buyurtmangiz kafe qabul qilishini kutyapmiz...',
+                            message:
+                              '✨ Buyurtmangiz Darxan Burger oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍔🚀',
+                            step: 1,
+                          },
+                          preparing: {
+                            badge: '✅ Buyurtma qabul qilindi!',
+                            badgeClass: 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30',
+                            cardBorder: 'border-emerald-200/90 bg-gradient-to-br from-emerald-50/70 via-white to-white',
+                            bannerBg: 'bg-emerald-500/10 border-emerald-500/25 text-emerald-900',
+                            icon: '👨‍🍳',
+                            title: '🔥 Buyurtma qabul qilindi — Tayyorlanmoqda!',
+                            message:
+                              '🎉 Ajoyib xabar! Kafe buyurtmangizni mamnuniyat bilan qabul qildi! Bosh oshpazimiz siz uchun eng issiq va mazali taomni tayyorlashni boshladi 🍔✨',
+                            step: 2,
+                          },
+                          delivering: {
+                            badge: "🛵 Kuryer yo'lda!",
+                            badgeClass: 'bg-sky-500/15 text-sky-700 border border-sky-500/30',
+                            cardBorder: 'border-sky-200/90 bg-gradient-to-br from-sky-50/70 via-white to-white',
+                            bannerBg: 'bg-sky-500/10 border-sky-500/25 text-sky-900',
+                            icon: '🛵',
+                            title: '🚀 Buyurtmangiz siz tomonga uchib ketmoqda!',
+                            message:
+                              "🛵 Issiqqina buyurtmangiz qadoqlandi va kuryerimiz yo'lga chiqdi! Tez orada eshigingiz oldida bo'lamiz, telefoningizni yaqinroq tuting 😋",
+                            step: 3,
+                          },
+                          completed: {
+                            badge: '🎉 Yetkazib berildi',
+                            badgeClass: 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30',
+                            cardBorder: 'border-neutral-200/80 bg-[#F9F9FB]',
+                            bannerBg: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-900',
+                            icon: '💖',
+                            title: '💖 Buyurtma topshirildi — Yoqimli ishtaha!',
+                            message:
+                              "✨ Buyurtmangiz muvaffaqiyatli yetkazildi! Darxan Burger'ni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️",
+                            step: 4,
+                          },
+                          cancelled: {
+                            badge: '😔 Taom tugab qoldi',
+                            badgeClass: 'bg-[#E50914]/15 text-[#E50914] border border-[#E50914]/30',
+                            cardBorder: 'border-rose-200/90 bg-gradient-to-br from-rose-50/80 via-white to-white',
+                            bannerBg: 'bg-[#E50914]/10 border-[#E50914]/25 text-rose-950',
+                            icon: '😔',
+                            title: '😔 Ming bor uzr, bu taomimiz hozircha tugab qolibdi!',
+                            message:
+                              "💔 Afsuski, siz tanlagan bu taomimiz hozirgina tugab qolibdi yoki oshxonada juda katta navbat yuzaga keldi. Iltimos, menyumizdan boshqa issiq va mazali burgerlarimizni tanlab ko'ring! ❤️🍔",
+                            step: 0,
+                          },
+                        };
+
+                        const cfg = statusConfigMap[st] || statusConfigMap.pending;
+                        const ordItems = Array.isArray(ord.items) ? ord.items : [];
+
+                        return (
+                          <div
+                            key={ord.id}
+                            className={`p-4 rounded-2xl border-2 space-y-3 transition-all ${cfg.cardBorder}`}
+                          >
+                            {/* Top Row: Order ID & Status Badge */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-extrabold text-neutral-900">
+                                  Buyurtma #{ord.id}
+                                </span>
+                                <span className="text-[11px] font-semibold text-neutral-400">
+                                  • {ord.delivery_type === 'eat_in' ? '🍽 Kafeda' : '🛵 Yetkazish'}
+                                </span>
+                              </div>
+                              <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${cfg.badgeClass}`}>
+                                {cfg.badge}
+                              </span>
+                            </div>
+
+                            {/* Attractive Status Message Banner */}
+                            <div className={`p-3 rounded-xl border ${cfg.bannerBg} space-y-1`}>
+                              <div className="text-xs font-extrabold flex items-center gap-1.5">
+                                <span className="text-base">{cfg.icon}</span>
+                                <span>{cfg.title}</span>
+                              </div>
+                              <p className="text-[11.5px] leading-relaxed font-medium opacity-90">
+                                {cfg.message}
+                              </p>
+                            </div>
+
+                            {/* 4-Step Progress Bar (for non-cancelled orders) */}
+                            {st !== 'cancelled' ? (
+                              <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                                {[
+                                  { s: 1, lbl: 'Kafeda' },
+                                  { s: 2, lbl: 'Qabul qilindi' },
+                                  { s: 3, lbl: "Yo'lda" },
+                                  { s: 4, lbl: 'Yetkazildi' },
+                                ].map((stepObj) => {
+                                  const activeStep = cfg.step >= stepObj.s;
+                                  return (
+                                    <div key={stepObj.s} className="space-y-1 text-center">
+                                      <div
+                                        className={`h-1.5 rounded-full transition-all ${
+                                          activeStep ? 'bg-emerald-500' : 'bg-neutral-200'
+                                        }`}
+                                      />
+                                      <span
+                                        className={`block text-[9.5px] font-bold ${
+                                          activeStep ? 'text-emerald-700' : 'text-neutral-400'
+                                        }`}
+                                      >
+                                        {stepObj.lbl}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('home')}
+                                className="w-full py-2.5 rounded-xl bg-[#E50914] text-white text-xs font-bold shadow-sm active:scale-95 transition-transform"
+                              >
+                                🍔 Menyudan boshqa taom tanlash
+                              </button>
+                            )}
+
+                            {/* Ordered Items List (if available) */}
+                            {ordItems.length > 0 && (
+                              <div className="pt-2 border-t border-neutral-200/60 space-y-1">
+                                {ordItems.map((it, idx) => (
+                                  <div key={idx} className="flex justify-between text-xs text-neutral-600 font-medium">
+                                    <span>
+                                      ▫️ {it.name_ru || it.name || `Mahsulot #${it.product_id}`} × {it.quantity}
+                                    </span>
+                                    {it.price_at_time && (
+                                      <span className="font-semibold text-neutral-800">
+                                        {formatPrice(it.price_at_time * it.quantity)} so'm
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Footer: Payment & Total Price */}
+                            <div className="flex items-center justify-between pt-2 border-t border-neutral-200/70">
+                              <span className="text-[11px] font-semibold text-neutral-500">
+                                {ord.payment_method || 'Naqd / Online'}
+                              </span>
+                              <span className="text-sm font-extrabold text-[#E50914]">
+                                Jami: {formatPrice(ord.total_amount)} so'm
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-xs font-extrabold text-[#E50914]">
-                            {formatPrice(ord.total_amount)} сум
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1817,22 +1994,22 @@
                   ⏳
                 </div>
                 <h3 className="text-lg font-extrabold text-neutral-900">
-                  Ожидаем подтверждения кафе!
+                  Buyurtmangiz kafega yuborildi!
                 </h3>
                 <p className="text-xs text-neutral-500 leading-relaxed">
-                  Заказ <b>#{orderSuccessModal.orderId}</b> на сумму{' '}
-                  <b>{formatPrice(orderSuccessModal.total)} сум</b> отправлен в Darxan Burger.
-                  Как только кафе примет заказ, бот пришлет уведомление!
+                  Buyurtma <b>#{orderSuccessModal.orderId}</b> (<b>{formatPrice(orderSuccessModal.total)} so'm</b>) Darxan Burger oshxonasiga yuborildi.
+                  Kafe buyurtmani qabul qilishi bilan <b>«Заказ»</b> bo'limida holati darhol yangilanadi!
                 </p>
                 <button
                   type="button"
                   onClick={() => {
                     setOrderSuccessModal(null);
                     setActiveTab('orders');
+                    fetchUserOrders();
                   }}
                   className="w-full py-3.5 rounded-2xl bg-[#E50914] text-white font-bold text-sm"
                 >
-                  Понятно
+                  📦 Buyurtma holatini kuzatish
                 </button>
               </div>
             </div>
@@ -1842,7 +2019,7 @@
           <BottomNavBar
             activeTab={activeTab}
             onSelectTab={setActiveTab}
-            cartBadge={cartCount > 0 ? cartCount : 1}
+            cartBadge={cartCount}
           />
         </div>
       );

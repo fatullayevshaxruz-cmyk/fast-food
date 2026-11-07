@@ -70,7 +70,12 @@ async def api_user_profile(request):
                 o_dict = dict(o)
                 if o_dict.get('created_at'):
                     o_dict['created_at'] = str(o_dict['created_at'])
-                items = await conn.fetch("SELECT * FROM order_items WHERE order_id = $1", o_dict['id'])
+                items = await conn.fetch("""
+                    SELECT oi.*, p.name, p.name_ru, p.name_en, p.image_url
+                    FROM order_items oi
+                    LEFT JOIN products p ON oi.product_id = p.id
+                    WHERE oi.order_id = $1
+                """, o_dict['id'])
                 o_dict['items'] = [dict(i) for i in items]
                 orders_list.append(o_dict)
             
@@ -172,7 +177,12 @@ async def api_admin_orders(request):
                     o_dict['user_name'] = u['full_name']
                     o_dict['user_phone'] = u['phone_number']
                 
-                items = await conn.fetch("SELECT * FROM order_items WHERE order_id = $1", o_dict['id'])
+                items = await conn.fetch("""
+                    SELECT oi.*, p.name, p.name_ru, p.name_en, p.image_url
+                    FROM order_items oi
+                    LEFT JOIN products p ON oi.product_id = p.id
+                    WHERE oi.order_id = $1
+                """, o_dict['id'])
                 o_dict['items'] = [dict(i) for i in items]
                 
             orders_list.append(o_dict)
