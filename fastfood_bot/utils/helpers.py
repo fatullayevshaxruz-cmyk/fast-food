@@ -30,6 +30,36 @@ def get_cafe_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
     return markup
 
 
+def get_delivery_start_keyboard(order_id: int) -> InlineKeyboardMarkup:
+    """
+    -1003943860489 (Yetkazib berish / Kuryer kanali) uchun 1-bosqich tugmasi:
+    Kuryer buyurtmani olib yo'lga chiqqanda bosiladi.
+    """
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(
+            "🛵 Yo'lga chiqish (Yetkazishni boshlash)",
+            callback_data=f"dlv_start_{order_id}"
+        )
+    )
+    return markup
+
+
+def get_delivery_complete_keyboard(order_id: int) -> InlineKeyboardMarkup:
+    """
+    -1003943860489 (Yetkazib berish / Kuryer kanali) uchun 2-bosqich tugmasi:
+    "Yo'lga chiqish" bosilgandan keyin avtomatik shu tugmaga aylanadi.
+    """
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(
+            "✅ Buyurtma yetkazildi (Mijozga topshirildi)",
+            callback_data=f"dlv_finish_{order_id}"
+        )
+    )
+    return markup
+
+
 async def notify_admins_new_order(bot, order_id, total_amount, user, items, phone, address,
                                    location=None, note=None, delivery_type="delivery",
                                    payment_method="Naqd (Yetkazib berilganda)",
@@ -235,6 +265,8 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
             f"{payment_emoji} <b>To'lov:</b> {payment_label}"
         )
 
+        delivery_kb = get_delivery_start_keyboard(order_id)
+
         await asyncio.wait_for(
             _send_to_channel(
                 bot,
@@ -244,7 +276,7 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
                 send_location=bool(is_delivery and lat and lon),
                 lat=lat,
                 lon=lon,
-                reply_markup=None,
+                reply_markup=delivery_kb,
             ),
             timeout=_CHANNEL_TIMEOUT
         )

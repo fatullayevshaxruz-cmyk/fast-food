@@ -1607,6 +1607,228 @@ async def cafe_reject_order_callback(call: types.CallbackQuery):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 8. YETKAZIB BERISH KANALIDAGI (-1003943860489) 2 BOSQICHLI KURYER TUGMALARI
+#    1-bosqich: "🛵 Yo'lga chiqish" (dlv_start_{order_id}) -> 2-tugmaga aylanadi
+#    2-bosqich: "✅ Buyurtma yetkazildi" (dlv_finish_{order_id}) -> yakunlanadi
+# ══════════════════════════════════════════════════════════════════════
+
+async def delivery_start_callback(call: types.CallbackQuery):
+    """
+    -1003943860489 kanalda 1-tugma ("🛵 Yo'lga chiqish") bosilganda:
+      1. Buyurtma holati 'delivering' ga o'zgaradi
+      2. Kanaldagi 1-tugma o'rniga ketma-ketlikda 2-tugma ("✅ Buyurtma yetkazildi") chiqadi
+      3. Mijozga kreativ "Kuryer yo'lga chiqdi!" xabari boradi
+    """
+    try:
+        order_id = int(call.data.split("_")[2])
+    except Exception:
+        await call.answer("⚠️ Noto'g'ri buyurtma raqami", show_alert=True)
+        return
+
+    order_row = await get_order_by_id(order_id)
+    if not order_row:
+        await call.answer("⚠️ Buyurtma topilmadi!", show_alert=True)
+        return
+    order = dict(order_row)
+
+    current_status = order.get("status") or "preparing"
+    if current_status == "completed":
+        await call.answer("ℹ️ Bu buyurtma allaqachon yetkazib berilgan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+    if current_status == "cancelled":
+        await call.answer("ℹ️ Bu buyurtma bekor qilingan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+
+    await update_order_status(order_id, "delivering")
+    await call.answer("🛵 Oq yo'l! Buyurtma «Yo'lda» holatiga o'tkazildi!", show_alert=False)
+
+    from utils.helpers import get_delivery_complete_keyboard
+    next_kb = get_delivery_complete_keyboard(order_id)
+    courier_name = call.from_user.full_name if call.from_user else "Kuryer"
+
+    try:
+        orig_html = call.message.html_text or call.message.caption or call.message.text or ""
+        status_banner = (
+            f"🛵 <b>Holat: KURYER YO'LGA CHIQDI (Yetkazilmoqda...)</b>\n"
+            f"🚴‍♂️ <b>Kuryer:</b> {courier_name}"
+        )
+        if "✅ <i>Kafe tomonidan qabul qilindi</i>" in orig_html:
+            updated_html = orig_html.replace(
+                "✅ <i>Kafe tomonidan qabul qilindi</i>",
+                status_banner
+            )
+        else:
+            updated_html = orig_html + f"\n\n{status_banner}"
+
+        if call.message.caption is not None:
+            await call.message.edit_caption(updated_html, parse_mode="HTML", reply_markup=next_kb)
+        else:
+            await call.message.edit_text(updated_html, parse_mode="HTML", reply_markup=next_kb)
+    except Exception as e:
+        logging.warning(f"Yetkazish kanali xabarini yangilashda xato: {e}")
+        try:
+            await call.message.edit_reply_markup(reply_markup=next_kb)
+        except Exception:
+            pass
+
+    # Mijozga kreativ xabar yuborish
+    user_id = order["user_id"]
+    user_lang = await get_user_language(user_id)
+    address = order.get("delivery_address") or "Siz ko'rsatgan manzil"
+    courier_phone_line = f"\n📞 <b>Kuryer telefoni:</b> {COURIER_PHONE}" if COURIER_PHONE else ""
+
+    if user_lang == "ru":
+        customer_msg = (
+            f"🛵💨 <b>Отличная новость! Заказ #{order_id} уже в пути!</b>\n\n"
+            f"🔥 Ваши горячие и ароматные блюда от <b>Darxan Burger</b> бережно упакованы в термосумку, "
+            f"и наш курьер уже мчится к вам! 🚀\n\n"
+            f"📍 <b>Адрес доставки:</b> {address}"
+            f"{courier_phone_line}\n\n"
+            f"⏰ <i>Совсем скоро будем у вашей двери — держите телефон рядом!</i> 😋🍔"
+        )
+    elif user_lang == "en":
+        customer_msg = (
+            f"🛵💨 <b>Great news! Order #{order_id} is on the way!</b>\n\n"
+            f"🔥 Your hot and delicious <b>Darxan Burger</b> meal is packed in a thermal bag "
+            f"and our courier is heading straight to you! 🚀\n\n"
+            f"📍 <b>Address:</b> {address}"
+            f"{courier_phone_line}\n\n"
+            f"⏰ <i>We will be at your door very soon!</i> 😋🍔"
+        )
+    else:
+        customer_msg = (
+            f"🛵💨 <b>Suyunchi! Buyurtma #{order_id} yo'lga chiqdi!</b>\n\n"
+            f"🔥 Issiqqina va xushbo'y <b>Darxan Burger</b> taomlaringiz maxsus termo-qopga joylandi "
+            f"va chaqqon kuryerimiz siz tomonga uchib ketmoqda! 🚀\n\n"
+            f"📍 <b>Manzil:</b> {address}"
+            f"{courier_phone_line}\n\n"
+            f"⏰ <i>Tez orada eshigingiz oldida bo'lamiz, telefoningizni yaqinroq tuting!</i> 😋🍔"
+        )
+
+    try:
+        await call.bot.send_message(user_id, customer_msg, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Mijozga yo'lga chiqqanlik xabarini yuborishda xato: {e}")
+
+
+async def delivery_finish_callback(call: types.CallbackQuery):
+    """
+    -1003943860489 kanalda 2-tugma ("✅ Buyurtma yetkazildi") bosilganda:
+      1. Buyurtma holati 'completed' ga o'zgaradi
+      2. Kanaldagi xabar "✅ BUYURTMA MUVAFFAQIYATLI YETKAZILDI!" holatiga o'tadi va tugma yopiladi
+      3. Mijozga kreativ minnatdorchilik xabari va 5 yulduzli baholash so'rovi boradi
+    """
+    try:
+        order_id = int(call.data.split("_")[2])
+    except Exception:
+        await call.answer("⚠️ Noto'g'ri buyurtma raqami", show_alert=True)
+        return
+
+    order_row = await get_order_by_id(order_id)
+    if not order_row:
+        await call.answer("⚠️ Buyurtma topilmadi!", show_alert=True)
+        return
+    order = dict(order_row)
+
+    current_status = order.get("status") or "delivering"
+    if current_status == "completed":
+        await call.answer("ℹ️ Bu buyurtma allaqachon yakunlangan!", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
+
+    await update_order_status(order_id, "completed")
+    await call.answer("🎉 Barakalla! Buyurtma muvaffaqiyatli yetkazildi!", show_alert=False)
+
+    courier_name = call.from_user.full_name if call.from_user else "Kuryer"
+    time_str, _ = _uz_now_str()
+
+    try:
+        orig_html = call.message.html_text or call.message.caption or call.message.text or ""
+        done_banner = (
+            f"🎉 <b>Holat: BUYURTMA MUVAFFAQIYATLI YETKAZILDI! ✅</b>\n"
+            f"🚴‍♂️ <b>Topshirdi:</b> {courier_name} | 🕒 <b>Vaqt:</b> {time_str}"
+        )
+        if "🛵 <b>Holat: KURYER YO'LGA CHIQDI (Yetkazilmoqda...)</b>" in orig_html:
+            updated_html = orig_html.replace(
+                "🛵 <b>Holat: KURYER YO'LGA CHIQDI (Yetkazilmoqda...)</b>",
+                done_banner
+            )
+        elif "✅ <i>Kafe tomonidan qabul qilindi</i>" in orig_html:
+            updated_html = orig_html.replace(
+                "✅ <i>Kafe tomonidan qabul qilindi</i>",
+                done_banner
+            )
+        else:
+            updated_html = orig_html + f"\n\n{done_banner}"
+
+        if call.message.caption is not None:
+            await call.message.edit_caption(updated_html, parse_mode="HTML", reply_markup=None)
+        else:
+            await call.message.edit_text(updated_html, parse_mode="HTML", reply_markup=None)
+    except Exception as e:
+        logging.warning(f"Yetkazish kanali yakuniy xabarini yangilashda xato: {e}")
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+    # Mijozga kreativ yakuniy xabar va baholash so'rovi
+    user_id = order["user_id"]
+    user_lang = await get_user_language(user_id)
+
+    if user_lang == "ru":
+        customer_msg = (
+            f"🎉🍔 <b>Заказ #{order_id} успешно доставлен!</b>\n\n"
+            f"💖 От всей души благодарим вас за выбор <b>Darxan Burger</b>!\n"
+            f"😋 Надеемся, наши горячие блюда подарят вам отличное настроение. <b>Приятного аппетита!</b> ✨\n\n"
+            f"🔄 <i>Будем рады видеть вас снова!</i> ❤️"
+        )
+    elif user_lang == "en":
+        customer_msg = (
+            f"🎉🍔 <b>Order #{order_id} has been delivered!</b>\n\n"
+            f"💖 Thank you so much for choosing <b>Darxan Burger</b>!\n"
+            f"😋 We hope you enjoy your meal. <b>Bon appétit!</b> ✨\n\n"
+            f"🔄 <i>We look forward to serving you again soon!</i> ❤️"
+        )
+    else:
+        customer_msg = (
+            f"🎉🍔 <b>Buyurtma #{order_id} muvaffaqiyatli yetkazildi!</b>\n\n"
+            f"💖 <b>Darxan Burger</b>ni tanlaganingiz uchun chin qalbimizdan rahmat!\n"
+            f"😋 Issiqqina taomlarimiz sizga va yaqinlaringizga manzur bo'ladi degan umiddamiz. "
+            f"<b>Yoqimli ishtaha tilaymiz!</b> ✨\n\n"
+            f"🔄 <i>Yana shunday mazali lahzalar uchun sizni doim kutib qolamiz!</i> ❤️"
+        )
+
+    try:
+        await call.bot.send_message(user_id, customer_msg, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Mijozga yetkazilganlik xabarini yuborishda xato: {e}")
+
+    # 3 soniyadan so'ng 5 yulduzli baholash so'rovini yuborish
+    try:
+        from handlers.feedback import send_feedback_request
+
+        async def _send_fb():
+            await asyncio.sleep(3)
+            await send_feedback_request(call.bot, user_id, order_id, user_lang)
+
+        asyncio.create_task(_send_fb())
+    except Exception:
+        pass
+
+
+# ══════════════════════════════════════════════════════════════════════
 # HANDLERLARNI RO'YXATDAN O'TKAZISH
 # ══════════════════════════════════════════════════════════════════════
 
@@ -1628,6 +1850,18 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(
         cafe_reject_order_callback,
         lambda c: c.data and c.data.startswith("cafe_reject_"),
+        state="*",
+    )
+
+    # Yetkazib berish kanalidagi (-1003943860489) ketma-ket 2 ta kuryer tugmasi
+    dp.register_callback_query_handler(
+        delivery_start_callback,
+        lambda c: c.data and c.data.startswith("dlv_start_"),
+        state="*",
+    )
+    dp.register_callback_query_handler(
+        delivery_finish_callback,
+        lambda c: c.data and c.data.startswith("dlv_finish_"),
         state="*",
     )
 
