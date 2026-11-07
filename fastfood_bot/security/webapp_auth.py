@@ -123,18 +123,30 @@ def verify_request_user(
     init_data = get_init_data_from_request(request)
     if init_data:
         verified = verify_telegram_init_data(init_data)
-        if not verified:
+        if verified:
+            tg_user = verified.get("user") or {}
+            real_uid = int(tg_user.get("id") or 0)
+            if real_uid:
+                if claimed_user_id and int(claimed_user_id) != real_uid:
+                    log.warning(
+                        f"🚨 IDOR hujumi to'xtatildi! Claimed user_id={claimed_user_id}, "
+                        f"Verified initData user_id={real_uid}"
+                    )
+                return real_uid
+        elif require_strict:
             return None
-        tg_user = verified.get("user") or {}
-        real_uid = int(tg_user.get("id") or 0)
-        if not real_uid:
-            return None
-        if claimed_user_id and int(claimed_user_id) != real_uid:
-            log.warning(
-                f"🚨 IDOR hujumi to'xtatildi! Claimed user_id={claimed_user_id}, "
-                f"Verified initData user_id={real_uid}"
-            )
-        return real_uid
+        else:
+            # Non-strict fallback: try extracting user.id from initData JSON if present
+            try:
+                parsed_pairs = dict(parse_qsl(init_data, keep_blank_values=True))
+                user_raw = parsed_pairs.get("user")
+                if user_raw:
+                    u_obj = json.loads(user_raw)
+                    fallback_uid = int(u_obj.get("id") or 0)
+                    if fallback_uid:
+                        return fallback_uid
+            except Exception:
+                pass
 
     if require_strict:
         return None

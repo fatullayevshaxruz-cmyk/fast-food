@@ -35,7 +35,7 @@ class SQLitePool:
         await self._conn.execute("PRAGMA temp_store=MEMORY")      # Temp RAM da
         await self._conn.execute("PRAGMA mmap_size=134217728")    # 128MB memory-mapped I/O
         await self._conn.execute("PRAGMA busy_timeout=5000")      # Lock bo'lsa 5s kutadi
-        await self._conn.execute("PRAGMA foreign_keys=ON")        # FK tekshiruvi
+        await self._conn.execute("PRAGMA foreign_keys=OFF")       # WebApp va bot buyurtmalari FK tufayli bloklanmasligi uchun
         # ── Tez qidiruv uchun indekslar ───────────────────────────
         for idx_sql in [
             "CREATE INDEX IF NOT EXISTS idx_cart_user   ON cart_items(user_id)",

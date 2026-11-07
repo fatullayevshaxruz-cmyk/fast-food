@@ -77,6 +77,19 @@ async def on_startup(dp):
         BotCommand("help", "Yordam va ma'lumot"),
         BotCommand("cancel", "Jarayonni bekor qilish")
     ])
+    try:
+        await bot.request(
+            "setChatMenuButton",
+            {
+                "menu_button": {
+                    "type": "web_app",
+                    "text": "Меню",
+                    "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=8"},
+                }
+            },
+        )
+    except Exception as e:
+        logging.warning(f"setChatMenuButton warning: {e}")
     
     logging.info("Database initialized, connected, and seeded.")
 

@@ -302,18 +302,19 @@ async def get_user_orders(user_id, limit=500):
                 phone_digits = raw_digits[-9:]
 
         if phone_digits:
+            like_pattern = f"%{phone_digits}"
             return await conn.fetch("""
                 SELECT * FROM orders 
                 WHERE user_id = $1
-                   OR RIGHT(REGEXP_REPLACE(COALESCE(phone_number, ''), '\\D', '', 'g'), 9) = $2
-                ORDER BY created_at DESC 
+                   OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone_number, ''), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') LIKE $2
+                ORDER BY id DESC 
                 LIMIT $3
-            """, user_id, phone_digits, limit)
+            """, user_id, like_pattern, limit)
 
         return await conn.fetch("""
             SELECT * FROM orders 
             WHERE user_id = $1 
-            ORDER BY created_at DESC 
+            ORDER BY id DESC 
             LIMIT $2
         """, user_id, limit)
 

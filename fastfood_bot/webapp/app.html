@@ -121,7 +121,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const initialUid = tg?.initDataUnsafe?.user?.id
       ? String(tg.initDataUnsafe.user.id)
-      : (urlParams.get('user_id') || localStorage.getItem('tg_uid') || '');
+      : (urlParams.get('user_id') || urlParams.get('uid') || localStorage.getItem('tg_uid') || '');
 
     if (initialUid) {
       localStorage.setItem('tg_uid', initialUid);
@@ -622,7 +622,8 @@
         localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
       const initialSavedDigits = (() => {
         const d = initialSavedPhone.replace(/\D/g, '');
-        return d.startsWith('998') ? d.slice(3, 12) : d.slice(-9);
+        const clean9 = d.startsWith('998') ? d.slice(3, 12) : d.slice(-9);
+        return clean9 === '901234567' ? '' : clean9;
       })();
       const hasInitialSavedPhone = initialSavedDigits.length === 9;
 
@@ -731,14 +732,21 @@
           localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
         const localDigits = (() => {
           const d = localPhone.replace(/\D/g, '');
-          return d.startsWith('998') ? d.slice(3, 12) : d.slice(-9);
+          const c9 = d.startsWith('998') ? d.slice(3, 12) : d.slice(-9);
+          return c9 === '901234567' ? '' : c9;
         })();
-        const effectiveUid = initialUid || localStorage.getItem('tg_uid') || '';
-        if (!effectiveUid && localDigits.length < 9) return;
+        const liveTgUid =
+          (window.Telegram?.WebApp?.initDataUnsafe?.user?.id &&
+            String(window.Telegram.WebApp.initDataUnsafe.user.id)) ||
+          urlParams.get('user_id') ||
+          urlParams.get('uid') ||
+          initialUid ||
+          localStorage.getItem('tg_uid') ||
+          '';
 
         try {
           const uRes = await secureFetch(
-            `${API_BASE}/api/user?user_id=${encodeURIComponent(effectiveUid || '0')}&phone=${encodeURIComponent(localDigits)}`
+            `${API_BASE}/api/user?user_id=${encodeURIComponent(liveTgUid || '0')}&phone=${encodeURIComponent(localDigits)}`
           );
           if (uRes.ok) {
             const uData = await uRes.json();
@@ -766,11 +774,11 @@
                     setPhoneDigits(local9);
                     setAuthStep('verified');
                   }
-                  if (!dbPhone && effectiveUid) {
+                  if (!dbPhone && liveTgUid) {
                     secureFetch(`${API_BASE}/api/profile/update`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ user_id: effectiveUid, phone: formatted }),
+                      body: JSON.stringify({ user_id: liveTgUid, phone: formatted }),
                     }).catch(() => {});
                   }
                 }
@@ -2258,7 +2266,12 @@
           {/* ─── 3. Bottom Navigation Bar ─── */}
           <BottomNavBar
             activeTab={activeTab}
-            onSelectTab={setActiveTab}
+            onSelectTab={(tab) => {
+              setActiveTab(tab);
+              if (tab === 'orders') {
+                fetchUserOrders();
+              }
+            }}
             cartBadge={cartCount}
           />
         </div>
