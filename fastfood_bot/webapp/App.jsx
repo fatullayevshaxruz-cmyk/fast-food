@@ -16,56 +16,79 @@ export function formatUzPhone(digitsOnly) {
   return `(${clean.slice(0, 2)}) ${clean.slice(2, 5)}-${clean.slice(5, 7)}-${clean.slice(7, 9)}`;
 }
 
-// ─── Payment Methods Component ("Способы оплаты") ────────────────────
+// ─── Payment Methods Component ("Оплата / Способы оплаты") ────────────
 export function PaymentMethodsCard({ selected, onSelect }) {
   const methods = [
     {
       id: 'cash',
       title: 'Наличные',
-      subtitle: 'Оплата курьеру при получении',
-      badge: 'UZS',
       icon: (
-        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        </div>
+        <svg className="w-8 h-8 shrink-0" viewBox="0 0 36 36" fill="none">
+          <rect x="4" y="8" width="24" height="16" rx="4" stroke="#6E6E73" strokeWidth="2.4" fill="none" />
+          <circle cx="16" cy="16" r="3" stroke="#6E6E73" strokeWidth="2.2" />
+          <line x1="9" y1="13" x2="9" y2="19" stroke="#6E6E73" strokeWidth="2.2" strokeLinecap="round" />
+          <line x1="23" y1="13" x2="23" y2="19" stroke="#6E6E73" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M8 27.5H26C28.7614 27.5 31 25.2614 31 22.5V13" stroke="#6E6E73" strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
       ),
     },
     {
       id: 'payme',
       title: 'Payme',
-      subtitle: 'Мгновенная оплата картой Uzcard / Humo',
-      badge: 'Рекомендуем',
       icon: (
-        <div className="w-11 h-11 rounded-2xl bg-[#00CCCC]/15 border border-[#00CCCC]/30 flex items-center justify-center">
-          <span className="font-extrabold text-[13px] tracking-tight text-[#00A3A3]">payme</span>
+        <div className="flex flex-col items-start justify-center leading-none select-none shrink-0">
+          <span className="text-[13px] font-extrabold tracking-tight text-[#2B2B30] mb-[2px]">
+            Pay
+          </span>
+          <svg className="w-[34px] h-[16px]" viewBox="0 0 38 18" fill="none">
+            <path
+              d="M0 3.5C0 1.567 1.567 0 3.5 0H28.5C29.6 0 30.63 0.52 31.29 1.4L37.1 9L31.29 16.6C30.63 17.48 29.6 18 28.5 18H3.5C1.567 18 0 16.433 0 14.5V3.5Z"
+              fill="#38C6C6"
+            />
+            <text
+              x="4.5"
+              y="13"
+              fill="#FFFFFF"
+              fontSize="11.5"
+              fontWeight="800"
+              fontFamily="-apple-system, BlinkMacSystemFont, Inter, sans-serif"
+            >
+              me
+            </text>
+          </svg>
         </div>
       ),
     },
     {
       id: 'click',
       title: 'Click',
-      subtitle: 'Быстрая оплата через Click Up',
-      badge: 'Online',
       icon: (
-        <div className="w-11 h-11 rounded-2xl bg-[#0088FF]/12 border border-[#0088FF]/25 flex items-center justify-center">
-          <span className="font-extrabold text-[13px] tracking-tight text-[#0077EE]">CLICK</span>
-        </div>
+        <svg className="w-8 h-8 shrink-0" viewBox="0 0 36 36" fill="none">
+          <rect
+            x="18"
+            y="3.5"
+            width="20.5"
+            height="20.5"
+            rx="6.5"
+            transform="rotate(45 18 3.5)"
+            fill="#0077FF"
+          />
+          <circle cx="18" cy="18" r="5.5" fill="#FFFFFF" />
+        </svg>
       ),
     },
   ];
 
   return (
-    <div className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-100">
-      <div className="flex items-center justify-between mb-3.5">
-        <h3 className="text-[17px] font-bold tracking-tight text-neutral-900">
-          Способы оплаты
-        </h3>
-        <span className="text-xs font-medium text-neutral-400">Выберите метод</span>
-      </div>
+    <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-100">
+      <h3 className="text-[22px] font-bold tracking-tight text-black leading-tight">
+        Оплата
+      </h3>
+      <p className="text-[15px] font-normal text-[#76767A] mt-2 mb-3.5">
+        Способы оплаты
+      </p>
 
-      <div className="space-y-2.5">
+      <div className="grid grid-cols-2 gap-3">
         {methods.map((m) => {
           const isActive = selected === m.id;
           return (
@@ -73,40 +96,14 @@ export function PaymentMethodsCard({ selected, onSelect }) {
               key={m.id}
               type="button"
               onClick={() => onSelect(m.id)}
-              className={`w-full flex items-center justify-between p-3.5 rounded-2xl border-2 text-left transition-all duration-200 active:scale-[0.985] ${
+              className={`h-[66px] px-4 rounded-[18px] bg-[#F4F4F6] flex items-center justify-between transition-all duration-150 active:scale-[0.98] ${
                 isActive
-                  ? 'border-[#E50914] bg-[#E50914]/[0.04] shadow-[0_4px_16px_rgba(229,9,20,0.10)]'
-                  : 'border-neutral-100 bg-neutral-50/70 hover:bg-neutral-100/70'
+                  ? 'border-2 border-[#E50914]'
+                  : 'border-2 border-transparent hover:border-neutral-200'
               }`}
             >
-              <div className="flex items-center gap-3.5">
-                {m.icon}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[15px] font-bold text-neutral-900">{m.title}</span>
-                    {isActive && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E50914] text-white">
-                        Активно
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-0.5">{m.subtitle}</p>
-                </div>
-              </div>
-
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 ${
-                  isActive
-                    ? 'border-2 border-[#E50914] bg-[#E50914] text-white'
-                    : 'border-2 border-neutral-300 bg-white'
-                }`}
-              >
-                {isActive && (
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
+              {m.icon}
+              <span className="text-[16px] font-medium text-black">{m.title}</span>
             </button>
           );
         })}
