@@ -291,9 +291,25 @@ def _field(record, key):
     except Exception:
         return None
 
-async def get_user_orders(user_id, limit=10):
+async def get_user_orders(user_id, limit=500):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
+        user_row = await conn.fetchrow("SELECT phone_number FROM users WHERE user_id = $1", user_id)
+        phone_digits = ""
+        if user_row and user_row.get("phone_number"):
+            raw_digits = "".join(ch for ch in str(user_row["phone_number"]) if ch.isdigit())
+            if len(raw_digits) >= 9:
+                phone_digits = raw_digits[-9:]
+
+        if phone_digits:
+            return await conn.fetch("""
+                SELECT * FROM orders 
+                WHERE user_id = $1
+                   OR RIGHT(REGEXP_REPLACE(COALESCE(phone_number, ''), '\\D', '', 'g'), 9) = $2
+                ORDER BY created_at DESC 
+                LIMIT $3
+            """, user_id, phone_digits, limit)
+
         return await conn.fetch("""
             SELECT * FROM orders 
             WHERE user_id = $1 

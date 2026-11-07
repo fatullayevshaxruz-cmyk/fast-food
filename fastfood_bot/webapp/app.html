@@ -629,8 +629,13 @@
       // Agar mijoz oldin raqamini kiritgan bo'lsa, o'zi "Изменить" bosmaguncha doim 'verified' holatda turadi
       const isEditingPhoneRef = useRef(false);
 
-      // 3. Bottom Navigation Bar: default active is 'profile' (Профиль - qizil rangdagi faol holat)
-      const [activeTab, setActiveTab] = useState('profile');
+      const requestedTab = urlParams.get('tab');
+      const initialTab = ['home', 'cart', 'orders', 'profile'].includes(requestedTab)
+        ? requestedTab
+        : 'profile';
+
+      // 3. Bottom Navigation Bar: default active is 'profile' (yoki URL ?tab=orders bo'lsa 'orders')
+      const [activeTab, setActiveTab] = useState(initialTab);
 
       // 1. Auth & OTP State
       // 'phone' | 'otp' | 'verified'
@@ -658,7 +663,30 @@
         phone: hasInitialSavedPhone ? `+998 ${formatUzPhone(initialSavedDigits)}` : '',
         is_admin: false,
       });
-      const [orders, setOrders] = useState([]);
+      const ordersStorageKey = `darxan_orders_${initialUid || 'guest'}`;
+      const [orders, setOrders] = useState(() => {
+        try {
+          const raw =
+            localStorage.getItem(ordersStorageKey) ||
+            localStorage.getItem('darxan_orders_history') ||
+            '[]';
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      });
+
+      const saveOrdersToStorage = useCallback(
+        (ordersList) => {
+          try {
+            const serialized = JSON.stringify(ordersList);
+            localStorage.setItem(ordersStorageKey, serialized);
+            localStorage.setItem('darxan_orders_history', serialized);
+          } catch (e) {}
+        },
+        [ordersStorageKey]
+      );
 
       // Savat dastlab bo'sh bo'ladi (mijoz o'zi taom qo'shmaguncha Savatda (1) chiqmaydi)
       const [cart, setCart] = useState({});
@@ -699,15 +727,26 @@
 
       // Foydalanuvchi va buyurtmalar holatini serverdan yangilash funksiyasi
       const fetchUserOrders = useCallback(async () => {
-        if (!initialUid) return;
+        const localPhone =
+          localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
+        const localDigits = (() => {
+          const d = localPhone.replace(/\D/g, '');
+          return d.startsWith('998') ? d.slice(3, 12) : d.slice(-9);
+        })();
+        const effectiveUid = initialUid || localStorage.getItem('tg_uid') || '';
+        if (!effectiveUid && localDigits.length < 9) return;
+
         try {
-          const uRes = await secureFetch(`${API_BASE}/api/user?user_id=${initialUid}`);
+          const uRes = await secureFetch(
+            `${API_BASE}/api/user?user_id=${encodeURIComponent(effectiveUid || '0')}&phone=${encodeURIComponent(localDigits)}`
+          );
           if (uRes.ok) {
             const uData = await uRes.json();
             if (uData.user) {
+              if (uData.user.id && String(uData.user.id) !== '0') {
+                localStorage.setItem('tg_uid', String(uData.user.id));
+              }
               const dbPhone = (uData.user.phone || '').trim();
-              const localPhone =
-                localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
               const effectivePhone = dbPhone || localPhone;
 
               setUserProfile((prev) => ({
@@ -727,22 +766,40 @@
                     setPhoneDigits(local9);
                     setAuthStep('verified');
                   }
-                  if (!dbPhone) {
+                  if (!dbPhone && effectiveUid) {
                     secureFetch(`${API_BASE}/api/profile/update`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ user_id: initialUid, phone: formatted }),
+                      body: JSON.stringify({ user_id: effectiveUid, phone: formatted }),
                     }).catch(() => {});
                   }
                 }
               }
             }
-            if (uData.orders) {
-              setOrders(uData.orders);
+            if (Array.isArray(uData.orders)) {
+              setOrders((prev) => {
+                const serverIds = new Set(uData.orders.map((o) => String(o.id)));
+                const remainingLocal = (prev || []).filter(
+                  (o) => o && o.id && !serverIds.has(String(o.id))
+                );
+                const merged = [...uData.orders, ...remainingLocal].sort(
+                  (a, b) => Number(b.id || 0) - Number(a.id || 0)
+                );
+                saveOrdersToStorage(merged);
+                return merged;
+              });
             }
           }
         } catch (e) {}
-      }, [storagePhoneKey]);
+      }, [storagePhoneKey, saveOrdersToStorage]);
+
+      // Jonli yangilanish (Real-time polling): Zakaz bo'limida har 4 soniyada kafe javobini tekshiradi
+      useEffect(() => {
+        const interval = setInterval(() => {
+          fetchUserOrders();
+        }, 4000);
+        return () => clearInterval(interval);
+      }, [fetchUserOrders]);
 
       // Load real menu & user data from backend
       useEffect(() => {
@@ -761,15 +818,6 @@
           await fetchUserOrders();
         }
         fetchInitialData();
-      }, [fetchUserOrders]);
-
-      // Jonli yangilanish (Real-time polling): Zakaz bo'limida har 4 soniyada kafe javobini tekshiradi
-      useEffect(() => {
-        if (!initialUid) return;
-        const interval = setInterval(() => {
-          fetchUserOrders();
-        }, 4000);
-        return () => clearInterval(interval);
       }, [fetchUserOrders]);
 
       // OTP Countdown Timer
@@ -1076,17 +1124,29 @@
             hapticNotify('success');
             const newOrdId = data.order_id || Math.floor(100 + Math.random() * 900);
             const newOrdTotal = data.total_amount || finalTotal;
-            setOrders((prev) => [
-              {
-                id: newOrdId,
-                status: 'pending',
-                total_amount: newOrdTotal,
-                delivery_type: deliveryType,
-                payment_method: paymentLabelMap[paymentMethod] || 'Payme',
-                items: cartItems.map((i) => ({ name: i.name, quantity: i.qty, price_at_time: i.price })),
-              },
-              ...prev.filter((o) => String(o.id) !== String(newOrdId)),
-            ]);
+            const createdOrderObj = {
+              id: newOrdId,
+              status: 'pending',
+              total_amount: newOrdTotal,
+              delivery_type: deliveryType,
+              delivery_address: finalAddress,
+              payment_method: paymentLabelMap[paymentMethod] || 'Payme',
+              created_at: new Date().toISOString().replace('T', ' ').slice(0, 16),
+              items: cartItems.map((i) => ({
+                product_id: i.id,
+                name: i.name,
+                quantity: i.qty,
+                price_at_time: i.price,
+              })),
+            };
+            setOrders((prev) => {
+              const updated = [
+                createdOrderObj,
+                ...prev.filter((o) => String(o.id) !== String(newOrdId)),
+              ];
+              saveOrdersToStorage(updated);
+              return updated;
+            });
             setOrderSuccessModal({
               orderId: newOrdId,
               total: newOrdTotal,
@@ -1101,17 +1161,26 @@
           // Demo / offline preview fallback
           hapticNotify('success');
           const demoId = Math.floor(100 + Math.random() * 900);
-          setOrders((prev) => [
-            {
-              id: demoId,
-              status: 'pending',
-              total_amount: finalTotal,
-              delivery_type: deliveryType,
-              payment_method: paymentLabelMap[paymentMethod] || 'Payme',
-              items: cartItems.map((i) => ({ name: i.name, quantity: i.qty, price_at_time: i.price })),
-            },
-            ...prev,
-          ]);
+          const demoOrderObj = {
+            id: demoId,
+            status: 'pending',
+            total_amount: finalTotal,
+            delivery_type: deliveryType,
+            delivery_address: finalAddress,
+            payment_method: paymentLabelMap[paymentMethod] || 'Payme',
+            created_at: new Date().toISOString().replace('T', ' ').slice(0, 16),
+            items: cartItems.map((i) => ({
+              product_id: i.id,
+              name: i.name,
+              quantity: i.qty,
+              price_at_time: i.price,
+            })),
+          };
+          setOrders((prev) => {
+            const updated = [demoOrderObj, ...prev];
+            saveOrdersToStorage(updated);
+            return updated;
+          });
           setOrderSuccessModal({
             orderId: demoId,
             total: finalTotal,
@@ -1917,9 +1986,16 @@
               <div className="space-y-3.5 animate-ios-in">
                 <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-neutral-100">
                   <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-xl font-extrabold text-neutral-900">
-                      📦 Buyurtmalarim / Мои заказы
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-extrabold text-neutral-900">
+                        📦 Buyurtmalarim
+                      </h2>
+                      {orders.length > 0 && (
+                        <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#E50914]/10 text-[#E50914]">
+                          Jami: {orders.length} ta
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
@@ -1933,7 +2009,7 @@
                     </button>
                   </div>
                   <p className="text-xs text-neutral-500 mb-4">
-                    Buyurtmangiz holati jonli rejimda (avtomatik) yangilanadi
+                    Oldin qilgan barcha buyurtmalaringiz tarixi va joriy holati shu yerda saqlanadi
                   </p>
 
                   {orders.length === 0 ? (
@@ -2024,20 +2100,34 @@
                             key={ord.id}
                             className={`p-4 rounded-2xl border-2 space-y-3 transition-all ${cfg.cardBorder}`}
                           >
-                            {/* Top Row: Order ID & Status Badge */}
+                            {/* Top Row: Order ID, Date & Status Badge */}
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-base font-extrabold text-neutral-900">
-                                  Buyurtma #{ord.id}
-                                </span>
-                                <span className="text-[11px] font-semibold text-neutral-400">
-                                  • {ord.delivery_type === 'eat_in' ? '🍽 Kafeda' : '🛵 Yetkazish'}
-                                </span>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base font-extrabold text-neutral-900">
+                                    Buyurtma #{ord.id}
+                                  </span>
+                                  <span className="text-[11px] font-semibold text-neutral-400">
+                                    • {ord.delivery_type === 'eat_in' ? '🍽 Kafeda' : '🛵 Yetkazish'}
+                                  </span>
+                                </div>
+                                {ord.created_at && (
+                                  <span className="block text-[10.5px] font-medium text-neutral-400 mt-0.5">
+                                    🕒 {String(ord.created_at).slice(0, 16)}
+                                  </span>
+                                )}
                               </div>
-                              <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${cfg.badgeClass}`}>
+                              <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full shrink-0 ${cfg.badgeClass}`}>
                                 {cfg.badge}
                               </span>
                             </div>
+
+                            {/* Delivery Address if present */}
+                            {ord.delivery_address && (
+                              <div className="text-[11.5px] font-semibold text-neutral-600 bg-white/80 px-3 py-1.5 rounded-xl border border-neutral-200/60">
+                                📍 Manzil: <span className="font-bold text-neutral-800">{ord.delivery_address}</span>
+                              </div>
+                            )}
 
                             {/* Attractive Status Message Banner */}
                             <div className={`p-3 rounded-xl border ${cfg.bannerBg} space-y-1`}>

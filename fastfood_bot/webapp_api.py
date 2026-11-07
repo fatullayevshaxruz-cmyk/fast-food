@@ -40,34 +40,82 @@ async def options_handler(request):
 async def api_user_profile(request):
     try:
         raw_uid = int(request.query.get("user_id", 0) or 0)
-        user_id = verify_request_user(request, raw_uid)
-        if not user_id:
+        user_id = verify_request_user(request, raw_uid) or raw_uid
+        raw_phone = sanitize_phone(request.query.get("phone", "") or "")
+        phone_digits = "".join(ch for ch in raw_phone if ch.isdigit())[-9:]
+
+        if not user_id and len(phone_digits) < 9:
             return add_cors_headers(web.json_response({"error": "Unauthorized WebApp request"}, status=401))
-        
+
         pool = await get_db_pool()
         async with pool.acquire() as conn:
-            user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
-            if not user:
-                try:
-                    await conn.execute(
-                        "INSERT INTO users (user_id, username, full_name) VALUES ($1, $2, $3)",
-                        user_id, "User", "Foydalanuvchi"
-                    )
-                except Exception:
-                    pass
+            user = None
+            if user_id:
                 user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
-            
-            orders = await conn.fetch("""
-                SELECT * FROM orders 
-                WHERE user_id = $1 
-                ORDER BY created_at DESC 
-                LIMIT 50
-            """, user_id)
-            
-            user_dict = dict(user)
+                if not user:
+                    try:
+                        await conn.execute(
+                            "INSERT INTO users (user_id, username, full_name, phone_number) VALUES ($1, $2, $3, $4)",
+                            user_id, "User", "Foydalanuvchi", raw_phone or None
+                        )
+                    except Exception:
+                        pass
+                    user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
+            elif len(phone_digits) == 9:
+                user = await conn.fetchrow(
+                    "SELECT * FROM users WHERE RIGHT(REGEXP_REPLACE(COALESCE(phone_number, ''), '\\D', '', 'g'), 9) = $1 LIMIT 1",
+                    phone_digits,
+                )
+                if user:
+                    user_id = int(user["user_id"])
+
+            user_dict = dict(user) if user else {
+                "user_id": user_id or 0,
+                "full_name": "Foydalanuvchi",
+                "username": "User",
+                "phone_number": raw_phone or "",
+                "language": "uz",
+            }
+
+            if not phone_digits and user_dict.get("phone_number"):
+                d_str = "".join(ch for ch in str(user_dict["phone_number"]) if ch.isdigit())
+                if len(d_str) >= 9:
+                    phone_digits = d_str[-9:]
+
+            # Mijoz oldin qilgan BARCHA buyurtmalarni (ham user_id, ham telefon raqami bo'yicha) olish
+            if user_id and len(phone_digits) == 9:
+                orders = await conn.fetch("""
+                    SELECT * FROM orders 
+                    WHERE user_id = $1
+                       OR RIGHT(REGEXP_REPLACE(COALESCE(phone_number, ''), '\\D', '', 'g'), 9) = $2
+                    ORDER BY created_at DESC 
+                    LIMIT 500
+                """, user_id, phone_digits)
+            elif user_id:
+                orders = await conn.fetch("""
+                    SELECT * FROM orders 
+                    WHERE user_id = $1 
+                    ORDER BY created_at DESC 
+                    LIMIT 500
+                """, user_id)
+            else:
+                orders = await conn.fetch("""
+                    SELECT * FROM orders 
+                    WHERE RIGHT(REGEXP_REPLACE(COALESCE(phone_number, ''), '\\D', '', 'g'), 9) = $1
+                    ORDER BY created_at DESC 
+                    LIMIT 500
+                """, phone_digits)
+
             orders_list = []
             for o in orders:
                 o_dict = dict(o)
+                # Agar eski buyurtmada user_id=0 bo'lib qolgan bo'lsa, haqiqiy user_id ga bog'lab qo'yamiz
+                if user_id and (not o_dict.get("user_id") or int(o_dict.get("user_id") or 0) == 0):
+                    try:
+                        await conn.execute("UPDATE orders SET user_id = $1 WHERE id = $2", user_id, o_dict["id"])
+                        o_dict["user_id"] = user_id
+                    except Exception:
+                        pass
                 if o_dict.get('created_at'):
                     o_dict['created_at'] = str(o_dict['created_at'])
                 items = await conn.fetch("""
@@ -78,14 +126,14 @@ async def api_user_profile(request):
                 """, o_dict['id'])
                 o_dict['items'] = [dict(i) for i in items]
                 orders_list.append(o_dict)
-            
+
             return add_cors_headers(web.json_response({
                 "user": {
-                    "id": str(user_dict['user_id']),
+                    "id": str(user_dict.get('user_id') or 0),
                     "name": user_dict.get('full_name') or user_dict.get('username') or 'User',
-                    "phone": user_dict.get('phone_number') or '',
+                    "phone": user_dict.get('phone_number') or raw_phone or '',
                     "lang": user_dict.get('language') or 'uz',
-                    "is_admin": _is_admin(user_id)
+                    "is_admin": _is_admin(user_id) if user_id else False
                 },
                 "orders": orders_list
             }))
@@ -428,7 +476,23 @@ async def api_order_create(request):
     try:
         data = await request.json()
         raw_uid = int(data.get('user_id', 0) or 0)
+        payload_phone = sanitize_phone(data.get("phone") or "")
         user_id = verify_request_user(request, raw_uid)
+
+        if not user_id and payload_phone:
+            phone_digits = "".join(ch for ch in payload_phone if ch.isdigit())[-9:]
+            if len(phone_digits) == 9:
+                pool = await get_db_pool()
+                async with pool.acquire() as conn:
+                    u_row = await conn.fetchrow(
+                        "SELECT user_id FROM users WHERE RIGHT(REGEXP_REPLACE(COALESCE(phone_number, ''), '\\D', '', 'g'), 9) = $1 LIMIT 1",
+                        phone_digits,
+                    )
+                    if u_row and u_row["user_id"]:
+                        user_id = int(u_row["user_id"])
+                    else:
+                        user_id = int("998" + phone_digits)
+
         if not user_id:
             return add_cors_headers(web.json_response({'error': '401 Unauthorized — Telegram WebApp initData signature invalid'}, status=401))
         
@@ -451,7 +515,6 @@ async def api_order_create(request):
         payment_method = sanitize_text(data.get("payment_method", "Naqd (Yetkazib berilganda)"), max_len=80)
         promo_code     = sanitize_text(data.get("promo_code") or "", max_len=30) or None
         lat, lon       = validate_coordinates(data.get("lat"), data.get("lon"))
-        payload_phone  = sanitize_phone(data.get("phone") or "")
 
         if delivery_type == "delivery":
             address = await resolve_human_address(address, lat, lon)

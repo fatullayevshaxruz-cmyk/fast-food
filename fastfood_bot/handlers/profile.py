@@ -1,12 +1,13 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from database.crud import (
     get_user_orders, get_order_items_detail, get_order_by_id, get_user,
     get_favorites, repeat_order_to_cart, update_user_name, update_user_phone,
     update_user_address, get_user_language, get_product_name
 )
 from keyboards.admin_keyboard import STATUS_LABELS
+from keyboards.main_menu import MENU_WEBAPP_URL
 from utils.states import ProfileStates
 from utils.i18n import get_text
 
@@ -17,16 +18,32 @@ async def show_my_orders(message: types.Message, user_id: int = None):
     if user_id is None:
         user_id = message.from_user.id
     lang = await get_user_language(user_id)
-    orders = await get_user_orders(user_id)
+    orders = await get_user_orders(user_id, limit=500)
+
+    webapp_orders_url = f"{MENU_WEBAPP_URL}?v=7&lang={lang}&user_id={user_id}&tab=orders"
 
     if not orders:
-        await message.answer(get_text("no_orders_yet", lang))
+        kb = InlineKeyboardMarkup(row_width=1)
+        kb.add(
+            InlineKeyboardButton(
+                "🍔🌐 Web-ilovadan buyurtma berish",
+                web_app=WebAppInfo(url=f"{MENU_WEBAPP_URL}?v=7&lang={lang}&user_id={user_id}"),
+            )
+        )
+        await message.answer(get_text("no_orders_yet", lang), reply_markup=kb)
         return
 
     text = get_text("orders_title", lang)
+    text += f"📊 <b>Jami buyurtmalaringiz: {len(orders)} ta</b>\n\n"
     markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(
+            "📦🌐 Web-ilovada barcha buyurtmalarimni ko'rish",
+            web_app=WebAppInfo(url=webapp_orders_url),
+        )
+    )
 
-    for order in orders:
+    for idx, order in enumerate(orders):
         status = order['status'] or 'pending'
         status_text = STATUS_LABELS.get(status, f"⏳ {status}")
         created = order['created_at']
@@ -35,15 +52,23 @@ async def show_my_orders(message: types.Message, user_id: int = None):
             if hasattr(created, 'strftime')
             else str(created)[:16] if created else "—"
         )
-        text += get_text("order_row", lang,
-                         id=order['id'],
-                         status=status_text,
-                         amount=order['total_amount'],
-                         date=date_str)
-        markup.add(InlineKeyboardButton(
-            get_text("btn_order_detail", lang, id=order['id']),
-            callback_data=f"myorder_{order['id']}"
-        ))
+        row_str = get_text(
+            "order_row",
+            lang,
+            id=order['id'],
+            status=status_text,
+            amount=order['total_amount'],
+            date=date_str,
+        )
+        if len(text) + len(row_str) < 3800:
+            text += row_str
+        if idx < 40:
+            markup.add(
+                InlineKeyboardButton(
+                    get_text("btn_order_detail", lang, id=order['id']),
+                    callback_data=f"myorder_{order['id']}",
+                )
+            )
 
     await message.answer(text, reply_markup=markup, parse_mode="HTML")
 

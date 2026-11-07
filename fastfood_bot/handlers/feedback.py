@@ -15,10 +15,11 @@ import logging
 import asyncio
 from aiogram import types, Dispatcher, Bot
 from aiogram.dispatcher import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 from config import ADMIN_ID, ADMIN_CHANNEL_ID
 from database.crud import get_user_language
+from keyboards.main_menu import MENU_WEBAPP_URL
 from utils.states import FeedbackStates
 from utils.i18n import get_text
 
@@ -45,6 +46,67 @@ async def send_feedback_request(bot: Bot, user_id: int, order_id: int, lang: str
 
         msg = get_text("feedback_request", lang, id=order_id)
         await bot.send_message(user_id, msg, reply_markup=markup, parse_mode="HTML")
+
+        # Darhol ortidan kreativ xabar bilan WebApp'ga kiruvchi tugmalarni yuborish
+        webapp_menu_url = f"{MENU_WEBAPP_URL}?v=7&lang={lang}&user_id={user_id}"
+        webapp_orders_url = f"{MENU_WEBAPP_URL}?v=7&lang={lang}&user_id={user_id}&tab=orders"
+
+        webapp_kb = InlineKeyboardMarkup(row_width=1)
+        if lang == "ru":
+            webapp_kb.add(
+                InlineKeyboardButton(
+                    text="🍔🌐 Открыть Web-приложение (Меню)",
+                    web_app=WebAppInfo(url=webapp_menu_url),
+                ),
+                InlineKeyboardButton(
+                    text="📦 Мои заказы (История заказов)",
+                    web_app=WebAppInfo(url=webapp_orders_url),
+                ),
+            )
+            promo_msg = (
+                "🍔✨ <b>Хотите снова порадовать себя горячими и сочными бургерами?</b>\n\n"
+                "😋 В интерактивном меню <b>Darxan Burger</b> вас ждут фирменные бургеры, "
+                "выгодные комбо и прохладительные напитки в один клик!\n"
+                "📦 <i>А вся история ваших прошлых заказов бережно сохранена в разделе «Мои заказы».</i>\n\n"
+                "👇 <b>Нажмите на кнопку ниже, чтобы открыть Web-приложение:</b>"
+            )
+        elif lang == "en":
+            webapp_kb.add(
+                InlineKeyboardButton(
+                    text="🍔🌐 Open Web App (Menu)",
+                    web_app=WebAppInfo(url=webapp_menu_url),
+                ),
+                InlineKeyboardButton(
+                    text="📦 My Orders History",
+                    web_app=WebAppInfo(url=webapp_orders_url),
+                ),
+            )
+            promo_msg = (
+                "🍔✨ <b>Craving more hot and juicy burgers from Darxan Burger?</b>\n\n"
+                "😋 Explore our interactive menu of signature burgers, combos, and refreshing drinks anytime!\n"
+                "📦 <i>All your previous orders are safely saved in the «My Orders» section.</i>\n\n"
+                "👇 <b>Tap the button below to launch the Web App:</b>"
+            )
+        else:
+            webapp_kb.add(
+                InlineKeyboardButton(
+                    text="🍔🌐 Web-ilovaga kirish (Menyu)",
+                    web_app=WebAppInfo(url=webapp_menu_url),
+                ),
+                InlineKeyboardButton(
+                    text="📦 Buyurtmalarim tarixi (Web-ilova)",
+                    web_app=WebAppInfo(url=webapp_orders_url),
+                ),
+            )
+            promo_msg = (
+                "🍔✨ <b>Yana issiqqina va mazali taomlarimizdan xohlaysizmi?</b>\n\n"
+                "😋 <b>Darxan Burger</b> interaktiv menyusida suvli burgerlar, "
+                "qarsildoq fri hamda muzdek ichimliklar sizni kutmoqda!\n"
+                "📦 <i>Shuningdek, oldin qilgan barcha buyurtmalaringiz «Buyurtmalarim» bo'limida doimiy saqlanadi.</i>\n\n"
+                "👇 <b>Quyidagi tugmani bosib Web-ilovaga kiring:</b>"
+            )
+
+        await bot.send_message(user_id, promo_msg, reply_markup=webapp_kb, parse_mode="HTML")
 
     except Exception as e:
         log.error(f"Feedback so'rovi yuborishda xatolik: {e}")
