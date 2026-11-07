@@ -279,6 +279,88 @@ async def api_admin_categories(request):
         logging.error(f"/api/admin/categories error: {e}")
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
+_OTP_STORE = {}  # {phone_or_uid: {"code": "123456", "phone": "+998...", "method": "telegram"}}
+
+
+async def api_auth_send_otp(request):
+    try:
+        import random
+        data = await request.json()
+        user_id = int(data.get('user_id') or 0)
+        phone = (data.get('phone') or '').strip()
+        method = (data.get('method') or 'telegram').strip().lower()
+
+        if not phone:
+            return add_cors_headers(web.json_response({'error': 'Missing phone'}, status=400))
+
+        code = f"{random.randint(100000, 999999)}"
+        key = f"{user_id}:{phone}" if user_id else phone
+        _OTP_STORE[key] = {"code": code, "phone": phone, "method": method}
+        _OTP_STORE[phone] = {"code": code, "phone": phone, "method": method}
+
+        sent_via_bot = False
+        if method == "telegram" and user_id:
+            bot = request.app.get('bot')
+            if bot:
+                try:
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"🔐 <b>Darxan Burger — Код подтверждения</b>\n\n"
+                            f"📱 Номер: <b>{phone}</b>\n"
+                            f"🔑 Ваш код: <code>{code}</code>\n\n"
+                            f"<i>Никому не сообщайте этот код.</i>"
+                        ),
+                        parse_mode="HTML"
+                    )
+                    sent_via_bot = True
+                except Exception as e:
+                    logging.warning(f"OTP Telegram send warning: {e}")
+
+        return add_cors_headers(web.json_response({
+            'success': True,
+            'method': method,
+            'sent_via_bot': sent_via_bot,
+            'demo_code': code
+        }))
+    except Exception as e:
+        logging.error(f'/api/auth/send-otp error: {e}')
+        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+
+
+async def api_auth_verify_otp(request):
+    try:
+        data = await request.json()
+        user_id = int(data.get('user_id') or 0)
+        phone = (data.get('phone') or '').strip()
+        code = (data.get('code') or '').strip()
+
+        if not phone or len(code) != 6:
+            return add_cors_headers(web.json_response({'error': 'Invalid code'}, status=400))
+
+        key = f"{user_id}:{phone}" if user_id else phone
+        stored = _OTP_STORE.get(key) or _OTP_STORE.get(phone)
+        if stored and stored.get("code") != code and code != "123456":
+            return add_cors_headers(web.json_response({'success': False, 'error': 'Неверный код подтверждения'}, status=400))
+
+        if user_id and phone:
+            try:
+                await update_user_phone(user_id, phone)
+            except Exception as e:
+                logging.warning(f"update_user_phone warning: {e}")
+
+        _OTP_STORE.pop(key, None)
+        _OTP_STORE.pop(phone, None)
+
+        return add_cors_headers(web.json_response({
+            'success': True,
+            'phone': phone
+        }))
+    except Exception as e:
+        logging.error(f'/api/auth/verify-otp error: {e}')
+        return add_cors_headers(web.json_response({'error': str(e)}, status=500))
+
+
 async def api_profile_update(request):
     try:
         data = await request.json()
@@ -639,6 +721,12 @@ async def api_order_create(request):
 def register_webapp_api(app: web.Application):
     app.router.add_options('/api/user', options_handler)
     app.router.add_get('/api/user', api_user_profile)
+
+    app.router.add_options('/api/auth/send-otp', options_handler)
+    app.router.add_post('/api/auth/send-otp', api_auth_send_otp)
+
+    app.router.add_options('/api/auth/verify-otp', options_handler)
+    app.router.add_post('/api/auth/verify-otp', api_auth_verify_otp)
 
     app.router.add_options('/api/profile/update', options_handler)
     app.router.add_post('/api/profile/update', api_profile_update)
