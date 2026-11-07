@@ -242,3 +242,4 @@ class Aiogram3ThrottlingMiddleware:
             return None
 
         return await handler(event, data)
+

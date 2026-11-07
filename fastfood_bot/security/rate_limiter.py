@@ -329,3 +329,4 @@ class BotAntiFloodMiddleware(BaseMiddleware):
                 )
             except Exception:
                 pass
+

@@ -574,7 +574,14 @@ async def update_user_name(user_id, name):
 async def update_user_phone(user_id, phone):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", phone, user_id)
+        existing = await conn.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
+        if existing:
+            await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", phone, user_id)
+        else:
+            await conn.execute(
+                "INSERT INTO users (user_id, username, full_name, phone_number) VALUES ($1, $2, $3, $4)",
+                user_id, "User", "Foydalanuvchi", phone
+            )
 
 async def update_user_address(user_id, address):
     pool = await get_db_pool()

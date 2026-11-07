@@ -11,7 +11,7 @@ from database.crud import (
     get_user_language, use_promo_code, get_product_name
 )
 from database.connection import get_db_pool
-from utils.helpers import notify_admins_new_order
+from utils.helpers import notify_admins_new_order, resolve_human_address
 from utils.i18n import get_text
 from security.webapp_auth import verify_request_user, is_verified_admin
 from security.rate_limiter import check_and_record_order_idempotency
@@ -451,6 +451,10 @@ async def api_order_create(request):
         payment_method = sanitize_text(data.get("payment_method", "Naqd (Yetkazib berilganda)"), max_len=80)
         promo_code     = sanitize_text(data.get("promo_code") or "", max_len=30) or None
         lat, lon       = validate_coordinates(data.get("lat"), data.get("lon"))
+        payload_phone  = sanitize_phone(data.get("phone") or "")
+
+        if delivery_type == "delivery":
+            address = await resolve_human_address(address, lat, lon)
 
         # ── 0. Dublikat buyurtma (Replay / Double-Click) himoyasi ─────
         if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
@@ -526,7 +530,12 @@ async def api_order_create(request):
 
         # ── 5. Foydalanuvchi telefon raqami ──────────────────────────
         user_row = await get_user(user_id)
-        phone = user_row['phone_number'] if user_row else None
+        phone = (user_row['phone_number'] if user_row and user_row['phone_number'] else None) or payload_phone or None
+        if payload_phone and (not user_row or not user_row['phone_number']):
+            try:
+                await update_user_phone(user_id, payload_phone)
+            except Exception:
+                pass
 
         # ── 6. Buyurtmani DB ga saqlash ───────────────────────────────
         is_online = "Online" in payment_method or "online" in payment_method.lower()

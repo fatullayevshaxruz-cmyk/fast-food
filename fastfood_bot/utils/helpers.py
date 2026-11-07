@@ -1,6 +1,9 @@
 import os
+import re
+import time
 import asyncio
 import logging
+import aiohttp
 from config import ADMIN_CHANNEL_ID, DELIVERY_CHANNEL_ID
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -9,6 +12,179 @@ log = logging.getLogger(__name__)
 
 # Kanal xabarlarini yuborishga max vaqt (sekund)
 _CHANNEL_TIMEOUT = 10
+
+_PLACE_CACHE = {}
+_PLACE_CACHE_TTL = 3600  # 1 soat
+_COORD_REGEX = re.compile(r"(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)")
+
+
+def _looks_like_raw_gps(address_str: str) -> bool:
+    """Manzil matni 'GPS: 39.7886, 64.3855' yoki faqat koordinatadan iboratligini aniqlaydi."""
+    if not address_str:
+        return True
+    s = str(address_str).strip()
+    if not s or s in ("—", "Manzil kiritilmagan", "Noma'lum"):
+        return True
+    low = s.lower()
+    if low.startswith("gps") or "gps:" in low or "koordinat" in low:
+        return True
+    if _COORD_REGEX.search(s):
+        # Agar matnda harflar deyarli bo'lmasa (faqat raqam va vergul)
+        letters = re.sub(r"[^a-zA-Zа-яА-ЯёЁўқғҳЎҚҒҲ]", "", s)
+        if len(letters) <= 5:
+            return True
+    return False
+
+
+async def resolve_human_address(address: str = None, lat: float = None, lon: float = None) -> str:
+    """
+    Agar manzil 'GPS: 39.7886, 64.3855' yoki koordinata ko'rinishida bo'lsa,
+    uni Nominatim / BigDataCloud orqali haqiqiy joy nomiga (viloyat, shahar, tuman,
+    mahalla, ko'cha va uy/mo'ljal nomi) aylantirib qaytaradi.
+    Hech qachon 'GPS: 39.7886, 64.3855' ko'rinishidagi kod qaytarmaydi!
+    """
+    raw_addr = (address or "").strip()
+
+    # Agar lat/lon berilmagan bo'lsa, matn ichidan qidirib ko'ramiz
+    if (lat is None or lon is None) and raw_addr:
+        m = _COORD_REGEX.search(raw_addr)
+        if m:
+            try:
+                lat = float(m.group(1))
+                lon = float(m.group(2))
+            except Exception:
+                pass
+
+    # Agar manzil allaqachon aniq joy nomi bo'lsa (GPS kod bo'lmasa), o'zini qaytaramiz
+    if raw_addr and not _looks_like_raw_gps(raw_addr):
+        return raw_addr
+
+    if lat is None or lon is None:
+        return raw_addr if (raw_addr and not _looks_like_raw_gps(raw_addr)) else "Manzil xaritada belgilangan"
+
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except Exception:
+        return raw_addr or "Manzil xaritada belgilangan"
+
+    cache_key = f"{lat_f:.4f},{lon_f:.4f}"
+    now = time.time()
+    if cache_key in _PLACE_CACHE:
+        cached_name, ts = _PLACE_CACHE[cache_key]
+        if now - ts < _PLACE_CACHE_TTL:
+            return cached_name
+
+    place_name = None
+
+    # 1-usul: OpenStreetMap Nominatim (aniq ko'cha, mahalla, bino va shahar nomi)
+    nominatim_url = (
+        f"https://nominatim.openstreetmap.org/reverse"
+        f"?format=json&lat={lat_f}&lon={lon_f}&zoom=18&addressdetails=1&accept-language=uz,ru"
+    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                nominatim_url,
+                headers={"User-Agent": "DarxanBurgerBot/3.0 (uzbekistan delivery)"},
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    addr = data.get("address") or {}
+                    parts = []
+
+                    # Shahar / Tuman
+                    city = (
+                        addr.get("city")
+                        or addr.get("town")
+                        or addr.get("county")
+                        or addr.get("city_district")
+                        or addr.get("state")
+                        or ""
+                    ).strip()
+                    if city:
+                        parts.append(city)
+
+                    # Tuman / Mahalla / Mavze
+                    area = (
+                        addr.get("suburb")
+                        or addr.get("neighbourhood")
+                        or addr.get("quarter")
+                        or addr.get("residential")
+                        or addr.get("village")
+                        or addr.get("hamlet")
+                        or ""
+                    ).strip()
+                    if area and area not in parts:
+                        parts.append(area)
+
+                    # Ko'cha nomi
+                    road = (
+                        addr.get("road")
+                        or addr.get("pedestrian")
+                        or addr.get("footway")
+                        or addr.get("street")
+                        or ""
+                    ).strip()
+                    if road and road not in parts:
+                        parts.append(road)
+
+                    # Uy raqami yoki bino/mo'ljal nomi
+                    poi = (
+                        addr.get("amenity")
+                        or addr.get("shop")
+                        or addr.get("building")
+                        or addr.get("office")
+                        or data.get("name")
+                        or ""
+                    ).strip()
+                    house = (addr.get("house_number") or "").strip()
+                    if house:
+                        parts.append(f"{house}-uy")
+                    elif poi and poi not in parts:
+                        parts.append(poi)
+
+                    if parts:
+                        place_name = ", ".join(parts)
+                    else:
+                        disp = (data.get("display_name") or "").strip()
+                        if disp:
+                            clean_parts = [
+                                p.strip() for p in disp.split(",")
+                                if p.strip() and not p.strip().isdigit() and "oʻzbekiston" not in p.lower() and "uzbekistan" not in p.lower()
+                            ]
+                            if clean_parts:
+                                place_name = ", ".join(clean_parts[:3])
+    except Exception as e:
+        log.warning(f"Nominatim reverse geocode warning: {e}")
+
+    # 2-usul (Fallback): BigDataCloud Reverse Geocode API
+    if not place_name:
+        bdc_url = (
+            f"https://api.bigdatacloud.net/data/reverse-geocode-client"
+            f"?latitude={lat_f}&longitude={lon_f}&localityLanguage=uz"
+        )
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(bdc_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                    if resp.status == 200:
+                        bdata = await resp.json()
+                        bparts = []
+                        for k in ("city", "locality", "principalSubdivision"):
+                            v = (bdata.get(k) or "").strip()
+                            if v and v not in bparts:
+                                bparts.append(v)
+                        if bparts:
+                            place_name = ", ".join(bparts)
+        except Exception:
+            pass
+
+    if not place_name:
+        place_name = "Xaritada belgilangan manzil"
+
+    _PLACE_CACHE[cache_key] = (place_name, now)
+    return place_name
 
 
 def get_cafe_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
@@ -81,7 +257,9 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
         order_type_emoji = "🍽️"
         order_type_label = "Shu yerda"
 
-    address_label = address or "—"
+    loc_lat = location.get("lat") if isinstance(location, dict) else None
+    loc_lon = location.get("lon") if isinstance(location, dict) else None
+    address_label = await resolve_human_address(address, loc_lat, loc_lon) if is_delivery else (address or "—")
 
     # ── Mahsulotlar va rasmlarni yig'ish ─────────────────────────────
     items_with_price_text = ""
@@ -205,6 +383,9 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
 
         is_delivery = (delivery_type == "delivery" and
                        not (address and "Stol raqami" in str(address)))
+
+        if is_delivery:
+            address = await resolve_human_address(address, lat, lon)
 
         if is_delivery:
             header_line = f"🛵 <b>Yetkazib berish #{order_id}</b>"

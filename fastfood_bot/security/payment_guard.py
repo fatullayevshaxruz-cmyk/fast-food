@@ -429,3 +429,4 @@ async def click_webhook_handler(request: web.Request) -> web.Response:
         })
 
     return web.json_response({"error": -3, "error_note": "Action not found"})
+

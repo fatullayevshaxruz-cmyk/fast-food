@@ -561,7 +561,12 @@ async def admin_order_detail(call: types.CallbackQuery):
 
     username_display = f"(@{order['username']})" if order.get('username') else ""
     phone_display = order.get('phone_number') or '—'
-    addr_display = order.get('delivery_address') or '—'
+    from utils.helpers import resolve_human_address
+    addr_display = await resolve_human_address(
+        order.get('delivery_address'),
+        order.get('latitude'),
+        order.get('longitude'),
+    ) if order.get('delivery_type') != 'eat_in' else (order.get('delivery_address') or '—')
     dlv_label = "🍽 Shu yerda" if order.get('delivery_type') == 'eat_in' else "🛵 Yetkazib berish"
     pay_method = order.get('payment_method') or "Naqd"
 
@@ -1682,7 +1687,12 @@ async def delivery_start_callback(call: types.CallbackQuery):
     # Mijozga kreativ xabar yuborish
     user_id = order["user_id"]
     user_lang = await get_user_language(user_id)
-    address = order.get("delivery_address") or "Siz ko'rsatgan manzil"
+    from utils.helpers import resolve_human_address
+    address = await resolve_human_address(
+        order.get("delivery_address"),
+        order.get("latitude"),
+        order.get("longitude"),
+    ) if order.get("delivery_type") != "eat_in" else (order.get("delivery_address") or "Kafeda")
     courier_phone_line = f"\n📞 <b>Kuryer telefoni:</b> {COURIER_PHONE}" if COURIER_PHONE else ""
 
     if user_lang == "ru":

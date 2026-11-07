@@ -153,3 +153,4 @@ def is_verified_admin(request, claimed_user_id: int = 0) -> bool:
         return False
     admin_ids = {a.strip() for a in (ADMIN_ID or "").split(",") if a.strip()}
     return str(verified_uid) in admin_ids
+

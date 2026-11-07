@@ -102,6 +102,10 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         promo_code     = sanitize_text(data.get("promo_code") or "", max_len=30) or None
         lat, lon       = validate_coordinates(data.get("lat"), data.get("lon"))
 
+        if delivery_type == "delivery":
+            from utils.helpers import resolve_human_address
+            address = await resolve_human_address(address, lat, lon)
+
         # ── 0. Dublikat buyurtma (Replay / Flood) himoyasi ────────────
         if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
             return

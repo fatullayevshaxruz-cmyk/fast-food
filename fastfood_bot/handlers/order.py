@@ -54,71 +54,11 @@ _SKIP_WORDS = {
 
 async def _reverse_geocode(lat: float, lon: float) -> str:
     """
-    Koordinatlardan faqat ko'cha yoki mahalla nomini olish.
-    O'zbekiston uchun optimallashtirilgan Nominatim parser.
+    Koordinatlardan aniq joy nomini (shahar, tuman/mahalla, ko'cha, uy) olish.
+    Hech qachon xom GPS koordinata qaytarmaydi.
     """
-    import aiohttp
-
-    cache_key = f"{lat:.4f},{lon:.4f}"
-    now = _time.time()
-    if cache_key in _GEO_CACHE:
-        val, ts = _GEO_CACHE[cache_key]
-        if now - ts < _GEO_CACHE_TTL:
-            return val
-
-    url = (
-        f"https://nominatim.openstreetmap.org/reverse"
-        f"?format=json&lat={lat}&lon={lon}"
-        f"&zoom=17&addressdetails=1&accept-language=uz,ru"
-    )
-    headers = {"User-Agent": "FastFoodBot/2.0 (food delivery uzbekistan)"}
-    result = None
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    addr = data.get("address", {})
-
-                    # 1️⃣ address dict dan aniq maydonlar (ustunlik tartibi)
-                    for key in [
-                        "road", "pedestrian", "footway", "path",
-                        "neighbourhood", "quarter", "residential",
-                        "suburb", "hamlet", "village", "city_district"
-                    ]:
-                        val = addr.get(key, "").strip()
-                        if val and val.lower() not in _SKIP_WORDS:
-                            result = val
-                            break
-
-                    # 2️⃣ Agar topilmasa — display_name dan aqlli parsing
-                    if not result:
-                        display = data.get("display_name", "")
-                        parts = [p.strip() for p in display.split(",")]
-                        for part in parts:
-                            if (not part
-                                    or part.isdigit()
-                                    or any(skip in part.lower() for skip in _SKIP_WORDS)):
-                                continue
-                            result = part
-                            break
-
-                    # 3️⃣ Nominatim top-level "name" maydoni (do'kon, bino nomi)
-                    if not result:
-                        top_name = data.get("name", "").strip()
-                        if top_name and top_name.lower() not in _SKIP_WORDS:
-                            result = top_name
-
-    except Exception:
-        pass
-
-    if not result:
-        result = f"({lat:.4f}, {lon:.4f})"
-
-    _GEO_CACHE[cache_key] = (result, now)
-    return result
+    from utils.helpers import resolve_human_address
+    return await resolve_human_address(None, lat, lon)
 
 
 # ── Checkout ──────────────────────────────────────────────────────────
@@ -285,7 +225,9 @@ async def process_location(message: types.Message, state: FSMContext):
             user_row = await get_user(user_id)
             address = await geo_task
         else:
+            from utils.helpers import resolve_human_address
             user_row = await get_user(user_id)
+            address = await resolve_human_address(address, lat, lon)
 
         await state.update_data(address=address, lat=lat, lon=lon)
 
@@ -324,7 +266,8 @@ async def process_webapp_location(message: types.Message, state: FSMContext):
 
         lat = float(data["lat"])
         lon = float(data["lon"])
-        address = data.get("address", f"({lat:.4f}, {lon:.4f})")
+        from utils.helpers import resolve_human_address
+        address = await resolve_human_address(data.get("address"), lat, lon)
 
         # O'zbekiston chegarasi tekshiruvi
         if not _is_in_uzbekistan(lat, lon):

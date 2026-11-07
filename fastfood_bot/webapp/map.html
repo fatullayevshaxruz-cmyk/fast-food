@@ -429,39 +429,32 @@
         // ── Reverse geocode ───────────────────────────────────────
         async function reverseGeocode(lat, lon) {
             try {
-                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=17&addressdetails=1&accept-language=uz,ru`;
-                const resp = await fetch(url, {
-                    headers: { 'User-Agent': 'FastFoodBot/2.0' }
-                });
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=uz,ru`;
+                const resp = await fetch(url);
                 if (!resp.ok) throw new Error('Network error');
                 const data = await resp.json();
 
                 const addr = data.address || {};
-                const SKIP = ['toshkent','samarqand','buxoro','namangan','andijon',
-                              "farg'ona",'nukus','qarshi','termiz','jizzax','navoiy',
-                              "o'zbekiston",'uzbekistan','republic','viloyat','tuman',
-                              'district','region','city','shahar'];
+                const city = addr.city || addr.town || addr.county || addr.state || '';
+                const district = addr.city_district || addr.suburb || addr.borough || addr.quarter || addr.neighbourhood || addr.residential || addr.village || '';
+                const road = addr.road || addr.pedestrian || addr.footway || addr.street || '';
+                const house = addr.house_number || '';
+                const poi = data.name || addr.amenity || addr.shop || addr.building || '';
 
-                let result = null;
-                for (const key of ['road','pedestrian','footway','path','neighbourhood',
-                                   'quarter','residential','suburb','hamlet','village','city_district']) {
-                    const val = (addr[key] || '').trim();
-                    if (val && !SKIP.some(s => val.toLowerCase().includes(s))) {
-                        result = val;
-                        break;
-                    }
+                const parts = [];
+                if (city) parts.push(city);
+                if (district && !parts.includes(district)) parts.push(district);
+                if (road && !parts.includes(road)) {
+                    parts.push(house ? `${road}, ${house}-uy` : road);
+                } else if (house) {
+                    parts.push(`${house}-uy`);
                 }
+                if (poi && !parts.includes(poi)) parts.push(poi);
 
-                if (!result) {
-                    const parts = (data.display_name || '').split(',').map(p => p.trim());
-                    for (const part of parts) {
-                        if (part && !part.match(/^\d+$/) && !SKIP.some(s => part.toLowerCase().includes(s))) {
-                            result = part;
-                            break;
-                        }
-                    }
+                let result = parts.join(', ');
+                if (!result && data.display_name) {
+                    result = data.display_name.split(',').map(p => p.trim()).filter(p => p && !/^\d+$/.test(p)).slice(0, 3).join(', ');
                 }
-
                 if (!result) result = T.noAddress;
 
                 selectedAddress = result;
@@ -470,7 +463,15 @@
                 confirmBtn.disabled = false;
 
             } catch (e) {
-                selectedAddress = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+                try {
+                    const bUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=uz`;
+                    const bResp = await fetch(bUrl);
+                    const bData = await bResp.json();
+                    const bParts = [bData.city || bData.principalSubdivision, bData.locality].filter(Boolean);
+                    selectedAddress = bParts.length ? bParts.join(', ') : "Xaritadan tanlangan manzil";
+                } catch (_) {
+                    selectedAddress = "Xaritadan tanlangan manzil";
+                }
                 addressText.className = '';
                 addressText.textContent = selectedAddress;
                 confirmBtn.disabled = false;

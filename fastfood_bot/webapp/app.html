@@ -501,6 +501,66 @@
       );
     }
 
+    // ─── Reverse Geocode Helper (Always returns human-readable place name, never raw GPS) ───
+    async function reverseGeocodePlaceName(la, lo) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${la}&lon=${lo}&zoom=18&addressdetails=1&accept-language=uz,ru`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data.address || {};
+          const city = addr.city || addr.town || addr.county || addr.state || '';
+          const district =
+            addr.city_district ||
+            addr.suburb ||
+            addr.borough ||
+            addr.quarter ||
+            addr.neighbourhood ||
+            addr.residential ||
+            addr.village ||
+            '';
+          const road = addr.road || addr.pedestrian || addr.footway || addr.street || '';
+          const house = addr.house_number || '';
+          const poi = data.name || addr.amenity || addr.shop || addr.building || '';
+
+          const parts = [];
+          if (city) parts.push(city);
+          if (district && !parts.includes(district)) parts.push(district);
+          if (road && !parts.includes(road)) {
+            parts.push(house ? `${road}, ${house}-uy` : road);
+          } else if (house) {
+            parts.push(`${house}-uy`);
+          }
+          if (poi && !parts.includes(poi)) parts.push(poi);
+
+          if (parts.length > 0) return parts.join(', ');
+          if (data.display_name) {
+            const clean = data.display_name
+              .split(',')
+              .map((p) => p.trim())
+              .filter((p) => p && !/^\d+$/.test(p))
+              .slice(0, 3)
+              .join(', ');
+            if (clean) return clean;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const bRes = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${la}&longitude=${lo}&localityLanguage=uz`
+        );
+        if (bRes.ok) {
+          const bData = await bRes.json();
+          const bParts = [bData.city || bData.principalSubdivision, bData.locality].filter(Boolean);
+          if (bParts.length > 0) return [...new Set(bParts)].join(', ');
+        }
+      } catch (e) {}
+
+      return 'Xaritadan aniqlangan manzil';
+    }
+
     // ─── Interactive Map Picker Component ──────────────────────────────
     function DeliveryMapPicker({ lat, lon, onPickLocation }) {
       const mapRef = useRef(null);
@@ -520,17 +580,8 @@
         const marker = L.marker([startLat, startLon], { draggable: true }).addTo(map);
 
         const resolveAddr = async (la, lo) => {
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${la}&lon=${lo}&zoom=17&addressdetails=1&accept-language=ru`
-            );
-            if (res.ok) {
-              const data = await res.json();
-              onPickLocation(la, lo, data.display_name || `${la.toFixed(4)}, ${lo.toFixed(4)}`);
-              return;
-            }
-          } catch (e) {}
-          onPickLocation(la, lo, `${la.toFixed(4)}, ${lo.toFixed(4)}`);
+          const placeName = await reverseGeocodePlaceName(la, lo);
+          onPickLocation(la, lo, placeName);
         };
 
         resolveAddr(startLat, startLon);
@@ -566,13 +617,27 @@
 
     // ─── Main Application ──────────────────────────────────────────────
     function DarxanMiniApp() {
+      const storagePhoneKey = `darxan_phone_${initialUid || 'guest'}`;
+      const initialSavedPhone =
+        localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
+      const initialSavedDigits = (() => {
+        const d = initialSavedPhone.replace(/\D/g, '');
+        return d.startsWith('998') ? d.slice(3, 12) : d.slice(-9);
+      })();
+      const hasInitialSavedPhone = initialSavedDigits.length === 9;
+
+      // Agar mijoz oldin raqamini kiritgan bo'lsa, o'zi "Изменить" bosmaguncha doim 'verified' holatda turadi
+      const isEditingPhoneRef = useRef(false);
+
       // 3. Bottom Navigation Bar: default active is 'profile' (Профиль - qizil rangdagi faol holat)
       const [activeTab, setActiveTab] = useState('profile');
 
       // 1. Auth & OTP State
       // 'phone' | 'otp' | 'verified'
-      const [authStep, setAuthStep] = useState('phone');
-      const [phoneDigits, setPhoneDigits] = useState('901234567');
+      const [authStep, setAuthStep] = useState(hasInitialSavedPhone ? 'verified' : 'phone');
+      const [phoneDigits, setPhoneDigits] = useState(
+        hasInitialSavedPhone ? initialSavedDigits : ''
+      );
       const [sendMethod, setSendMethod] = useState('telegram'); // 'telegram' | 'sms'
       const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
       const [otpTimer, setOtpTimer] = useState(57);
@@ -590,7 +655,7 @@
       const [userProfile, setUserProfile] = useState({
         id: initialUid,
         name: tg?.initDataUnsafe?.user?.first_name || 'Гость Darxan',
-        phone: localStorage.getItem('user_phone') || '',
+        phone: hasInitialSavedPhone ? `+998 ${formatUzPhone(initialSavedDigits)}` : '',
         is_admin: false,
       });
       const [orders, setOrders] = useState([]);
@@ -610,6 +675,28 @@
       const [submittingOrder, setSubmittingOrder] = useState(false);
       const [orderSuccessModal, setOrderSuccessModal] = useState(null);
 
+      // Raqamni doimiy saqlash (localStorage + Backend DB)
+      const persistVerifiedPhone = useCallback(
+        async (fullPhoneStr) => {
+          if (!fullPhoneStr) return;
+          localStorage.setItem(storagePhoneKey, fullPhoneStr);
+          localStorage.setItem('user_phone', fullPhoneStr);
+          isEditingPhoneRef.current = false;
+          setUserProfile((prev) => ({ ...prev, phone: fullPhoneStr }));
+          setAuthStep('verified');
+          if (initialUid) {
+            try {
+              await secureFetch(`${API_BASE}/api/profile/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: initialUid, phone: fullPhoneStr }),
+              });
+            } catch (e) {}
+          }
+        },
+        [storagePhoneKey]
+      );
+
       // Foydalanuvchi va buyurtmalar holatini serverdan yangilash funksiyasi
       const fetchUserOrders = useCallback(async () => {
         if (!initialUid) return;
@@ -618,14 +705,36 @@
           if (uRes.ok) {
             const uData = await uRes.json();
             if (uData.user) {
+              const dbPhone = (uData.user.phone || '').trim();
+              const localPhone =
+                localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
+              const effectivePhone = dbPhone || localPhone;
+
               setUserProfile((prev) => ({
                 ...prev,
                 ...uData.user,
+                phone: effectivePhone || prev.phone,
               }));
-              if (uData.user.phone) {
-                const digits = uData.user.phone.replace(/\D/g, '');
+
+              if (effectivePhone) {
+                const digits = effectivePhone.replace(/\D/g, '');
                 const local9 = digits.startsWith('998') ? digits.slice(3, 12) : digits.slice(-9);
-                if (local9.length === 9) setPhoneDigits(local9);
+                if (local9.length === 9) {
+                  const formatted = `+998 ${formatUzPhone(local9)}`;
+                  localStorage.setItem(storagePhoneKey, formatted);
+                  localStorage.setItem('user_phone', formatted);
+                  if (!isEditingPhoneRef.current) {
+                    setPhoneDigits(local9);
+                    setAuthStep('verified');
+                  }
+                  if (!dbPhone) {
+                    secureFetch(`${API_BASE}/api/profile/update`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ user_id: initialUid, phone: formatted }),
+                    }).catch(() => {});
+                  }
+                }
               }
             }
             if (uData.orders) {
@@ -633,7 +742,7 @@
             }
           }
         } catch (e) {}
-      }, []);
+      }, [storagePhoneKey]);
 
       // Load real menu & user data from backend
       useEffect(() => {
@@ -690,7 +799,9 @@
                 }),
               });
               if (res.ok) {
+                localStorage.setItem(storagePhoneKey, fullPhone);
                 localStorage.setItem('user_phone', fullPhone);
+                isEditingPhoneRef.current = false;
                 setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
                 hapticNotify('success');
                 setAuthNotice('Номер успешно подтвержден!');
@@ -724,6 +835,18 @@
         }
         hapticImpact('medium');
         const fullPhone = `+998 ${formatUzPhone(phoneDigits)}`;
+        // Mijoz raqamini kiritishi bilanoq localStorage va bazaga saqlab qo'yamiz,
+        // shunda WebAppdan chiqib qayta kirganda ham raqami o'chib ketmaydi
+        localStorage.setItem(storagePhoneKey, fullPhone);
+        localStorage.setItem('user_phone', fullPhone);
+        setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
+        if (initialUid) {
+          secureFetch(`${API_BASE}/api/profile/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: initialUid, phone: fullPhone }),
+          }).catch(() => {});
+        }
         setOtpDigits(['', '', '', '', '', '']);
         setOtpTimer(57);
         setAuthNotice('');
@@ -850,24 +973,25 @@
         hapticNotify('error');
       };
 
-      // GPS Location
+      // GPS Location (Aniq joy nomini aniqlaydi — hech qachon xom GPS koordinata yubormaydi)
       const handleRequestGps = () => {
         if (!navigator.geolocation) {
           setGpsStatus('Геолокация не поддерживается');
           return;
         }
-        setGpsStatus('Определение локации...');
+        setGpsStatus('⏳ Определение точного адреса...');
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
+          async (pos) => {
             const la = pos.coords.latitude;
             const lo = pos.coords.longitude;
             setCoords({ lat: la, lon: lo });
-            setAddressText(`GPS: ${la.toFixed(4)}, ${lo.toFixed(4)}`);
-            setGpsStatus(`Локация получена (${la.toFixed(4)}, ${lo.toFixed(4)})`);
+            const placeName = await reverseGeocodePlaceName(la, lo);
+            setAddressText(placeName);
+            setGpsStatus(`📍 Манзил: ${placeName}`);
             hapticNotify('success');
           },
           () => {
-            setGpsStatus('Не удалось определить GPS');
+            setGpsStatus('Не удалось определить локацию');
           },
           { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -877,18 +1001,32 @@
       const handlePlaceOrder = async () => {
         if (cartItems.length === 0) return;
 
-        const activePhone = userProfile.phone || `+998 ${formatUzPhone(phoneDigits)}`;
-        if (!activePhone || phoneDigits.length < 9) {
-          alert('Пожалуйста, подтвердите ваш номер телефона в разделе Профиль');
+        const activePhone =
+          userProfile.phone ||
+          (phoneDigits.length === 9 ? `+998 ${formatUzPhone(phoneDigits)}` : '');
+        if (!activePhone) {
+          alert('Пожалуйста, введите ваш номер телефона в разделе Профиль');
           setActiveTab('profile');
+          isEditingPhoneRef.current = true;
           setAuthStep('phone');
           return;
         }
 
+        let resolvedAddress = addressText.trim();
+        if (
+          deliveryType === 'delivery' &&
+          coords.lat &&
+          coords.lon &&
+          (!resolvedAddress || /^gps\s*:/i.test(resolvedAddress))
+        ) {
+          resolvedAddress = await reverseGeocodePlaceName(coords.lat, coords.lon);
+          setAddressText(resolvedAddress);
+        }
+
         const finalAddress =
           deliveryType === 'eat_in'
-            ? addressText.trim() || 'В зале кафе'
-            : addressText.trim() || 'Ташкент, доставка по адресу';
+            ? resolvedAddress || 'В зале кафе'
+            : resolvedAddress || 'Доставка по адресу клиента';
 
         const paymentLabelMap = {
           cash: '💵 Наqd (Yetkazib berilganda)',
@@ -898,6 +1036,7 @@
 
         const payload = {
           user_id: Number(initialUid) || 0,
+          phone: activePhone,
           items: cartItems.map((i) => ({ product_id: i.id, quantity: i.qty })),
           delivery_type: deliveryType,
           address: finalAddress,
@@ -1050,34 +1189,36 @@
                ============================================================ */}
             {activeTab === 'profile' && (
               <div className="space-y-4 animate-ios-in">
-                {/* Segmented Mode Switcher for easy inspection of Phone vs OTP step */}
-                <div className="bg-neutral-200/80 p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setAuthStep('phone')}
-                    className={`py-2 rounded-xl transition-all ${
-                      authStep === 'phone' || authStep === 'verified'
-                        ? 'bg-white text-neutral-900 shadow-sm'
-                        : 'text-neutral-500'
-                    }`}
-                  >
-                    1. Ввод номера
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (otpTimer === 0) setOtpTimer(57);
-                      setAuthStep('otp');
-                    }}
-                    className={`py-2 rounded-xl transition-all ${
-                      authStep === 'otp'
-                        ? 'bg-white text-[#E50914] shadow-sm'
-                        : 'text-neutral-500'
-                    }`}
-                  >
-                    2. Код OTP (6 ячеек)
-                  </button>
-                </div>
+                {/* Segmented Mode Switcher — faqat mijoz hali raqam kiritmagan yoki "Изменить" bosganida chiqadi */}
+                {authStep !== 'verified' && (
+                  <div className="bg-neutral-200/80 p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setAuthStep('phone')}
+                      className={`py-2 rounded-xl transition-all ${
+                        authStep === 'phone'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-500'
+                      }`}
+                    >
+                      1. Ввод номера
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (otpTimer === 0) setOtpTimer(57);
+                        setAuthStep('otp');
+                      }}
+                      className={`py-2 rounded-xl transition-all ${
+                        authStep === 'otp'
+                          ? 'bg-white text-[#E50914] shadow-sm'
+                          : 'text-neutral-500'
+                      }`}
+                    >
+                      2. Код OTP (6 ячеек)
+                    </button>
+                  </div>
+                )}
 
                 {/* ── STEP 1: PHONE INPUT & SEND METHOD SELECTION ── */}
                 {authStep === 'phone' && (
@@ -1222,8 +1363,14 @@
                       <button
                         type="button"
                         onClick={() => {
+                          if (phoneDigits.length < 9) {
+                            hapticNotify('error');
+                            alert('Пожалуйста, введите полный номер телефона (+998 XX XXX-XX-XX)');
+                            return;
+                          }
                           hapticImpact('light');
-                          setAuthStep('verified');
+                          const fullPhone = `+998 ${formatUzPhone(phoneDigits)}`;
+                          persistVerifiedPhone(fullPhone);
                         }}
                         className="w-full py-3.5 rounded-2xl bg-[#F2F2F7] hover:bg-neutral-200/80 active:scale-[0.98] text-neutral-800 font-semibold text-[14px] flex items-center justify-center gap-2.5 border border-neutral-200/70 transition-all duration-200"
                       >
@@ -1349,7 +1496,10 @@
                       </div>
                       <button
                         type="button"
-                        onClick={() => setAuthStep('phone')}
+                        onClick={() => {
+                          isEditingPhoneRef.current = true;
+                          setAuthStep('phone');
+                        }}
                         className="text-xs font-bold text-[#E50914] bg-[#E50914]/10 px-3 py-2 rounded-xl"
                       >
                         Изменить
