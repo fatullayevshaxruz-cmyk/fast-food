@@ -449,7 +449,9 @@ async def get_top_products(limit=5):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         return await conn.fetch("""
-            SELECT p.name, SUM(oi.quantity) as total_qty
+            SELECT p.name,
+                   SUM(oi.quantity) as total_qty,
+                   COALESCE(SUM(oi.quantity * oi.price_at_time), 0) as total_sum
             FROM order_items oi 
             JOIN products p ON oi.product_id = p.id 
             GROUP BY p.name 
@@ -498,16 +500,39 @@ async def get_favorites(user_id):
 
 async def create_promo_code(code, discount_percent, max_uses=0, min_order_amount=0):
     pool = await get_db_pool()
+    code_up = code.strip().upper()
     async with pool.acquire() as conn:
-        await conn.execute(
-            "INSERT INTO promo_codes (code, discount_percent, max_uses, min_order_amount) VALUES ($1, $2, $3, $4)",
-            code.upper(), discount_percent, max_uses, min_order_amount
-        )
+        existing = await conn.fetchrow("SELECT id FROM promo_codes WHERE code = $1", code_up)
+        if existing:
+            await conn.execute(
+                "UPDATE promo_codes SET discount_percent = $1, max_uses = $2, min_order_amount = $3, is_active = 1 WHERE code = $4",
+                discount_percent, max_uses, min_order_amount, code_up
+            )
+        else:
+            await conn.execute(
+                "INSERT INTO promo_codes (code, discount_percent, max_uses, min_order_amount) VALUES ($1, $2, $3, $4)",
+                code_up, discount_percent, max_uses, min_order_amount
+            )
 
 async def get_promo_code(code):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        return await conn.fetchrow("SELECT * FROM promo_codes WHERE code = $1 AND is_active = TRUE", code.upper())
+        return await conn.fetchrow("SELECT * FROM promo_codes WHERE code = $1 AND is_active != 0", code.upper())
+
+async def toggle_promo_code(code):
+    """Promokodni yoqish / vaqtincha to'xtatish."""
+    pool = await get_db_pool()
+    code_up = code.strip().upper()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT is_active FROM promo_codes WHERE code = $1", code_up)
+        if not row:
+            return None
+        new_val = 0 if row['is_active'] else 1
+        try:
+            await conn.execute("UPDATE promo_codes SET is_active = $1 WHERE code = $2", bool(new_val), code_up)
+        except Exception:
+            await conn.execute("UPDATE promo_codes SET is_active = $1 WHERE code = $2", new_val, code_up)
+        return bool(new_val)
 
 async def check_user_promo_used(user_id, code):
     """Foydalanuvchi bu promo kodni avval ishlatganmi?"""
@@ -590,13 +615,23 @@ async def repeat_order_to_cart(user_id, order_id):
 async def get_orders_for_export():
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        return await conn.fetch("""
-            SELECT o.id, u.full_name, u.phone_number as user_phone, o.total_amount,
-                   o.delivery_address, o.phone_number as order_phone,
-                   o.delivery_type, o.note, o.status, o.created_at
-            FROM orders o LEFT JOIN users u ON o.user_id = u.user_id
-            ORDER BY o.created_at DESC
-        """)
+        try:
+            return await conn.fetch("""
+                SELECT o.id, u.full_name, u.phone_number as user_phone, o.total_amount,
+                       o.delivery_address, o.phone_number as order_phone,
+                       o.delivery_type, o.payment_method, o.promo_code, o.discount_amount,
+                       o.note, o.status, o.created_at
+                FROM orders o LEFT JOIN users u ON o.user_id = u.user_id
+                ORDER BY o.created_at DESC
+            """)
+        except Exception:
+            return await conn.fetch("""
+                SELECT o.id, u.full_name, u.phone_number as user_phone, o.total_amount,
+                       o.delivery_address, o.phone_number as order_phone,
+                       o.delivery_type, o.note, o.status, o.created_at
+                FROM orders o LEFT JOIN users u ON o.user_id = u.user_id
+                ORDER BY o.created_at DESC
+            """)
 
 
 # ── Buyurtma baholash (Feedback) ──────────────────────────────────────

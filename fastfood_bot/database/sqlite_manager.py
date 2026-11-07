@@ -2,6 +2,24 @@ import aiosqlite
 import re
 
 
+class CompatRow(dict):
+    """
+    aiosqlite.Row va asyncpg.Record bilan 100% mos keluvchi qator obyekti:
+      - row['column']
+      - row.get('column', default)
+      - row[0] (indeks bo'yicha, fetchval uchun)
+    """
+    def __init__(self, row: aiosqlite.Row):
+        super().__init__(dict(row))
+        self._values = tuple(row)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
+
+
+
 class SQLitePool:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -87,7 +105,7 @@ class SQLiteConnection:
         cursor = await self.conn.execute(q, args)
         try:
             rows = await cursor.fetchall()
-            return rows
+            return [CompatRow(r) for r in rows]
         finally:
             await cursor.close()
 
@@ -109,7 +127,7 @@ class SQLiteConnection:
         cursor = await self.conn.execute(q, args)
         try:
             row = await cursor.fetchone()
-            return row
+            return CompatRow(row) if row is not None else None
         finally:
             await cursor.close()
             

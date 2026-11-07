@@ -70,8 +70,27 @@ async def admin_open_dynamic_panel(message: types.Message):
         await message.answer(get_text("no_permission", lang))
         return
     lang = await get_user_language(message.from_user.id)
+    from database.crud import get_categories
+    from database.connection import get_db_pool
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        total_prods = await conn.fetchval("SELECT COUNT(*) FROM products") or 0
+        active_prods = await conn.fetchval("SELECT COUNT(*) FROM products WHERE is_active != 0") or 0
+    cats = await get_categories()
+    panel_text = (
+        f"🛠 <b>Darxan Burger — Menyu Boshqaruvi Studiyasi</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📂 Kategoriyalar: <b>{len(cats)} ta</b>\n"
+        f"🍔 Jami taomlar: <b>{total_prods} ta</b> (🟢 Faol: <b>{active_prods} ta</b>)\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"👇 <i>Quyidagi tugmalar orqali menyudagi taomlarni tezkor boshqaring:</i>\n"
+        f"• <b>➕ Taom qo'shish</b> — yangi taom kiritish\n"
+        f"• <b>💰 Narx o'zgartirish</b> — taom narxini 1 bosishda yangilash\n"
+        f"• <b>🗑 Taomni o'chirish</b> — menyudan taomni olib tashlash\n"
+        f"• <b>📝 Menyuni ko'rish</b> — barcha kategoriyalar va taomlarni ko'rish"
+    )
     await message.answer(
-        get_text("dm_panel_title", lang),
+        panel_text,
         reply_markup=get_dynamic_menu_admin_keyboard(lang),
         parse_mode="HTML"
     )
@@ -81,9 +100,9 @@ async def admin_back_from_dynamic_panel(message: types.Message, state: FSMContex
     if not _is_admin(message.from_user.id):
         return
     await state.finish()
-    from keyboards.main_menu import get_admin_main_menu
+    from keyboards.admin_keyboard import get_admin_keyboard
     lang = await get_user_language(message.from_user.id)
-    await message.answer(get_text("dm_back_to_admin", lang), reply_markup=get_admin_main_menu(lang))
+    await message.answer("👑 <b>Admin Boshqaruv Markaziga qaytdingiz!</b>", reply_markup=get_admin_keyboard(lang), parse_mode="HTML")
 
 
 # ─────────────────────────────────────────────

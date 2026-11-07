@@ -17,6 +17,10 @@ def get_admin_keyboard(lang: str = "uz"):
         KeyboardButton(get_text("btn_promo_codes", lang)),
         KeyboardButton(get_text("btn_csv_report", lang)),
     )
+    markup.add(
+        KeyboardButton(get_text("btn_admin_menu", lang)),
+        KeyboardButton(get_text("btn_menu_management", lang)),
+    )
     markup.add(KeyboardButton(get_text("btn_back_main", lang)))
     return markup
 

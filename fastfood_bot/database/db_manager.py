@@ -95,26 +95,61 @@ async def init_dynamic_menu_db() -> None:
 
 async def dm_add_item(name: str, price: int, description: str = "",
                       name_ru: str = None, name_en: str = None,
-                      description_ru: str = None, description_en: str = None) -> int:
+                      description_ru: str = None, description_en: str = None,
+                      category_id: int = None) -> int:
     """
-    Yangi taom qo'shadi — ko'p tilli ma'lumotlar bilan.
+    Yangi taom qo'shadi — asosiy products jadvaliga (va dynamic_menu ga).
     Qaytaradi: yangi qator id si.
     """
-    async with aiosqlite.connect(SQLITE_DB_PATH) as db:
-        cursor = await db.execute(
-            """INSERT INTO dynamic_menu
-               (name, price, description, name_ru, name_en, description_ru, description_en)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (name, price, description,
-             name_ru or None, name_en or None,
-             description_ru or None, description_en or None)
+    try:
+        from database.connection import get_db_pool
+        from database.crud import add_product, get_categories, clear_cache
+        cats = await get_categories()
+        cat_id = category_id or (cats[0]['id'] if cats else 1)
+        pid = await add_product(
+            category_id=cat_id,
+            name=name,
+            price=price,
+            description=description,
+            image_url=None,
+            name_ru=name_ru,
+            name_en=name_en,
+            description_ru=description_ru,
+            description_en=description_en,
         )
-        await db.commit()
-        return cursor.lastrowid
+        clear_cache()
+        return pid
+    except Exception as e:
+        logging.warning(f"dm_add_item main DB fallback: {e}")
+        async with aiosqlite.connect(SQLITE_DB_PATH) as db:
+            cursor = await db.execute(
+                """INSERT INTO dynamic_menu
+                   (name, price, description, name_ru, name_en, description_ru, description_en)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (name, price, description,
+                 name_ru or None, name_en or None,
+                 description_ru or None, description_en or None)
+            )
+            await db.commit()
+            return cursor.lastrowid
 
 
 async def dm_get_all_items() -> List[dict]:
-    """Barcha taomlarni qaytaradi (barcha ustunlar)."""
+    """Barcha taomlarni asosiy products jadvalidan qaytaradi."""
+    try:
+        from database.connection import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT p.*, c.name as category_name, c.emoji as category_emoji "
+                "FROM products p LEFT JOIN categories c ON p.category_id = c.id "
+                "ORDER BY p.category_id, p.id"
+            )
+            if rows:
+                return [dict(r) for r in rows]
+    except Exception as e:
+        logging.warning(f"dm_get_all_items fallback: {e}")
+
     async with aiosqlite.connect(SQLITE_DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
@@ -125,7 +160,17 @@ async def dm_get_all_items() -> List[dict]:
 
 
 async def dm_get_item_by_id(item_id: int) -> Optional[dict]:
-    """Berilgan id bo'yicha taomni qaytaradi (barcha ustunlar)."""
+    """Berilgan id bo'yicha taomni asosiy products jadvalidan qaytaradi."""
+    try:
+        from database.connection import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM products WHERE id = $1", int(item_id))
+            if row:
+                return dict(row)
+    except Exception as e:
+        logging.warning(f"dm_get_item_by_id fallback: {e}")
+
     async with aiosqlite.connect(SQLITE_DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
@@ -136,33 +181,53 @@ async def dm_get_item_by_id(item_id: int) -> Optional[dict]:
         return dict(row) if row else None
 
 
-
 async def dm_update_price(item_id: int, new_price: int) -> bool:
     """
-    Taom narxini yangilaydi.
-    Qaytaradi: True — muvaffaqiyatli, False — taom topilmadi.
+    Taom narxini asosiy products jadvalida yangilaydi va keshni tozalaydi.
     """
-    async with aiosqlite.connect(SQLITE_DB_PATH) as db:
-        cursor = await db.execute(
-            "UPDATE dynamic_menu SET price = ? WHERE id = ?",
-            (new_price, item_id)
-        )
-        await db.commit()
-        return cursor.rowcount > 0
+    try:
+        from database.connection import get_db_pool
+        from database.crud import clear_cache
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE products SET price = $1 WHERE id = $2",
+                int(new_price), int(item_id)
+            )
+        clear_cache()
+        return True
+    except Exception as e:
+        logging.warning(f"dm_update_price fallback: {e}")
+        async with aiosqlite.connect(SQLITE_DB_PATH) as db:
+            cursor = await db.execute(
+                "UPDATE dynamic_menu SET price = ? WHERE id = ?",
+                (new_price, item_id)
+            )
+            await db.commit()
+            return cursor.rowcount > 0
 
 
 async def dm_delete_item(item_id: int) -> bool:
     """
-    Taomni o'chiradi.
-    Qaytaradi: True — muvaffaqiyatli, False — taom topilmadi.
+    Taomni asosiy products jadvalidan o'chiradi va keshni tozalaydi.
     """
-    async with aiosqlite.connect(SQLITE_DB_PATH) as db:
-        cursor = await db.execute(
-            "DELETE FROM dynamic_menu WHERE id = ?",
-            (item_id,)
-        )
-        await db.commit()
-        return cursor.rowcount > 0
+    try:
+        from database.connection import get_db_pool
+        from database.crud import clear_cache
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("DELETE FROM products WHERE id = $1", int(item_id))
+        clear_cache()
+        return True
+    except Exception as e:
+        logging.warning(f"dm_delete_item fallback: {e}")
+        async with aiosqlite.connect(SQLITE_DB_PATH) as db:
+            cursor = await db.execute(
+                "DELETE FROM dynamic_menu WHERE id = ?",
+                (item_id,)
+            )
+            await db.commit()
+            return cursor.rowcount > 0
 
 
 # ─────────────────────────────────────────────
