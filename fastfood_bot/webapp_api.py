@@ -541,6 +541,26 @@ async def api_order_create(request):
         if delivery_type == "delivery":
             address = await resolve_human_address(address, lat, lon)
 
+        # ── 0-A. Eng yaqin filialni aniqlash va 15 km zona tekshiruvi ─
+        nearest_branch = None
+        branch_id = None
+        branch_name = None
+        distance_km = None
+        if delivery_type == "delivery" and lat is not None and lon is not None:
+            from utils.geo_routing import find_nearest_branch, OUT_OF_ZONE_MESSAGE_UZ
+            geo_res = await find_nearest_branch(lat, lon)
+            nearest_branch = geo_res.get("nearest_branch")
+            if not geo_res.get("in_delivery_zone", True):
+                return add_cors_headers(web.json_response({
+                    'error': geo_res.get("error") or OUT_OF_ZONE_MESSAGE_UZ,
+                    'in_delivery_zone': False,
+                    'nearest_branch': nearest_branch,
+                }, status=400))
+            if nearest_branch:
+                branch_id = nearest_branch.get("id")
+                branch_name = nearest_branch.get("name")
+                distance_km = nearest_branch.get("distance_km")
+
         # ── 0. Dublikat buyurtma (Replay / Double-Click) himoyasi ─────
         if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
             return add_cors_headers(web.json_response({
@@ -587,21 +607,24 @@ async def api_order_create(request):
         after_discount = items_total - discount_amt
 
         if delivery_type == "delivery":
-            delivery_fee_val = DELIVERY_FEE
-            if lat is not None and lon is not None:
-                try:
-                    from utils.delivery_fee import calculate_delivery_fee
-                    from config import (RESTAURANT_LAT, RESTAURANT_LON,
-                                       DELIVERY_BASE_FEE, DELIVERY_EXTRA_PER_KM,
-                                       DELIVERY_FREE_KM)
-                    delivery_fee_val, _ = await calculate_delivery_fee(
-                        lat, lon,
-                        RESTAURANT_LAT, RESTAURANT_LON,
-                        DELIVERY_BASE_FEE, DELIVERY_EXTRA_PER_KM,
-                        DELIVERY_FREE_KM, DELIVERY_FEE,
-                    )
-                except Exception:
-                    pass
+            if nearest_branch and nearest_branch.get("delivery_fee"):
+                delivery_fee_val = int(nearest_branch["delivery_fee"])
+            else:
+                delivery_fee_val = DELIVERY_FEE
+                if lat is not None and lon is not None:
+                    try:
+                        from utils.delivery_fee import calculate_delivery_fee
+                        from config import (RESTAURANT_LAT, RESTAURANT_LON,
+                                           DELIVERY_BASE_FEE, DELIVERY_EXTRA_PER_KM,
+                                           DELIVERY_FREE_KM)
+                        delivery_fee_val, _ = await calculate_delivery_fee(
+                            lat, lon,
+                            RESTAURANT_LAT, RESTAURANT_LON,
+                            DELIVERY_BASE_FEE, DELIVERY_EXTRA_PER_KM,
+                            DELIVERY_FREE_KM, DELIVERY_FEE,
+                        )
+                    except Exception:
+                        pass
 
             remainder = delivery_fee_val % 1000
             if remainder <= 500:
@@ -742,11 +765,14 @@ async def api_order_create(request):
                 delivery_type=delivery_type,
                 promo_code=promo_code if discount_amt > 0 else None,
                 discount_amount=discount_amt,
+                branch_id=branch_id,
+                branch_name=branch_name,
+                distance_km=distance_km,
             )
             await add_order_items(order_id, items)
             await clear_cart(user_id)
 
-        # ── 7. Telegram bot orqali bildirishnomalar yuborish ──────────
+        # ── 7. Telegram bot orqali eng yaqin filialga yo'naltirish ────
         # Online to'lov uchun bu qadam o'tkazib yuboriladi —
         # bildirishnoma successful_payment handler tomonidan yuboriladi
         if not is_online:
@@ -762,7 +788,8 @@ async def api_order_create(request):
                 username = user_row['username'] if user_row else None
                 tg_user = SimpleUser(user_id, full_name, username)
 
-                asyncio.create_task(notify_admins_new_order(
+                from utils.geo_routing import route_order_to_nearest_branch
+                asyncio.create_task(route_order_to_nearest_branch(
                     bot=bot,
                     order_id=order_id,
                     total_amount=total_amount,
@@ -770,13 +797,15 @@ async def api_order_create(request):
                     items=items,
                     phone=phone,
                     address=address,
-                    location={'lat': lat, 'lon': lon},
+                    client_lat=lat,
+                    client_lon=lon,
                     note=None,
                     delivery_type=delivery_type,
                     payment_method=payment_method,
                     promo_code=promo_code if discount_amt > 0 else None,
                     discount_pct=discount_pct,
                     discount_amt=discount_amt,
+                    precomputed_branch=nearest_branch,
                 ))
 
                 receipt = "".join(
@@ -831,7 +860,10 @@ async def api_order_create(request):
         return add_cors_headers(web.json_response({
             'success': True,
             'order_id': order_id if not is_online else 0,
-            'total_amount': total_amount
+            'total_amount': total_amount,
+            'nearest_branch': nearest_branch,
+            'branch_name': branch_name,
+            'distance_km': distance_km,
         }))
 
     except Exception as e:
@@ -839,9 +871,57 @@ async def api_order_create(request):
         return add_cors_headers(web.json_response({'error': str(e)}, status=500))
 
 
+async def api_branches_nearest(request):
+    """
+    GET / POST /api/branches/nearest?lat=39.7886&lon=64.3855
+    Mijoz koordinatalariga ko'ra eng yaqin faol filialni Haversine/OSRM orqali
+    parallel hisoblaydi va 15 km yetkazib berish zonasini tekshiradi.
+    """
+    try:
+        raw_lat = request.query.get("lat")
+        raw_lon = request.query.get("lon")
+        if (raw_lat is None or raw_lon is None) and request.method == "POST":
+            body = await request.json()
+            raw_lat = body.get("lat") if raw_lat is None else raw_lat
+            raw_lon = body.get("lon") if raw_lon is None else raw_lon
+
+        lat, lon = validate_coordinates(raw_lat, raw_lon)
+        if lat is None or lon is None:
+            return add_cors_headers(
+                web.json_response({"error": "Invalid GPS coordinates (lat, lon required)"}, status=400)
+            )
+
+        from utils.geo_routing import find_nearest_branch
+        result = await find_nearest_branch(lat, lon)
+        return add_cors_headers(web.json_response(result))
+    except Exception as e:
+        logging.error(f"/api/branches/nearest error: {e}", exc_info=True)
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+
+
+async def api_branches_list(request):
+    """GET /api/branches — Barcha faol filiallar ro'yxatini qaytaradi."""
+    try:
+        from database.crud import get_active_branches
+        from utils.geo_routing import DEFAULT_FALLBACK_BRANCHES
+        rows = await get_active_branches()
+        branches = [dict(r) for r in rows] if rows else list(DEFAULT_FALLBACK_BRANCHES)
+        return add_cors_headers(web.json_response({"branches": branches}, default=str))
+    except Exception as e:
+        logging.error(f"/api/branches error: {e}", exc_info=True)
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+
+
 def register_webapp_api(app: web.Application):
     app.router.add_options('/api/user', options_handler)
     app.router.add_get('/api/user', api_user_profile)
+
+    app.router.add_options('/api/branches', options_handler)
+    app.router.add_get('/api/branches', api_branches_list)
+
+    app.router.add_options('/api/branches/nearest', options_handler)
+    app.router.add_get('/api/branches/nearest', api_branches_nearest)
+    app.router.add_post('/api/branches/nearest', api_branches_nearest)
 
     app.router.add_options('/api/auth/send-otp', options_handler)
     app.router.add_post('/api/auth/send-otp', api_auth_send_otp)

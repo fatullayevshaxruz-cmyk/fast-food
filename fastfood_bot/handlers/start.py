@@ -59,7 +59,7 @@ async def process_language_choice(message: types.Message, state: FSMContext):
     await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
 
     # WebApp URL
-    webapp_url = f"{MENU_WEBAPP_URL}?v=10&lang={lang}&user_id={user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=11&lang={lang}&user_id={user.id}"
 
     # Asosiy menyu uchun inline tugmalar
     inline_kb = InlineKeyboardMarkup(row_width=1)
@@ -96,7 +96,7 @@ async def cmd_webapp(message: types.Message, state: FSMContext):
     except Exception:
         lang = "uz"
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=10&lang={lang}&user_id={message.from_user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=11&lang={lang}&user_id={message.from_user.id}"
 
     # Inline klaviatura orqali WebApp tugmasi yuborish
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

@@ -51,7 +51,7 @@ def get_user_main_menu(lang: str = "uz") -> ReplyKeyboardMarkup:
     markup.add(
         KeyboardButton(
             get_text("btn_web_menu", lang),
-            web_app=WebAppInfo(url=f"{MENU_WEBAPP_URL}?v=10&lang={lang}")
+            web_app=WebAppInfo(url=f"{MENU_WEBAPP_URL}?v=11&lang={lang}")
         ),
     )
     markup.add(

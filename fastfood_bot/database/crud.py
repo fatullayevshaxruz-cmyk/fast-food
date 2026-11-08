@@ -27,6 +27,10 @@ async def init_database():
             "ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(150)",
             "ALTER TABLE orders ADD COLUMN promo_code VARCHAR(50)",
             "ALTER TABLE orders ADD COLUMN discount_amount INTEGER DEFAULT 0",
+            # Eng yaqin filial (Geo-routing) ustunlari
+            "ALTER TABLE orders ADD COLUMN branch_id INTEGER",
+            "ALTER TABLE orders ADD COLUMN branch_name VARCHAR(150)",
+            "ALTER TABLE orders ADD COLUMN distance_km FLOAT",
         ]:
             try:
                 await conn.execute(alter)
@@ -178,30 +182,70 @@ async def create_order(user_id, total_amount, address, payment_method,
                        latitude=None, longitude=None, phone_number=None,
                        note=None, delivery_type="delivery",
                        payment_status="unpaid", transaction_id=None,
-                       promo_code=None, discount_amount=0):
+                       promo_code=None, discount_amount=0,
+                       branch_id=None, branch_name=None, distance_km=None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow("""
                 INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
                                     latitude, longitude, phone_number, note, delivery_type,
-                                    payment_status, transaction_id, promo_code, discount_amount)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                                    payment_status, transaction_id, promo_code, discount_amount,
+                                    branch_id, branch_name, distance_km)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 RETURNING id
             """, user_id, total_amount, address, payment_method,
                  latitude, longitude, phone_number, note, delivery_type,
-                 payment_status, transaction_id, promo_code, int(discount_amount or 0))
+                 payment_status, transaction_id, promo_code, int(discount_amount or 0),
+                 branch_id, branch_name, distance_km)
         except Exception:
-            row = await conn.fetchrow("""
-                INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
-                                    latitude, longitude, phone_number, note, delivery_type,
-                                    payment_status, transaction_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                RETURNING id
-            """, user_id, total_amount, address, payment_method,
-                 latitude, longitude, phone_number, note, delivery_type,
-                 payment_status, transaction_id)
+            try:
+                row = await conn.fetchrow("""
+                    INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
+                                        latitude, longitude, phone_number, note, delivery_type,
+                                        payment_status, transaction_id, promo_code, discount_amount)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    RETURNING id
+                """, user_id, total_amount, address, payment_method,
+                     latitude, longitude, phone_number, note, delivery_type,
+                     payment_status, transaction_id, promo_code, int(discount_amount or 0))
+            except Exception:
+                row = await conn.fetchrow("""
+                    INSERT INTO orders (user_id, total_amount, delivery_address, payment_method,
+                                        latitude, longitude, phone_number, note, delivery_type,
+                                        payment_status, transaction_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    RETURNING id
+                """, user_id, total_amount, address, payment_method,
+                     latitude, longitude, phone_number, note, delivery_type,
+                     payment_status, transaction_id)
         return row['id']
+
+
+# ── Filiallar (Branches) CRUD funksiyalari ────────────────────────────
+
+async def get_active_branches():
+    """Barcha faol (ochiq) filiallarni qaytaradi."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM branches WHERE is_active = TRUE OR is_active = 1 ORDER BY id"
+        )
+
+
+async def get_all_branches():
+    """Barcha filiallarni qaytaradi (admin uchun)."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetch("SELECT * FROM branches ORDER BY id")
+
+
+async def get_branch_by_id(branch_id: int):
+    """ID bo'yicha bitta filialni qaytaradi."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchrow("SELECT * FROM branches WHERE id = $1", int(branch_id))
+
 
 async def add_order_items(order_id, cart_items):
     pool = await get_db_pool()

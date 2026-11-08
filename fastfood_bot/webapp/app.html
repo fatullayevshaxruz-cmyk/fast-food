@@ -699,6 +699,7 @@
       const [addressText, setAddressText] = useState('');
       const [coords, setCoords] = useState({ lat: null, lon: null });
       const [gpsStatus, setGpsStatus] = useState('');
+      const [nearestBranchInfo, setNearestBranchInfo] = useState(null);
       const [promoInput, setPromoInput] = useState('');
       const [appliedPromo, setAppliedPromo] = useState({ code: '', pct: 0 });
       const [promoStatus, setPromoStatus] = useState(null);
@@ -970,8 +971,28 @@
         [itemsSubtotal, appliedPromo.pct]
       );
       const afterDiscount = itemsSubtotal - discountAmount;
-      const deliveryFee = deliveryType === 'delivery' && cartCount > 0 ? 10000 : 0;
+      const computedDeliveryFee =
+        nearestBranchInfo?.nearest_branch?.delivery_fee || 10000;
+      const deliveryFee =
+        deliveryType === 'delivery' && cartCount > 0 ? computedDeliveryFee : 0;
       const finalTotal = afterDiscount + deliveryFee;
+
+      // Eng yaqin filialni aniqlash (Geo-routing API)
+      const fetchNearestBranch = useCallback(async (la, lo) => {
+        if (la === null || lo === null || la === undefined || lo === undefined) return;
+        try {
+          const res = await fetch(
+            `${API_BASE}/api/branches/nearest?lat=${encodeURIComponent(la)}&lon=${encodeURIComponent(lo)}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.nearest_branch) {
+              setNearestBranchInfo(data);
+              return;
+            }
+          }
+        } catch (e) {}
+      }, []);
 
       const addToCart = (product) => {
         hapticImpact('light');
@@ -1042,6 +1063,7 @@
             const la = pos.coords.latitude;
             const lo = pos.coords.longitude;
             setCoords({ lat: la, lon: lo });
+            fetchNearestBranch(la, lo);
             const placeName = await reverseGeocodePlaceName(la, lo);
             setAddressText(placeName);
             setGpsStatus(`📍 Манзил: ${placeName}`);
@@ -1072,6 +1094,19 @@
         if (deliveryType === 'eat_in' && !tableNumber.trim()) {
           hapticNotify('error');
           alert('Iltimos, stol raqamingizni tanlang yoki kiriting! / Пожалуйста, укажите номер стола!');
+          return;
+        }
+
+        if (
+          deliveryType === 'delivery' &&
+          nearestBranchInfo &&
+          nearestBranchInfo.in_delivery_zone === false
+        ) {
+          hapticNotify('error');
+          alert(
+            nearestBranchInfo.error ||
+              'Afsuski, bu manzil bizning yetkazib berish zonamizdan tashqarida'
+          );
           return;
         }
 
@@ -1146,6 +1181,14 @@
               total_amount: newOrdTotal,
               delivery_type: deliveryType,
               delivery_address: finalAddress,
+              branch_name:
+                data.branch_name ||
+                nearestBranchInfo?.nearest_branch?.name ||
+                null,
+              distance_km:
+                data.distance_km ??
+                nearestBranchInfo?.nearest_branch?.distance_km ??
+                null,
               payment_method: paymentLabelMap[paymentMethod] || 'Payme',
               created_at: new Date().toISOString().replace('T', ' ').slice(0, 16),
               items: cartItems.map((i) => ({
@@ -1611,6 +1654,28 @@
                ============================================================ */}
             {activeTab === 'home' && (
               <div className="space-y-4 animate-ios-in">
+                {/* Nearest Branch Banner in Catalog (if detected) */}
+                {nearestBranchInfo?.nearest_branch && (
+                  <div
+                    className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 ${
+                      nearestBranchInfo.in_delivery_zone
+                        ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-900'
+                        : 'bg-[#E50914]/10 border-[#E50914]/30 text-[#E50914]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base shrink-0">
+                        {nearestBranchInfo.in_delivery_zone ? '🏢' : '⚠️'}
+                      </span>
+                      <span className="truncate">
+                        {nearestBranchInfo.in_delivery_zone
+                          ? `Sizga eng yaqin filial: ${nearestBranchInfo.nearest_branch.name} (${nearestBranchInfo.nearest_branch.distance_km} km)`
+                          : 'Afsuski, bu manzil bizning yetkazib berish zonamizdan tashqarida'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Search Bar */}
                 <div className="relative">
                   <input
@@ -1963,6 +2028,7 @@
                               onPickLocation={(la, lo, txt) => {
                                 setCoords({ lat: la, lon: lo });
                                 setAddressText(txt);
+                                fetchNearestBranch(la, lo);
                               }}
                             />
                             {addressText && (
@@ -1970,6 +2036,31 @@
                                 📍 {addressText}
                               </p>
                             )}
+                          </div>
+                        )}
+
+                        {/* Nearest Branch Geo-Routing Status Card */}
+                        {nearestBranchInfo?.nearest_branch && (
+                          <div
+                            className={`p-3 rounded-2xl border text-xs space-y-1 transition-all ${
+                              nearestBranchInfo.in_delivery_zone
+                                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-900'
+                                : 'bg-[#E50914]/10 border-[#E50914]/30 text-[#E50914]'
+                            }`}
+                          >
+                            <div className="font-extrabold flex items-center gap-1.5">
+                              <span>{nearestBranchInfo.in_delivery_zone ? '🏢' : '🚫'}</span>
+                              <span>
+                                {nearestBranchInfo.in_delivery_zone
+                                  ? `Sizga eng yaqin filial: ${nearestBranchInfo.nearest_branch.name} (${nearestBranchInfo.nearest_branch.distance_km} km)`
+                                  : 'Afsuski, bu manzil bizning yetkazib berish zonamizdan tashqarida'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-medium opacity-85">
+                              {nearestBranchInfo.in_delivery_zone
+                                ? `📍 Filial manzili: ${nearestBranchInfo.nearest_branch.address || 'Markaz'} • 🛵 Yetkazish: ${formatPrice(nearestBranchInfo.nearest_branch.delivery_fee || 10000)} so'm`
+                                : `Eng yaqin filialgacha masofa: ${nearestBranchInfo.nearest_branch.distance_km} km (maksimal radius: ${nearestBranchInfo.nearest_branch.max_delivery_km || 15} km)`}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -2227,6 +2318,17 @@
                                 {cfg.badge}
                               </span>
                             </div>
+
+                            {/* Nearest Branch if present */}
+                            {ord.branch_name && (
+                              <div className="text-[11.5px] font-semibold text-emerald-800 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">
+                                🏢 Filial:{' '}
+                                <span className="font-bold">
+                                  {ord.branch_name}
+                                  {ord.distance_km ? ` (${ord.distance_km} km)` : ''}
+                                </span>
+                              </div>
+                            )}
 
                             {/* Delivery Address or Table Number if present */}
                             {ord.delivery_address && (

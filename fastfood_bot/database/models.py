@@ -71,6 +71,21 @@ CREATE TABLE IF NOT EXISTS cart_items (
 );
 """
 
+CREATE_BRANCHES_TABLE = """
+CREATE TABLE IF NOT EXISTS branches (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    address VARCHAR(255),
+    latitude FLOAT NOT NULL,
+    longitude FLOAT NOT NULL,
+    admin_chat_id VARCHAR(100) NOT NULL,
+    delivery_channel_id VARCHAR(100),
+    max_delivery_km FLOAT DEFAULT 15.0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 ALL_TABLES = [
     CREATE_USERS_TABLE,
     CREATE_CATEGORIES_TABLE,
@@ -78,6 +93,7 @@ ALL_TABLES = [
     CREATE_ORDERS_TABLE,
     CREATE_ORDER_ITEMS_TABLE,
     CREATE_CART_ITEMS_TABLE,
+    CREATE_BRANCHES_TABLE,
     """CREATE TABLE IF NOT EXISTS favorites (
         id SERIAL PRIMARY KEY,
         user_id BIGINT,

@@ -229,6 +229,28 @@ async def process_location(message: types.Message, state: FSMContext):
             user_row = await get_user(user_id)
             address = await resolve_human_address(address, lat, lon)
 
+        # ── Eng yaqin filial va 15 km yetkazib berish zonasi tekshiruvi ──
+        branch_line_prefix = ""
+        if lat is not None and lon is not None:
+            from utils.geo_routing import find_nearest_branch, OUT_OF_ZONE_MESSAGE_UZ
+            geo_res = await find_nearest_branch(lat, lon)
+            nb = geo_res.get("nearest_branch") or {}
+            if not geo_res.get("in_delivery_zone", True):
+                await message.answer(
+                    f"⚠️ <b>{OUT_OF_ZONE_MESSAGE_UZ}</b>\n\n"
+                    f"🏢 Eng yaqin filial: <b>{nb.get('name', 'Darxan Burger')}</b> ({nb.get('distance_km', 0)} km)\n"
+                    f"📏 Maksimal yetkazish masofasi: <b>{nb.get('max_delivery_km', 15)} km</b>",
+                    parse_mode="HTML"
+                )
+                return
+            if nb.get("name"):
+                branch_line_prefix = f"🏢 <b>Sizga eng yaqin filial:</b> {nb['name']} ({nb.get('distance_km', 0)} km)\n"
+                await state.update_data(
+                    branch_id=nb.get("id"),
+                    branch_name=nb.get("name"),
+                    distance_km=nb.get("distance_km"),
+                )
+
         await state.update_data(address=address, lat=lat, lon=lon)
 
         # ── Telefon saqlangan bo'lsa — so'ramas, to'g'ridan izohga ──────────
@@ -237,13 +259,15 @@ async def process_location(message: types.Message, state: FSMContext):
             await state.update_data(phone=saved_phone)
             await _ask_for_note(message, state, lang,
                                 prefix=f"✅ <b>Manzil:</b> {address}\n"
+                                       f"{branch_line_prefix}"
                                        f"📞 <b>Telefon:</b> {saved_phone}\n\n")
         else:
             markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             markup.add(KeyboardButton(get_text("btn_send_phone", lang), request_contact=True))
             markup.add(KeyboardButton(get_text("btn_cancel", lang)))
             await message.answer(
-                f"✅ <b>Manzil:</b> {address}\n\n"
+                f"✅ <b>Manzil:</b> {address}\n"
+                f"{branch_line_prefix}\n"
                 + get_text("ask_phone", lang),
                 parse_mode="HTML",
                 reply_markup=markup
@@ -277,8 +301,32 @@ async def process_webapp_location(message: types.Message, state: FSMContext):
             )
             return
 
+        # ── Eng yaqin filial va 15 km yetkazib berish zonasi tekshiruvi ──
+        from utils.geo_routing import find_nearest_branch, OUT_OF_ZONE_MESSAGE_UZ
+        geo_res = await find_nearest_branch(lat, lon)
+        nb = geo_res.get("nearest_branch") or {}
+        if not geo_res.get("in_delivery_zone", True):
+            await message.answer(
+                f"⚠️ <b>{OUT_OF_ZONE_MESSAGE_UZ}</b>\n\n"
+                f"🏢 Eng yaqin filial: <b>{nb.get('name', 'Darxan Burger')}</b> ({nb.get('distance_km', 0)} km)\n"
+                f"📏 Maksimal yetkazish masofasi: <b>{nb.get('max_delivery_km', 15)} km</b>",
+                parse_mode="HTML"
+            )
+            return
+
+        branch_line_prefix = ""
+        if nb.get("name"):
+            branch_line_prefix = f"🏢 <b>Sizga eng yaqin filial:</b> {nb['name']} ({nb.get('distance_km', 0)} km)\n"
+
         user_id = message.from_user.id
-        await state.update_data(address=address, lat=lat, lon=lon)
+        await state.update_data(
+            address=address,
+            lat=lat,
+            lon=lon,
+            branch_id=nb.get("id"),
+            branch_name=nb.get("name"),
+            distance_km=nb.get("distance_km"),
+        )
 
         user_row = await get_user(user_id)
         saved_phone = user_row['phone_number'] if user_row else None
@@ -287,13 +335,15 @@ async def process_webapp_location(message: types.Message, state: FSMContext):
             await state.update_data(phone=saved_phone)
             await _ask_for_note(message, state, lang,
                                 prefix=f"✅ <b>Manzil:</b> {address}\n"
+                                       f"{branch_line_prefix}"
                                        f"📞 <b>Telefon:</b> {saved_phone}\n\n")
         else:
             markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             markup.add(KeyboardButton(get_text("btn_send_phone", lang), request_contact=True))
             markup.add(KeyboardButton(get_text("btn_cancel", lang)))
             await message.answer(
-                f"✅ <b>Manzil:</b> {address}\n\n"
+                f"✅ <b>Manzil:</b> {address}\n"
+                f"{branch_line_prefix}\n"
                 + get_text("ask_phone", lang),
                 parse_mode="HTML",
                 reply_markup=markup
