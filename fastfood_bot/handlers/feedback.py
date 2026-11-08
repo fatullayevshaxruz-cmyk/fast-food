@@ -48,7 +48,7 @@ async def send_feedback_request(bot: Bot, user_id: int, order_id: int, lang: str
         await bot.send_message(user_id, msg, reply_markup=markup, parse_mode="HTML")
 
         # Darhol ortidan kreativ xabar bilan WebApp'ga kiruvchi tugmani yuborish
-        webapp_menu_url = f"{MENU_WEBAPP_URL}?v=9&lang={lang}&user_id={user_id}"
+        webapp_menu_url = f"{MENU_WEBAPP_URL}?v=10&lang={lang}&user_id={user_id}"
 
         webapp_kb = InlineKeyboardMarkup(row_width=1)
         if lang == "ru":

@@ -206,30 +206,40 @@ def get_cafe_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
     return markup
 
 
-def get_delivery_start_keyboard(order_id: int) -> InlineKeyboardMarkup:
+def get_delivery_start_keyboard(order_id: int, is_eat_in: bool = False) -> InlineKeyboardMarkup:
     """
-    -1003943860489 (Yetkazib berish / Kuryer kanali) uchun 1-bosqich tugmasi:
-    Kuryer buyurtmani olib yo'lga chiqqanda bosiladi.
+    -1003943860489 (Yetkazib berish / Kuryer kanali) yoki Kafe kanali uchun 1-bosqich tugmasi:
+    Kuryer yo'lga chiqqanda yoki «Shu yerda» buyurtmasi tayyor bo'lganda bosiladi.
     """
     markup = InlineKeyboardMarkup(row_width=1)
+    btn_text = (
+        "🍽 Buyurtma tayyorlandi (Stolga olib chiqish)"
+        if is_eat_in
+        else "🛵 Yo'lga chiqish (Yetkazishni boshlash)"
+    )
     markup.add(
         InlineKeyboardButton(
-            "🛵 Yo'lga chiqish (Yetkazishni boshlash)",
+            btn_text,
             callback_data=f"dlv_start_{order_id}"
         )
     )
     return markup
 
 
-def get_delivery_complete_keyboard(order_id: int) -> InlineKeyboardMarkup:
+def get_delivery_complete_keyboard(order_id: int, is_eat_in: bool = False) -> InlineKeyboardMarkup:
     """
-    -1003943860489 (Yetkazib berish / Kuryer kanali) uchun 2-bosqich tugmasi:
-    "Yo'lga chiqish" bosilgandan keyin avtomatik shu tugmaga aylanadi.
+    -1003943860489 (Yetkazib berish / Kuryer kanali) yoki Kafe kanali uchun 2-bosqich tugmasi:
+    1-tugma bosilgandan keyin avtomatik shu tugmaga aylanadi.
     """
     markup = InlineKeyboardMarkup(row_width=1)
+    btn_text = (
+        "✅ Buyurtma yetkazildi (Stolga topshirildi)"
+        if is_eat_in
+        else "✅ Buyurtma yetkazildi (Mijozga topshirildi)"
+    )
     markup.add(
         InlineKeyboardButton(
-            "✅ Buyurtma yetkazildi (Mijozga topshirildi)",
+            btn_text,
             callback_data=f"dlv_finish_{order_id}"
         )
     )
@@ -318,13 +328,14 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
 
     # ── 1. KAFE KANALI (-1003885234768): Qabul qilish / Bekor qilish tugmalari bilan ──
     if ADMIN_CHANNEL_ID:
+        loc_title = "📍 <b>Manzil:</b>" if is_delivery else "🪑 <b>Stol:</b>"
         cafe_channel_msg = (
             f"🆕 <b>Yangi buyurtma #{order_id}</b>\n"
             f"⏳ <i>Holat: Kafe tasdiqlashi kutilmoqda...</i>\n\n"
             f"👤 <b>Mijoz:</b> {full_name} {username_text}\n"
             f"📞 <b>Telefon:</b> {phone_display}\n"
             f"{order_type_emoji} <b>Turi:</b> {order_type_label}\n"
-            f"📍 <b>Manzil:</b> {address_label}"
+            f"{loc_title} {address_label}"
             f"{note_text}\n\n"
             f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}"
             f"{promo_block}\n"
@@ -433,12 +444,13 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
             payment_emoji = "💵"
             payment_label = "Naqd pul (Yetkazib berilganda)"
 
+        loc_title = "📍 <b>Manzil:</b>" if is_delivery else "🪑 <b>Stol:</b>"
         delivery_msg = (
             f"{header_line}\n"
             f"✅ <i>Kafe tomonidan qabul qilindi</i>\n\n"
             f"👤 <b>Mijoz:</b> {full_name} {username_text}\n"
             f"📞 <b>Telefon:</b> {phone_display}\n"
-            f"📍 <b>Manzil:</b> {address}"
+            f"{loc_title} {address}"
             f"{note_text}\n\n"
             f"🍛 <b>Buyurtma tarkibi:</b>\n{items_with_price_text}"
             f"{promo_block}\n"
@@ -446,7 +458,7 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
             f"{payment_emoji} <b>To'lov:</b> {payment_label}"
         )
 
-        delivery_kb = get_delivery_start_keyboard(order_id)
+        delivery_kb = get_delivery_start_keyboard(order_id, is_eat_in=not is_delivery)
 
         await asyncio.wait_for(
             _send_to_channel(

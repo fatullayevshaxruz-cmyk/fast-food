@@ -1511,6 +1511,13 @@ async def cafe_accept_order_callback(call: types.CallbackQuery):
     await update_order_status(order_id, "preparing")
     await call.answer("✅ Buyurtma qabul qilindi!", show_alert=False)
 
+    is_eat_in = (
+        order.get("delivery_type") == "eat_in"
+        or (order.get("delivery_address") and "stol" in str(order.get("delivery_address", "")).lower())
+    )
+    from utils.helpers import get_delivery_start_keyboard
+    cafe_next_kb = get_delivery_start_keyboard(order_id, is_eat_in=True) if is_eat_in else None
+
     try:
         orig_html = call.message.html_text or call.message.caption or call.message.text or ""
         updated_html = orig_html.replace(
@@ -1521,22 +1528,18 @@ async def cafe_accept_order_callback(call: types.CallbackQuery):
             updated_html += "\n\n✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>"
 
         if call.message.caption is not None:
-            await call.message.edit_caption(updated_html, parse_mode="HTML", reply_markup=None)
+            await call.message.edit_caption(updated_html, parse_mode="HTML", reply_markup=cafe_next_kb)
         else:
-            await call.message.edit_text(updated_html, parse_mode="HTML", reply_markup=None)
+            await call.message.edit_text(updated_html, parse_mode="HTML", reply_markup=cafe_next_kb)
     except Exception as e:
         logging.warning(f"Kanal xabarini yangilashda xatolik: {e}")
         try:
-            await call.message.edit_reply_markup(reply_markup=None)
+            await call.message.edit_reply_markup(reply_markup=cafe_next_kb)
         except Exception:
             pass
 
     user_id = order["user_id"]
     user_lang = await get_user_language(user_id)
-    is_eat_in = (
-        order.get("delivery_type") == "eat_in"
-        or (order.get("delivery_address") and "Stol raqami" in str(order.get("delivery_address", "")))
-    )
     msg_key = "cafe_order_accepted_eat_in" if is_eat_in else "cafe_order_accepted_delivery"
     customer_msg = get_text(msg_key, user_lang, order_id=order_id)
 
@@ -1652,22 +1655,43 @@ async def delivery_start_callback(call: types.CallbackQuery):
             pass
         return
 
+    is_eat_in = (
+        order.get("delivery_type") == "eat_in"
+        or (order.get("delivery_address") and "stol" in str(order.get("delivery_address", "")).lower())
+    )
+
     await update_order_status(order_id, "delivering")
-    await call.answer("🛵 Oq yo'l! Buyurtma «Yo'lda» holatiga o'tkazildi!", show_alert=False)
+    await call.answer(
+        "🍽 Buyurtma «Tayyorlandi» holatiga o'tkazildi!"
+        if is_eat_in
+        else "🛵 Oq yo'l! Buyurtma «Yo'lda» holatiga o'tkazildi!",
+        show_alert=False,
+    )
 
     from utils.helpers import get_delivery_complete_keyboard
-    next_kb = get_delivery_complete_keyboard(order_id)
-    courier_name = call.from_user.full_name if call.from_user else "Kuryer"
+    next_kb = get_delivery_complete_keyboard(order_id, is_eat_in=is_eat_in)
+    courier_name = call.from_user.full_name if call.from_user else ("Ofitsiant" if is_eat_in else "Kuryer")
 
     try:
         orig_html = call.message.html_text or call.message.caption or call.message.text or ""
-        status_banner = (
-            f"🛵 <b>Holat: KURYER YO'LGA CHIQDI (Yetkazilmoqda...)</b>\n"
-            f"🚴‍♂️ <b>Kuryer:</b> {courier_name}"
-        )
+        if is_eat_in:
+            status_banner = (
+                f"🍽 <b>Holat: BUYURTMA TAYYORLANDI (Stolga yetkazilmoqda...)</b>\n"
+                f"👨‍🍳 <b>Mas'ul:</b> {courier_name}"
+            )
+        else:
+            status_banner = (
+                f"🛵 <b>Holat: KURYER YO'LGA CHIQDI (Yetkazilmoqda...)</b>\n"
+                f"🚴‍♂️ <b>Kuryer:</b> {courier_name}"
+            )
         if "✅ <i>Kafe tomonidan qabul qilindi</i>" in orig_html:
             updated_html = orig_html.replace(
                 "✅ <i>Kafe tomonidan qabul qilindi</i>",
+                status_banner
+            )
+        elif "✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>" in orig_html:
+            updated_html = orig_html.replace(
+                "✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>",
                 status_banner
             )
         else:
@@ -1692,36 +1716,60 @@ async def delivery_start_callback(call: types.CallbackQuery):
         order.get("delivery_address"),
         order.get("latitude"),
         order.get("longitude"),
-    ) if order.get("delivery_type") != "eat_in" else (order.get("delivery_address") or "Kafeda")
-    courier_phone_line = f"\n📞 <b>Kuryer telefoni:</b> {COURIER_PHONE}" if COURIER_PHONE else ""
+    ) if not is_eat_in else (order.get("delivery_address") or "Kafeda")
+    courier_phone_line = f"\n📞 <b>Kuryer telefoni:</b> {COURIER_PHONE}" if (COURIER_PHONE and not is_eat_in) else ""
 
-    if user_lang == "ru":
-        customer_msg = (
-            f"🛵💨 <b>Отличная новость! Заказ #{order_id} уже в пути!</b>\n\n"
-            f"🔥 Ваши горячие и ароматные блюда от <b>Darxan Burger</b> бережно упакованы в термосумку, "
-            f"и наш курьер уже мчится к вам! 🚀\n\n"
-            f"📍 <b>Адрес доставки:</b> {address}"
-            f"{courier_phone_line}\n\n"
-            f"⏰ <i>Совсем скоро будем у вашей двери — держите телефон рядом!</i> 😋🍔"
-        )
-    elif user_lang == "en":
-        customer_msg = (
-            f"🛵💨 <b>Great news! Order #{order_id} is on the way!</b>\n\n"
-            f"🔥 Your hot and delicious <b>Darxan Burger</b> meal is packed in a thermal bag "
-            f"and our courier is heading straight to you! 🚀\n\n"
-            f"📍 <b>Address:</b> {address}"
-            f"{courier_phone_line}\n\n"
-            f"⏰ <i>We will be at your door very soon!</i> 😋🍔"
-        )
+    if is_eat_in:
+        if user_lang == "ru":
+            customer_msg = (
+                f"🍽🔥 <b>Отличная новость! Заказ #{order_id} готов!</b>\n\n"
+                f"✨ Ваши горячие и ароматные блюда от <b>Darxan Burger</b> готовы и уже подаются к вашему столу!\n\n"
+                f"🪑 <b>Стол:</b> {address}\n\n"
+                f"😋 <i>Приятного аппетита!</i> 🍔"
+            )
+        elif user_lang == "en":
+            customer_msg = (
+                f"🍽🔥 <b>Great news! Order #{order_id} is ready!</b>\n\n"
+                f"✨ Your hot and delicious <b>Darxan Burger</b> meal is ready and being served to your table!\n\n"
+                f"🪑 <b>Table:</b> {address}\n\n"
+                f"😋 <i>Bon appétit!</i> 🍔"
+            )
+        else:
+            customer_msg = (
+                f"🍽🔥 <b>Suyunchi! Buyurtma #{order_id} tayyor bo'ldi!</b>\n\n"
+                f"✨ Issiqqina va xushbo'y <b>Darxan Burger</b> taomlaringiz tayyorlandi "
+                f"va stolingizga olib kelinmoqda! 🚀\n\n"
+                f"🪑 <b>Stol:</b> {address}\n\n"
+                f"😋 <i>Yoqimli ishtaha tilaymiz!</i> 🍔"
+            )
     else:
-        customer_msg = (
-            f"🛵💨 <b>Suyunchi! Buyurtma #{order_id} yo'lga chiqdi!</b>\n\n"
-            f"🔥 Issiqqina va xushbo'y <b>Darxan Burger</b> taomlaringiz maxsus termo-qopga joylandi "
-            f"va chaqqon kuryerimiz siz tomonga uchib ketmoqda! 🚀\n\n"
-            f"📍 <b>Manzil:</b> {address}"
-            f"{courier_phone_line}\n\n"
-            f"⏰ <i>Tez orada eshigingiz oldida bo'lamiz, telefoningizni yaqinroq tuting!</i> 😋🍔"
-        )
+        if user_lang == "ru":
+            customer_msg = (
+                f"🛵💨 <b>Отличная новость! Заказ #{order_id} уже в пути!</b>\n\n"
+                f"🔥 Ваши горячие и ароматные блюда от <b>Darxan Burger</b> бережно упакованы в термосумку, "
+                f"и наш курьер уже мчится к вам! 🚀\n\n"
+                f"📍 <b>Адрес доставки:</b> {address}"
+                f"{courier_phone_line}\n\n"
+                f"⏰ <i>Совсем скоро будем у вашей двери — держите телефон рядом!</i> 😋🍔"
+            )
+        elif user_lang == "en":
+            customer_msg = (
+                f"🛵💨 <b>Great news! Order #{order_id} is on the way!</b>\n\n"
+                f"🔥 Your hot and delicious <b>Darxan Burger</b> meal is packed in a thermal bag "
+                f"and our courier is heading straight to you! 🚀\n\n"
+                f"📍 <b>Address:</b> {address}"
+                f"{courier_phone_line}\n\n"
+                f"⏰ <i>We will be at your door very soon!</i> 😋🍔"
+            )
+        else:
+            customer_msg = (
+                f"🛵💨 <b>Suyunchi! Buyurtma #{order_id} yo'lga chiqdi!</b>\n\n"
+                f"🔥 Issiqqina va xushbo'y <b>Darxan Burger</b> taomlaringiz maxsus termo-qopga joylandi "
+                f"va chaqqon kuryerimiz siz tomonga uchib ketmoqda! 🚀\n\n"
+                f"📍 <b>Manzil:</b> {address}"
+                f"{courier_phone_line}\n\n"
+                f"⏰ <i>Tez orada eshigingiz oldida bo'lamiz, telefoningizni yaqinroq tuting!</i> 😋🍔"
+            )
 
     try:
         await call.bot.send_message(user_id, customer_msg, parse_mode="HTML")
@@ -1774,9 +1822,19 @@ async def delivery_finish_callback(call: types.CallbackQuery):
                 "🛵 <b>Holat: KURYER YO'LGA CHIQDI (Yetkazilmoqda...)</b>",
                 done_banner
             )
+        elif "🍽 <b>Holat: BUYURTMA TAYYORLANDI (Stolga yetkazilmoqda...)</b>" in orig_html:
+            updated_html = orig_html.replace(
+                "🍽 <b>Holat: BUYURTMA TAYYORLANDI (Stolga yetkazilmoqda...)</b>",
+                done_banner
+            )
         elif "✅ <i>Kafe tomonidan qabul qilindi</i>" in orig_html:
             updated_html = orig_html.replace(
                 "✅ <i>Kafe tomonidan qabul qilindi</i>",
+                done_banner
+            )
+        elif "✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>" in orig_html:
+            updated_html = orig_html.replace(
+                "✅ <b>Holat: KAFE TOMONIDAN QABUL QILINDI</b>",
                 done_banner
             )
         else:

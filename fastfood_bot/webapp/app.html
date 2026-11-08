@@ -694,6 +694,7 @@
 
       // Delivery & Promo State
       const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'eat_in'
+      const [tableNumber, setTableNumber] = useState('');
       const [addressMode, setAddressMode] = useState('text'); // 'gps' | 'text' | 'map'
       const [addressText, setAddressText] = useState('');
       const [coords, setCoords] = useState({ lat: null, lon: null });
@@ -1068,6 +1069,12 @@
           return;
         }
 
+        if (deliveryType === 'eat_in' && !tableNumber.trim()) {
+          hapticNotify('error');
+          alert('Iltimos, stol raqamingizni tanlang yoki kiriting! / Пожалуйста, укажите номер стола!');
+          return;
+        }
+
         let resolvedAddress = addressText.trim();
         if (
           deliveryType === 'delivery' &&
@@ -1079,9 +1086,10 @@
           setAddressText(resolvedAddress);
         }
 
+        const cleanTable = tableNumber.trim().replace(/^#/, '');
         const finalAddress =
           deliveryType === 'eat_in'
-            ? resolvedAddress || 'В зале кафе'
+            ? `Stol raqami: #${cleanTable}`
             : resolvedAddress || 'Доставка по адресу клиента';
 
         const paymentLabelMap = {
@@ -1803,27 +1811,90 @@
                     <div className="grid grid-cols-2 gap-2.5">
                       <button
                         type="button"
-                        onClick={() => setDeliveryType('delivery')}
+                        onClick={() => {
+                          hapticImpact('light');
+                          setDeliveryType('delivery');
+                        }}
                         className={`py-3 rounded-2xl border-2 font-bold text-xs transition-all ${
                           deliveryType === 'delivery'
                             ? 'border-[#E50914] bg-[#E50914]/5 text-[#E50914]'
                             : 'border-neutral-200 text-neutral-600'
                         }`}
                       >
-                        🛵 Доставка
+                        🛵 Yetkazib berish (Доставка)
                       </button>
                       <button
                         type="button"
-                        onClick={() => setDeliveryType('eat_in')}
+                        onClick={() => {
+                          hapticImpact('light');
+                          setDeliveryType('eat_in');
+                        }}
                         className={`py-3 rounded-2xl border-2 font-bold text-xs transition-all ${
                           deliveryType === 'eat_in'
                             ? 'border-[#E50914] bg-[#E50914]/5 text-[#E50914]'
                             : 'border-neutral-200 text-neutral-600'
                         }`}
                       >
-                        🍽 В кафе
+                        🍽 Shu yerda (В кафе)
                       </button>
                     </div>
+
+                    {deliveryType === 'eat_in' && (
+                      <div className="space-y-3 p-3.5 rounded-2xl bg-[#F9F9FB] border border-neutral-200/80 animate-ios-in">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-extrabold text-neutral-800 flex items-center gap-1.5">
+                            <span>🪑</span>
+                            <span>Stol raqamini tanlang yoki kiriting:</span>
+                          </label>
+                          {tableNumber.trim() && (
+                            <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700">
+                              Stol #{tableNumber.trim()}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Tezkor stol raqamlari (1 dan 12 gacha) */}
+                        <div className="grid grid-cols-6 gap-1.5">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => {
+                            const isSelected = tableNumber.trim() === String(num);
+                            return (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => {
+                                  hapticImpact('light');
+                                  setTableNumber(String(num));
+                                }}
+                                className={`py-2.5 rounded-xl font-extrabold text-xs transition-all active:scale-95 ${
+                                  isSelected
+                                    ? 'bg-[#E50914] text-white shadow-[0_4px_12px_rgba(229,9,20,0.3)] ring-2 ring-[#E50914]/30'
+                                    : 'bg-white text-neutral-700 border border-neutral-200/80 hover:border-[#E50914]/40'
+                                }`}
+                              >
+                                #{num}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Qo'lda stol raqamini kiritish */}
+                        <div className="relative">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="1"
+                            max="999"
+                            value={tableNumber}
+                            onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                            placeholder="Stol raqamini yozing (masalan: 5)..."
+                            className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white border border-neutral-200 text-sm font-bold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-[#E50914]"
+                          />
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm">
+                            🪑
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {deliveryType === 'delivery' && (
                       <div className="space-y-3">
@@ -2043,6 +2114,10 @@
                     <div className="space-y-3.5">
                       {orders.map((ord) => {
                         const st = (ord.status || 'pending').toLowerCase();
+                        const isEatIn =
+                          ord.delivery_type === 'eat_in' ||
+                          (ord.delivery_address &&
+                            String(ord.delivery_address).toLowerCase().includes('stol'));
 
                         const statusConfigMap = {
                           pending: {
@@ -2052,8 +2127,9 @@
                             bannerBg: 'bg-amber-500/10 border-amber-500/20 text-amber-900',
                             icon: '⏳',
                             title: 'Buyurtmangiz kafe qabul qilishini kutyapmiz...',
-                            message:
-                              '✨ Buyurtmangiz Darxan Burger oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍔🚀',
+                            message: isEatIn
+                              ? '✨ Buyurtmangiz Darxan Burger oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍽🍔'
+                              : '✨ Buyurtmangiz Darxan Burger oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍔🚀',
                             step: 1,
                           },
                           preparing: {
@@ -2063,30 +2139,37 @@
                             bannerBg: 'bg-emerald-500/10 border-emerald-500/25 text-emerald-900',
                             icon: '👨‍🍳',
                             title: '🔥 Buyurtma qabul qilindi — Tayyorlanmoqda!',
-                            message:
-                              '🎉 Ajoyib xabar! Kafe buyurtmangizni mamnuniyat bilan qabul qildi! Bosh oshpazimiz siz uchun eng issiq va mazali taomni tayyorlashni boshladi 🍔✨',
+                            message: isEatIn
+                              ? "🎉 Kafe buyurtmangizni qabul qildi! Bosh oshpazimiz siz uchun issiq va mazali taomni tayyorlashni boshladi. Tayyor bo'lishi bilan stolingizga olib kelinadi 🍽✨"
+                              : '🎉 Ajoyib xabar! Kafe buyurtmangizni mamnuniyat bilan qabul qildi! Bosh oshpazimiz siz uchun eng issiq va mazali taomni tayyorlashni boshladi 🍔✨',
                             step: 2,
                           },
                           delivering: {
-                            badge: "🛵 Kuryer yo'lda!",
+                            badge: isEatIn ? '🍽 Buyurtma tayyorlandi!' : "🛵 Kuryer yo'lda!",
                             badgeClass: 'bg-sky-500/15 text-sky-700 border border-sky-500/30',
                             cardBorder: 'border-sky-200/90 bg-gradient-to-br from-sky-50/70 via-white to-white',
                             bannerBg: 'bg-sky-500/10 border-sky-500/25 text-sky-900',
-                            icon: '🛵',
-                            title: '🚀 Buyurtmangiz siz tomonga uchib ketmoqda!',
-                            message:
-                              "🛵 Issiqqina buyurtmangiz qadoqlandi va kuryerimiz yo'lga chiqdi! Tez orada eshigingiz oldida bo'lamiz, telefoningizni yaqinroq tuting 😋",
+                            icon: isEatIn ? '🍽' : '🛵',
+                            title: isEatIn
+                              ? '🔥 Buyurtmangiz tayyorlandi — Stolingizga yetkazilmoqda!'
+                              : '🚀 Buyurtmangiz siz tomonga uchib ketmoqda!',
+                            message: isEatIn
+                              ? "✨ Issiqqina buyurtmangiz tayyor bo'ldi! Ofitsiantimiz uni stolingizga olib kelmoqda, yoqimli ishtaha! 😋🍔"
+                              : "🛵 Issiqqina buyurtmangiz qadoqlandi va kuryerimiz yo'lga chiqdi! Tez orada eshigingiz oldida bo'lamiz, telefoningizni yaqinroq tuting 😋",
                             step: 3,
                           },
                           completed: {
-                            badge: '🎉 Yetkazib berildi',
+                            badge: isEatIn ? '🎉 Yetkazildi (Topshirildi)' : '🎉 Yetkazib berildi',
                             badgeClass: 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30',
                             cardBorder: 'border-neutral-200/80 bg-[#F9F9FB]',
                             bannerBg: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-900',
                             icon: '💖',
-                            title: '💖 Buyurtma topshirildi — Yoqimli ishtaha!',
-                            message:
-                              "✨ Buyurtmangiz muvaffaqiyatli yetkazildi! Darxan Burger'ni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️",
+                            title: isEatIn
+                              ? '💖 Buyurtma stolga yetkazildi — Yoqimli ishtaha!'
+                              : '💖 Buyurtma topshirildi — Yoqimli ishtaha!',
+                            message: isEatIn
+                              ? "✨ Buyurtmangiz stolingizga muvaffaqiyatli yetkazildi! Darxan Burger'ni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️"
+                              : "✨ Buyurtmangiz muvaffaqiyatli yetkazildi! Darxan Burger'ni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️",
                             step: 4,
                           },
                           cancelled: {
@@ -2104,6 +2187,19 @@
 
                         const cfg = statusConfigMap[st] || statusConfigMap.pending;
                         const ordItems = Array.isArray(ord.items) ? ord.items : [];
+                        const progressSteps = isEatIn
+                          ? [
+                              { s: 1, lbl: 'Kafeda' },
+                              { s: 2, lbl: 'Qabul qilindi' },
+                              { s: 3, lbl: 'Tayyorlandi' },
+                              { s: 4, lbl: 'Yetkazildi' },
+                            ]
+                          : [
+                              { s: 1, lbl: 'Kafeda' },
+                              { s: 2, lbl: 'Qabul qilindi' },
+                              { s: 3, lbl: "Yo'lda" },
+                              { s: 4, lbl: 'Yetkazildi' },
+                            ];
 
                         return (
                           <div
@@ -2118,7 +2214,7 @@
                                     Buyurtma #{ord.id}
                                   </span>
                                   <span className="text-[11px] font-semibold text-neutral-400">
-                                    • {ord.delivery_type === 'eat_in' ? '🍽 Kafeda' : '🛵 Yetkazish'}
+                                    • {isEatIn ? '🍽 Shu yerda' : '🛵 Yetkazish'}
                                   </span>
                                 </div>
                                 {ord.created_at && (
@@ -2132,10 +2228,11 @@
                               </span>
                             </div>
 
-                            {/* Delivery Address if present */}
+                            {/* Delivery Address or Table Number if present */}
                             {ord.delivery_address && (
                               <div className="text-[11.5px] font-semibold text-neutral-600 bg-white/80 px-3 py-1.5 rounded-xl border border-neutral-200/60">
-                                📍 Manzil: <span className="font-bold text-neutral-800">{ord.delivery_address}</span>
+                                {isEatIn ? '🪑 Stol:' : '📍 Manzil:'}{' '}
+                                <span className="font-bold text-neutral-800">{ord.delivery_address}</span>
                               </div>
                             )}
 
@@ -2153,12 +2250,7 @@
                             {/* 4-Step Progress Bar (for non-cancelled orders) */}
                             {st !== 'cancelled' ? (
                               <div className="grid grid-cols-4 gap-1.5 pt-0.5">
-                                {[
-                                  { s: 1, lbl: 'Kafeda' },
-                                  { s: 2, lbl: 'Qabul qilindi' },
-                                  { s: 3, lbl: "Yo'lda" },
-                                  { s: 4, lbl: 'Yetkazildi' },
-                                ].map((stepObj) => {
+                                {progressSteps.map((stepObj) => {
                                   const activeStep = cfg.step >= stepObj.s;
                                   return (
                                     <div key={stepObj.s} className="space-y-1 text-center">
