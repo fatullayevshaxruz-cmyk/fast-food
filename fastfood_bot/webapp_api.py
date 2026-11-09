@@ -542,12 +542,17 @@ async def api_order_create(request):
             address = await resolve_human_address(address, lat, lon)
 
         # ── 0-A. Eng yaqin filialni aniqlash va 15 km zona tekshiruvi ─
+        requested_branch_id = int(data.get("branch_id") or 0) or None
         nearest_branch = None
         branch_id = None
         branch_name = None
         distance_km = None
+        from utils.geo_routing import (
+            find_nearest_branch,
+            resolve_branch_for_order,
+            OUT_OF_ZONE_MESSAGE_UZ,
+        )
         if delivery_type == "delivery" and lat is not None and lon is not None:
-            from utils.geo_routing import find_nearest_branch, OUT_OF_ZONE_MESSAGE_UZ
             geo_res = await find_nearest_branch(lat, lon)
             nearest_branch = geo_res.get("nearest_branch")
             if not geo_res.get("in_delivery_zone", True):
@@ -556,10 +561,18 @@ async def api_order_create(request):
                     'in_delivery_zone': False,
                     'nearest_branch': nearest_branch,
                 }, status=400))
-            if nearest_branch:
-                branch_id = nearest_branch.get("id")
-                branch_name = nearest_branch.get("name")
-                distance_km = nearest_branch.get("distance_km")
+        else:
+            nearest_branch = await resolve_branch_for_order(
+                client_lat=lat,
+                client_lon=lon,
+                address=address,
+                branch_id=requested_branch_id,
+            )
+
+        if nearest_branch:
+            branch_id = nearest_branch.get("id")
+            branch_name = nearest_branch.get("name")
+            distance_km = nearest_branch.get("distance_km")
 
         # ── 0. Dublikat buyurtma (Replay / Double-Click) himoyasi ─────
         if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
@@ -903,9 +916,9 @@ async def api_branches_list(request):
     """GET /api/branches — Barcha faol filiallar ro'yxatini qaytaradi."""
     try:
         from database.crud import get_active_branches
-        from utils.geo_routing import DEFAULT_FALLBACK_BRANCHES
+        from utils.geo_routing import _get_clean_bukhara_branches
         rows = await get_active_branches()
-        branches = [dict(r) for r in rows] if rows else list(DEFAULT_FALLBACK_BRANCHES)
+        branches = _get_clean_bukhara_branches(rows)
         return add_cors_headers(web.json_response({"branches": branches}, default=str))
     except Exception as e:
         logging.error(f"/api/branches error: {e}", exc_info=True)

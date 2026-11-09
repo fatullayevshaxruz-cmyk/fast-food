@@ -225,71 +225,51 @@ async def seed_data():
                 except Exception:
                     pass
 
-        # ── Darxan Burger filiallari (Nearest Branch Routing uchun) ──────
+        # ── Darxan Burger filiallari (Buxoro shahridagi 2 ta haqiqiy filial) ──
         try:
-            from config import ADMIN_CHANNEL_ID, DELIVERY_CHANNEL_ID
-            default_admin_ch = ADMIN_CHANNEL_ID or "-1003885234768"
+            from config import BRANCH_1_CHANNEL_ID, BRANCH_2_CHANNEL_ID, DELIVERY_CHANNEL_ID
+            ch_branch_1 = BRANCH_1_CHANNEL_ID or "-1003885234768"
+            ch_branch_2 = BRANCH_2_CHANNEL_ID or "-1003631903801"
             default_dlv_ch = DELIVERY_CHANNEL_ID or "-1003943860489"
 
-            existing_branches = await conn.fetchval("SELECT COUNT(*) FROM branches")
-            if not existing_branches:
-                initial_branches = [
-                    (
-                        1,
-                        "Darxan Burger - Markaziy filial",
-                        "Buxoro sh., I. Muminov ko'chasi, Markaz",
-                        39.7747,
-                        64.4286,
-                        default_admin_ch,
-                        default_dlv_ch,
-                        15.0,
-                        True,
-                    ),
-                    (
-                        2,
-                        "Darxan Burger - G'ofur G'ulom",
-                        "Buxoro tumani, G'ofur G'ulom / Tor-Tor hududi",
-                        39.7886,
-                        64.3855,
-                        default_admin_ch,
-                        default_dlv_ch,
-                        15.0,
-                        True,
-                    ),
-                    (
-                        3,
-                        "Darxan Burger - Chilonzor",
-                        "Toshkent sh., Chilonzor tumani",
-                        41.2995,
-                        69.2401,
-                        default_admin_ch,
-                        default_dlv_ch,
-                        15.0,
-                        True,
-                    ),
-                    (
-                        4,
-                        "Darxan Burger - Yunusobod",
-                        "Toshkent sh., Yunusobod tumani",
-                        41.3645,
-                        69.2869,
-                        default_admin_ch,
-                        default_dlv_ch,
-                        15.0,
-                        True,
-                    ),
-                ]
-                for bid, bname, baddr, blat, blon, badm, bdlv, bmax, bact in initial_branches:
-                    try:
-                        await conn.execute(
-                            """
-                            INSERT INTO branches (id, name, address, latitude, longitude,
-                                                  admin_chat_id, delivery_channel_id, max_delivery_km, is_active)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                            """,
-                            bid, bname, baddr, blat, blon, badm, bdlv, bmax, bact,
-                        )
-                    except Exception:
-                        pass
+            # Eski noto'g'ri filiallarni tozalab, faqat 2 ta haqiqiy filialni yozish
+            await conn.execute("DELETE FROM branches")
+
+            initial_branches = [
+                (
+                    1,
+                    "Darxan Burger - Abu Ali ibn Sino",
+                    "Buxoro sh., Abu Ali ibn Sino ko'chasi",
+                    39.783420,
+                    64.422526,
+                    ch_branch_1,
+                    default_dlv_ch,
+                    15.0,
+                    True,
+                ),
+                (
+                    2,
+                    "Darxan Burger - 5-mikrorayon",
+                    "Buxoro sh., 5-mikrorayon",
+                    39.748796,
+                    64.414346,
+                    ch_branch_2,
+                    default_dlv_ch,
+                    15.0,
+                    True,
+                ),
+            ]
+            for bid, bname, baddr, blat, blon, badm, bdlv, bmax, bact in initial_branches:
+                try:
+                    await conn.execute(
+                        """
+                        INSERT INTO branches (id, name, address, latitude, longitude,
+                                              admin_chat_id, delivery_channel_id, max_delivery_km, is_active)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        """,
+                        bid, bname, baddr, blat, blon, badm, bdlv, bmax, bact,
+                    )
+                except Exception:
+                    pass
         except Exception:
             pass

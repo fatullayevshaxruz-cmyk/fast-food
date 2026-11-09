@@ -272,24 +272,20 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     loc_lon = location.get("lon") if isinstance(location, dict) else None
     address_label = await resolve_human_address(address, loc_lat, loc_lon) if is_delivery else (address or "—")
 
-    # Agar filial ko'rsatilmagan bo'lsa va GPS koordinatalar bo'lsa, eng yaqin filialni avtomatik aniqlaymiz
-    if is_delivery and loc_lat is not None and loc_lon is not None and not branch_name:
+    # Agar target_channel_id berilmagan bo'lsa, filialni avtomatik aniqlab
+    # 1-filial (-1003885234768) yoki 2-filial (-1003631903801) kanaliga yo'naltiramiz
+    if not target_channel_id:
         try:
-            from utils.geo_routing import find_nearest_branch
-            geo_res = await find_nearest_branch(float(loc_lat), float(loc_lon))
-            nb = geo_res.get("nearest_branch")
-            if nb:
-                branch_name = nb.get("name")
-                distance_km = nb.get("distance_km")
-                if not target_channel_id and nb.get("admin_chat_id"):
-                    target_channel_id = nb.get("admin_chat_id")
+            from utils.geo_routing import resolve_branch_for_order
+            nb = await resolve_branch_for_order(
+                client_lat=float(loc_lat) if loc_lat is not None else None,
+                client_lon=float(loc_lon) if loc_lon is not None else None,
+                address=address_label or address,
+            )
+            if nb and nb.get("admin_chat_id"):
+                target_channel_id = nb.get("admin_chat_id")
         except Exception as e:
             log.warning(f"notify_admins_new_order geo_routing warning: {e}")
-
-    branch_line = ""
-    if branch_name:
-        dist_str = f" ({distance_km} km)" if distance_km is not None else ""
-        branch_line = f"🏢 <b>Filial:</b> {branch_name}{dist_str}\n"
 
     # ── Mahsulotlar va rasmlarni yig'ish ─────────────────────────────
     items_with_price_text = ""
@@ -346,14 +342,13 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
         payment_emoji = "💵"
         payment_label = "Naqd pul (Yetkazib berilganda)"
 
-    # ── 1. KAFE KANALI (Filial admin_chat_id yoki ADMIN_CHANNEL_ID) ──
+    # ── 1. KAFE KANALI (1-filial: -1003885234768 yoki 2-filial: -1003631903801) ──
     channel_to_send = target_channel_id or ADMIN_CHANNEL_ID
     if channel_to_send:
         loc_title = "📍 <b>Manzil:</b>" if is_delivery else "🪑 <b>Stol:</b>"
         cafe_channel_msg = (
             f"🆕 <b>Yangi buyurtma #{order_id}</b>\n"
             f"⏳ <i>Holat: Kafe tasdiqlashi kutilmoqda...</i>\n\n"
-            f"{branch_line}"
             f"👤 <b>Mijoz:</b> {full_name} {username_text}\n"
             f"📞 <b>Telefon:</b> {phone_display}\n"
             f"{order_type_emoji} <b>Turi:</b> {order_type_label}\n"
@@ -467,17 +462,10 @@ async def send_accepted_order_to_delivery_channel(bot, order_id: int):
             payment_label = "Naqd pul (Yetkazib berilganda)"
 
         loc_title = "📍 <b>Manzil:</b>" if is_delivery else "🪑 <b>Stol:</b>"
-        branch_name = order_d.get("branch_name")
-        distance_km = order_d.get("distance_km")
-        branch_line = ""
-        if branch_name:
-            dist_str = f" ({distance_km} km)" if distance_km is not None else ""
-            branch_line = f"🏢 <b>Filial:</b> {branch_name}{dist_str}\n"
 
         delivery_msg = (
             f"{header_line}\n"
             f"✅ <i>Kafe tomonidan qabul qilindi</i>\n\n"
-            f"{branch_line}"
             f"👤 <b>Mijoz:</b> {full_name} {username_text}\n"
             f"📞 <b>Telefon:</b> {phone_display}\n"
             f"{loc_title} {address}"

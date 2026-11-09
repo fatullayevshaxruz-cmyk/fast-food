@@ -568,8 +568,8 @@
 
       useEffect(() => {
         if (!mapRef.current || instanceRef.current) return;
-        const startLat = lat || 41.31108;
-        const startLon = lon || 69.24056;
+        const startLat = lat || 39.7661;
+        const startLon = lon || 64.4184;
 
         const map = L.map(mapRef.current).setView([startLat, startLon], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -694,6 +694,7 @@
 
       // Delivery & Promo State
       const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'eat_in'
+      const [selectedBranchId, setSelectedBranchId] = useState(1); // 1: Abu Ali ibn Sino, 2: 5-mikrorayon
       const [tableNumber, setTableNumber] = useState('');
       const [addressMode, setAddressMode] = useState('text'); // 'gps' | 'text' | 'map'
       const [addressText, setAddressText] = useState('');
@@ -988,6 +989,9 @@
             const data = await res.json();
             if (data && data.nearest_branch) {
               setNearestBranchInfo(data);
+              if (data.nearest_branch.id) {
+                setSelectedBranchId(Number(data.nearest_branch.id));
+              }
               return;
             }
           }
@@ -1138,6 +1142,10 @@
           phone: activePhone,
           items: cartItems.map((i) => ({ product_id: i.id, quantity: i.qty })),
           delivery_type: deliveryType,
+          branch_id:
+            deliveryType === 'eat_in'
+              ? selectedBranchId
+              : nearestBranchInfo?.nearest_branch?.id || null,
           address: finalAddress,
           payment_method: paymentLabelMap[paymentMethod] || paymentLabelMap.payme,
           promo_code: appliedPromo.code || promoInput.trim().toUpperCase() || null,
@@ -1906,6 +1914,38 @@
 
                     {deliveryType === 'eat_in' && (
                       <div className="space-y-3 p-3.5 rounded-2xl bg-[#F9F9FB] border border-neutral-200/80 animate-ios-in">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-extrabold text-neutral-800 flex items-center gap-1.5">
+                            <span>🏢</span>
+                            <span>Qaysi filialda o'tiribsiz?</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { id: 1, title: '1-filial: Abu Ali ibn Sino' },
+                              { id: 2, title: '2-filial: 5-mikrorayon' },
+                            ].map((br) => {
+                              const activeBr = selectedBranchId === br.id;
+                              return (
+                                <button
+                                  key={br.id}
+                                  type="button"
+                                  onClick={() => {
+                                    hapticImpact('light');
+                                    setSelectedBranchId(br.id);
+                                  }}
+                                  className={`py-2.5 px-2 rounded-xl font-extrabold text-[11px] transition-all active:scale-95 ${
+                                    activeBr
+                                      ? 'bg-[#E50914] text-white shadow-[0_4px_12px_rgba(229,9,20,0.28)]'
+                                      : 'bg-white text-neutral-700 border border-neutral-200/80'
+                                  }`}
+                                >
+                                  📍 {br.title}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-extrabold text-neutral-800 flex items-center gap-1.5">
                             <span>🪑</span>
@@ -1998,7 +2038,7 @@
                             type="text"
                             value={addressText}
                             onChange={(e) => setAddressText(e.target.value)}
-                            placeholder="Например: Чиланзар 14-квартал, дом 25..."
+                            placeholder="Masalan: Abu Ali ibn Sino ko'chasi yoki 5-mikrorayon, 12-uy..."
                             className="w-full px-4 py-3 rounded-2xl bg-neutral-50 border border-neutral-200 text-sm font-medium focus:outline-none focus:border-[#E50914]"
                           />
                         )}

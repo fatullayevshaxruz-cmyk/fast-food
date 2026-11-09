@@ -6,6 +6,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID") # Can be a list of IDs separated by comma
 ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID", "-1003885234768")
+BRANCH_1_CHANNEL_ID = os.getenv("BRANCH_1_CHANNEL_ID", "-1003885234768")  # 1-filial: Abu Ali ibn Sino ko'chasi
+BRANCH_2_CHANNEL_ID = os.getenv("BRANCH_2_CHANNEL_ID", "-1003631903801")  # 2-filial: 5-mikrorayon
 DELIVERY_CHANNEL_ID = os.getenv("DELIVERY_CHANNEL_ID", "-1003943860489")
 DB_USER = os.getenv("DB_USER", "postgres")
 
@@ -47,10 +49,9 @@ MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm
 # .env / Render da ONLINE_PAYMENT_ENABLED=0 qilib o'chirish mumkin
 ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "1") == "1"
 
-# ── Restoran joylashuvi (yetkazish masofasi hisoblash uchun) ──────────
-# .env da RESTAURANT_LAT va RESTAURANT_LON ni to'g'rilang!
-RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.2995").replace(",", "."))
-RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.2401").replace(",", "."))
+# ── Restoran joylashuvi (Buxoro sh., 1-filial: Abu Ali ibn Sino ko'chasi) ──
+RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "39.783420").replace(",", "."))
+RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "64.422526").replace(",", "."))
 
 # ── Masofaga qarab yetkazish narxi ───────────────────────────────────
 # Birinchi FREE_KM km → BASE_FEE; har qo'shimcha km → EXTRA_PER_KM
