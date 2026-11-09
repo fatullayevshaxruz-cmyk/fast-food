@@ -696,9 +696,12 @@ async def api_order_create(request):
         payme_url = generate_payme_link(order_id, total_amount)
         chosen_payment_url = click_url if is_click else (payme_url if is_payme else None)
 
-        # ── 8. Telegram bot orqali eng yaqin filialga yo'naltirish ────
+        # ── 8. Filial kanaliga yo'naltirish (Faqat Naqd uchun!) ────────
+        # Toki Click yoki Payme orqali to'lov amalga oshirilmaguncha
+        # buyurtma kanallarga yuborilmaydi! To'lov tasdiqlangach dispatch_paid_order_to_channel
+        # orqali avtomatik kanalga yo'naltiriladi.
         bot = request.app.get('bot')
-        if bot:
+        if bot and not is_online:
             class SimpleUser:
                 def __init__(self, uid, name, username=None):
                     self.id = uid
@@ -729,6 +732,7 @@ async def api_order_create(request):
                 precomputed_branch=nearest_branch,
             ))
 
+        if bot:
             receipt = "".join(
                 get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
                          total=i['price'] * i['quantity']) + "\n"
@@ -779,11 +783,19 @@ async def api_order_create(request):
                         pay_kb.add(InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url))
                         pay_kb.add(InlineKeyboardButton("🔹 Click orqali to'lash", url=click_url))
 
+                    pay_kb.add(InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"))
+
                     online_instructions = (
-                        "\n\n👇 <b>To'lovni amalga oshirish uchun quyidagi tugmani bosing:</b>"
+                        "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni amalga oshiring.\n"
+                        "👇 <i>To'lov tasdiqlangach, buyurtma darhol oshxona kanaliga yuboriladi:</i>"
                         if lang == "uz"
-                        else ("\n\n👇 <b>Нажмите кнопку ниже для быстрой оплаты:</b>" if lang == "ru"
-                              else "\n\n👇 <b>Tap the button below to pay directly:</b>")
+                        else (
+                            "\n\n⏳ <b>ВНИМАНИЕ:</b> Чтобы заказ поступил на кухню, совершите оплату.\n"
+                            "👇 <i>После подтверждения оплаты заказ сразу будет передан на кухню:</i>"
+                            if lang == "ru"
+                            else "\n\n⏳ <b>NOTE:</b> Please complete payment to submit your order to the kitchen.\n"
+                                 "👇 <i>Order will be forwarded to the kitchen once paid:</i>"
+                        )
                     )
 
                     await bot.send_message(
@@ -861,9 +873,34 @@ async def api_branches_list(request):
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
 
+async def api_order_confirm_payment(request):
+    """
+    POST /api/order/confirm-payment
+    Mijoz Payme yoki Click ilovasida to'lovni amalga oshirgach,
+    to'lovni tasdiqlash va buyurtmani tegishli filial kanaliga yo'naltirish endpointi.
+    """
+    try:
+        data = await request.json()
+        order_id = int(data.get("order_id", 0) or 0)
+        if not order_id:
+            return add_cors_headers(web.json_response({"error": "order_id required"}, status=400))
+
+        bot = request.app.get("bot")
+        from utils.order_dispatcher import dispatch_paid_order_to_channel
+        tx_id = f"confirmed:{order_id}"
+        ok = await dispatch_paid_order_to_channel(bot, order_id, transaction_id=tx_id)
+        return add_cors_headers(web.json_response({"success": ok, "order_id": order_id, "payment_status": "paid"}))
+    except Exception as e:
+        logging.error(f"/api/order/confirm-payment error: {e}", exc_info=True)
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500))
+
+
 def register_webapp_api(app: web.Application):
     app.router.add_options('/api/user', options_handler)
     app.router.add_get('/api/user', api_user_profile)
+
+    app.router.add_options('/api/order/confirm-payment', options_handler)
+    app.router.add_post('/api/order/confirm-payment', api_order_confirm_payment)
 
     app.router.add_options('/api/branches', options_handler)
     app.router.add_get('/api/branches', api_branches_list)

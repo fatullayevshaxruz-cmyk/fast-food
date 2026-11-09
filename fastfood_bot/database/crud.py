@@ -222,6 +222,22 @@ async def create_order(user_id, total_amount, address, payment_method,
         return row['id']
 
 
+async def update_order_payment_status(order_id: int, payment_status: str, transaction_id: str = None):
+    """Buyurtmaning to'lov holatini yangilaydi (masalan: 'paid' yoki 'unpaid')."""
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if transaction_id:
+            await conn.execute(
+                "UPDATE orders SET payment_status = $1, transaction_id = $2 WHERE id = $3",
+                payment_status, transaction_id, order_id
+            )
+        else:
+            await conn.execute(
+                "UPDATE orders SET payment_status = $1 WHERE id = $2",
+                payment_status, order_id
+            )
+
+
 # ── Filiallar (Branches) CRUD funksiyalari ────────────────────────────
 
 async def get_active_branches():

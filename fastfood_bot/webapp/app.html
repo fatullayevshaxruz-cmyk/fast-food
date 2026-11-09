@@ -2471,7 +2471,7 @@
                               String(ord.payment_method || '').toLowerCase().includes('click')) &&
                               ord.status !== 'completed' &&
                               ord.status !== 'cancelled' && (
-                                <div className="pt-2">
+                                <div className="pt-2 space-y-1.5">
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -2495,6 +2495,26 @@
                                         ? '🔹 Click ilovasida to\'lash'
                                         : '💳 Payme ilovasida to\'lash'}
                                     </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      hapticImpact('medium');
+                                      try {
+                                        await secureFetch(`${API_BASE}/api/order/confirm-payment`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ order_id: ord.id }),
+                                        });
+                                        alert('To\'lov tasdiqlandi! Buyurtmangiz oshxona kanaliga yetkazildi.');
+                                        fetchUserOrders();
+                                      } catch (e) {
+                                        alert('Xatolik yuz berdi');
+                                      }
+                                    }}
+                                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                                  >
+                                    <span>✅ To'lov qildim (Oshxonaga yuborish)</span>
                                   </button>
                                 </div>
                               )}
@@ -2561,6 +2581,26 @@
                           <span>💳 Payme ilovasida to'lash</span>
                         </>
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        hapticImpact('medium');
+                        try {
+                          await secureFetch(`${API_BASE}/api/order/confirm-payment`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order_id: orderSuccessModal.orderId }),
+                          });
+                        } catch (e) {}
+                        alert('To\'lov tasdiqlandi! Buyurtmangiz oshxona kanaliga yetkazildi.');
+                        setOrderSuccessModal(null);
+                        setActiveTab('orders');
+                        fetchUserOrders();
+                      }}
+                      className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                    >
+                      <span>✅ To'lov qildim (Oshxonaga yuborish)</span>
                     </button>
                   </div>
                 )}

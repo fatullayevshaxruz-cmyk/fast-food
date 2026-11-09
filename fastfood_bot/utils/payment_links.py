@@ -70,3 +70,4 @@ def get_order_payment_links(order_id: int, amount: float) -> Dict[str, str]:
         "click": generate_click_link(order_id, amount),
         "payme": generate_payme_link(order_id, amount),
     }
+

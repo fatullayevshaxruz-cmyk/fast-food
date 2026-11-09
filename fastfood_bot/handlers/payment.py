@@ -247,25 +247,9 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         click_url = generate_click_link(order_id, total_amount)
         payme_url = generate_payme_link(order_id, total_amount)
 
-        # Filial kanaliga xabar yuborish
-        from utils.geo_routing import route_order_to_nearest_branch
-        asyncio.create_task(route_order_to_nearest_branch(
-            bot=message.bot,
-            order_id=order_id,
-            total_amount=total_amount,
-            user=message.from_user,
-            items=items,
-            phone=phone,
-            address=address,
-            client_lat=data.get("lat"),
-            client_lon=data.get("lon"),
-            note=note,
-            delivery_type=delivery_type,
-            payment_method=ONLINE_METHOD,
-            promo_code=promo_code if discount_amt > 0 else None,
-            discount_pct=discount_pct,
-            discount_amt=discount_amt,
-        ))
+        # ── DIQQAT: Toki to'lov amalga oshirilmaguncha filial kanaliga YUBORILMAYDI! ──
+        # To'lov Payme/Click webhook yoki 'To'lovni tekshirish' tugmasi orqali
+        # tasdiqlangach, dispatch_paid_order_to_channel orqali kanalga yuboriladi.
 
         # Chek (til bo'yicha)
         receipt = "".join(
@@ -308,13 +292,17 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         pay_kb.add(
             InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url),
             InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url),
+            InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"),
         )
 
         pay_prompt = (
-            "\n\n👇 <b>To'lovni amalga oshirish uchun qulay ilovani tanlang:</b>"
+            "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni amalga oshiring.\n"
+            "👇 <i>To'lov amalga oshirilgach, buyurtma darhol oshxona kanaliga yuboriladi:</i>"
             if lang == "uz"
-            else ("\n\n👇 <b>Выберите удобное приложение для быстрой оплаты:</b>" if lang == "ru"
-                  else "\n\n👇 <b>Choose your preferred app for instant payment:</b>")
+            else ("\n\n⏳ <b>ВНИМАНИЕ:</b> Чтобы заказ поступил на кухню, совершите оплату.\n"
+                  "👇 <i>После оплаты заказ сразу поступит на кухню:</i>" if lang == "ru"
+                  else "\n\n⏳ <b>NOTE:</b> Please complete payment to submit your order to the kitchen.\n"
+                       "👇 <i>Order will be forwarded to the kitchen once paid:</i>")
         )
 
         # Foydalanuvchiga chek va to'lov havolalarini yuborish
@@ -538,6 +526,27 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             pass
 
 
+async def check_payment_callback(call: types.CallbackQuery):
+    """Mijoz Click yoki Payme ilovasida to'lov qilib 'To'lovni tekshirish' bosganda."""
+    try:
+        order_id = int(call.data.split("_")[2])
+    except Exception:
+        await call.answer("Buyurtma topilmadi", show_alert=True)
+        return
+
+    from utils.order_dispatcher import dispatch_paid_order_to_channel
+    tx_id = f"bot_user_check:{order_id}"
+    ok = await dispatch_paid_order_to_channel(call.bot, order_id, transaction_id=tx_id)
+    if ok:
+        await call.answer("✅ To'lovingiz tasdiqlandi! Buyurtma oshxonaga yetkazildi.", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+    else:
+        await call.answer("⚠️ To'lov hali tasdiqlanmadi. Iltimos ilovada to'lovni bajaring.", show_alert=True)
+
+
 # ── Handlerlarni ro'yxatdan o'tkazish ────────────────────────────────
 
 def register_payment_handlers(dp: Dispatcher):
@@ -554,6 +563,13 @@ def register_payment_handlers(dp: Dispatcher):
         "💳 Онлайн (Click / Payme)",
         "💳 Online (Click / Payme)",
     }
+
+    # Botdagi to'lovni tekshirish tugmasi
+    dp.register_callback_query_handler(
+        check_payment_callback,
+        lambda c: c.data and c.data.startswith("chk_pay_"),
+        state="*",
+    )
 
     dp.register_message_handler(
         process_payment_cash,

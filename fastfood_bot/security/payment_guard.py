@@ -312,6 +312,15 @@ async def payme_webhook_handler(request: web.Request) -> web.Response:
                 order["id"],
             )
         mark_transaction_used(payme_tx_id)
+
+        # ── Toki to'lov amalga oshirilmasa kanalga bormaydi — to'langach yuboramiz ──
+        try:
+            bot = request.app.get("bot")
+            from utils.order_dispatcher import dispatch_paid_order_to_channel
+            asyncio.create_task(dispatch_paid_order_to_channel(bot, int(order["id"]), transaction_id=payme_tx_id))
+        except Exception as disp_err:
+            log.error(f"Payme dispatch order error: {disp_err}")
+
         return web.json_response({
             "id": rpc_id,
             "result": {
@@ -420,6 +429,15 @@ async def click_webhook_handler(request: web.Request) -> web.Response:
                 f"click:{click_trans_id}", order_id,
             )
         mark_transaction_used(f"click:{click_trans_id}")
+
+        # ── Toki to'lov amalga oshirilmasa kanalga bormaydi — to'langach yuboramiz ──
+        try:
+            bot = request.app.get("bot")
+            from utils.order_dispatcher import dispatch_paid_order_to_channel
+            asyncio.create_task(dispatch_paid_order_to_channel(bot, int(order_id), transaction_id=f"click:{click_trans_id}"))
+        except Exception as disp_err:
+            log.error(f"Click dispatch order error: {disp_err}")
+
         return web.json_response({
             "click_trans_id": click_trans_id,
             "merchant_trans_id": merchant_trans_id,
