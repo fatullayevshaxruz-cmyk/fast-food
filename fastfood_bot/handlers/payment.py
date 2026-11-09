@@ -221,6 +221,22 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         phone = data.get("phone")
         note = data.get("note")
         promo_code = data.get("promo_code")
+        lat = data.get("lat")
+        lon = data.get("lon")
+        branch_id = data.get("branch_id")
+        branch_name = data.get("branch_name")
+        distance_km = data.get("distance_km")
+
+        if (not branch_id or not branch_name) and lat is not None and lon is not None:
+            try:
+                from utils.geo_routing import find_nearest_branch
+                geo_res = await find_nearest_branch(float(lat), float(lon))
+                nb = geo_res.get("nearest_branch") or {}
+                branch_id = nb.get("id")
+                branch_name = nb.get("name")
+                distance_km = nb.get("distance_km")
+            except Exception:
+                pass
 
         # ── Buyurtmani bazada yaratish ─────────────────────────────
         order_id = await create_order(
@@ -228,13 +244,16 @@ async def process_payment_online(message: types.Message, state: FSMContext):
             total_amount=total_amount,
             address=address,
             payment_method=ONLINE_METHOD,
-            latitude=data.get("lat"),
-            longitude=data.get("lon"),
+            latitude=lat,
+            longitude=lon,
             phone_number=phone,
             note=note,
             delivery_type=delivery_type,
             promo_code=promo_code,
             discount_amount=discount_amt,
+            branch_id=branch_id,
+            branch_name=branch_name,
+            distance_km=distance_km,
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -434,6 +453,20 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
         after_discount = items_total - discount_amt
         delivery_fee   = max(0, total_amount - after_discount) if delivery_type == "delivery" else 0
 
+        branch_id   = data.get("branch_id")
+        branch_name = data.get("branch_name")
+        distance_km = data.get("distance_km")
+        if (not branch_id or not branch_name) and lat is not None and lon is not None:
+            try:
+                from utils.geo_routing import find_nearest_branch
+                geo_res = await find_nearest_branch(float(lat), float(lon))
+                nb = geo_res.get("nearest_branch") or {}
+                branch_id = nb.get("id")
+                branch_name = nb.get("name")
+                distance_km = nb.get("distance_km")
+            except Exception:
+                pass
+
         order_id = await create_order(
             user_id=user_id,
             total_amount=total_amount,
@@ -448,6 +481,9 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             transaction_id=tx_id,
             promo_code=promo_code,
             discount_amount=discount_amt,
+            branch_id=branch_id,
+            branch_name=branch_name,
+            distance_km=distance_km,
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -468,6 +504,8 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             promo_code=promo_code,
             discount_pct=discount_pct,
             discount_amt=discount_amt,
+            branch_name=branch_name,
+            distance_km=distance_km,
         ))
 
         # Chek matn (til bo'yicha)

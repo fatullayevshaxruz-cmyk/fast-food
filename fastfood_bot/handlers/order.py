@@ -445,6 +445,20 @@ async def finish_order(message: types.Message, state: FSMContext,
         delivery_type = data.get('delivery_type', 'delivery')
         discount_pct  = data.get('discount_percent', 0)
         promo_code    = data.get('promo_code')
+        branch_id     = data.get('branch_id')
+        branch_name   = data.get('branch_name')
+        distance_km   = data.get('distance_km')
+
+        if (not branch_id or not branch_name) and lat is not None and lon is not None:
+            try:
+                from utils.geo_routing import find_nearest_branch
+                geo_res = await find_nearest_branch(float(lat), float(lon))
+                nb = geo_res.get("nearest_branch") or {}
+                branch_id = nb.get("id")
+                branch_name = nb.get("name")
+                distance_km = nb.get("distance_km")
+            except Exception:
+                pass
 
         items = await get_cart_items(user_id)
         if not items:
@@ -493,7 +507,8 @@ async def finish_order(message: types.Message, state: FSMContext,
             address=address, payment_method=payment_method,
             latitude=lat, longitude=lon, phone_number=phone,
             note=note, delivery_type=delivery_type,
-            promo_code=promo_code, discount_amount=discount_amt
+            promo_code=promo_code, discount_amount=discount_amt,
+            branch_id=branch_id, branch_name=branch_name, distance_km=distance_km,
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -513,7 +528,8 @@ async def finish_order(message: types.Message, state: FSMContext,
             user=message.from_user, items=items, phone=phone, address=address,
             location={'lat': lat, 'lon': lon}, note=note, delivery_type=delivery_type,
             payment_method=payment_method,
-            promo_code=promo_code, discount_pct=discount_pct, discount_amt=discount_amt
+            promo_code=promo_code, discount_pct=discount_pct, discount_amt=discount_amt,
+            branch_name=branch_name, distance_km=distance_km,
         ))
 
         note_text     = f"\n  📝 <i>{note}</i>" if note else ""

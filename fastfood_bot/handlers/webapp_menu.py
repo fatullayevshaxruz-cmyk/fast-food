@@ -190,6 +190,27 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         user_row = await get_user(user_id)
         phone = user_row['phone_number'] if user_row else None
 
+        pay_low = str(payment_method or '').lower()
+        is_click = "click" in pay_low
+        is_payme = "payme" in pay_low
+        is_online = is_click or is_payme or ("online" in pay_low)
+
+        nearest_branch = None
+        branch_id = None
+        branch_name = None
+        distance_km = None
+        if lat is not None and lon is not None:
+            try:
+                from utils.geo_routing import find_nearest_branch
+                geo_res = await find_nearest_branch(float(lat), float(lon))
+                nearest_branch = geo_res.get("nearest_branch")
+                if nearest_branch:
+                    branch_id = nearest_branch.get("id")
+                    branch_name = nearest_branch.get("name")
+                    distance_km = nearest_branch.get("distance_km")
+            except Exception:
+                pass
+
         # ── 6. Buyurtmani DB ga saqlash ───────────────────────────────
         order_id = await create_order(
             user_id=user_id,
@@ -201,8 +222,12 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
             phone_number=phone,
             note=None,
             delivery_type=delivery_type,
+            payment_status="unpaid" if is_online else "paid",
             promo_code=promo_code if discount_amt > 0 else None,
             discount_amount=discount_amt,
+            branch_id=branch_id,
+            branch_name=branch_name,
+            distance_km=distance_km,
         )
         await add_order_items(order_id, items)
         await clear_cart(user_id)
@@ -210,23 +235,27 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         # ── 7. FSM ni yakunlash ───────────────────────────────────────
         await state.finish()
 
-        # ── 8. Admin/kanal ga xabar yuborish (background) ─────────────
-        asyncio.create_task(notify_admins_new_order(
-            bot=message.bot,
-            order_id=order_id,
-            total_amount=total_amount,
-            user=message.from_user,
-            items=items,
-            phone=phone,
-            address=address,
-            location={'lat': lat, 'lon': lon},
-            note=None,
-            delivery_type=delivery_type,
-            payment_method=payment_method,
-            promo_code=promo_code if discount_amt > 0 else None,
-            discount_pct=discount_pct,
-            discount_amt=discount_amt,
-        ))
+        # ── 8. Filial kanaliga yo'naltirish (Faqat Naqd uchun!) ────────
+        # Online to'lovda toki to'lov tasdiqlanmaguncha filial kanaliga yuborilmaydi
+        if not is_online:
+            asyncio.create_task(notify_admins_new_order(
+                bot=message.bot,
+                order_id=order_id,
+                total_amount=total_amount,
+                user=message.from_user,
+                items=items,
+                phone=phone,
+                address=address,
+                location={'lat': lat, 'lon': lon},
+                note=None,
+                delivery_type=delivery_type,
+                payment_method=payment_method,
+                promo_code=promo_code if discount_amt > 0 else None,
+                discount_pct=discount_pct,
+                discount_amt=discount_amt,
+                branch_name=branch_name,
+                distance_km=distance_km,
+            ))
 
         # ── 9. Mijozga chek ───────────────────────────────────────────
         receipt = "".join(
@@ -264,11 +293,26 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
                                     total=total_amount,
                                     note="")
 
-        await message.answer(
-            success_text,
-            reply_markup=_get_menu_for_user(user_id, lang),
-            parse_mode="HTML",
-        )
+        if is_online:
+            from utils.payment_links import generate_click_link, generate_payme_link
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+            click_url = generate_click_link(order_id, total_amount)
+            payme_url = generate_payme_link(order_id, total_amount)
+            pay_kb = InlineKeyboardMarkup(row_width=1)
+            pay_kb.add(
+                InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url),
+                InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url),
+                InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"),
+            )
+            pay_prompt = "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni bajaring:"
+            await message.answer(success_text + pay_prompt, reply_markup=pay_kb, parse_mode="HTML")
+            await message.answer("🍔 Asosiy menyu:", reply_markup=_get_menu_for_user(user_id, lang))
+        else:
+            await message.answer(
+                success_text,
+                reply_markup=_get_menu_for_user(user_id, lang),
+                parse_mode="HTML",
+            )
 
         log.info(
             f"WebApp buyurtma yaratildi: #{order_id}, user={user_id}, "
