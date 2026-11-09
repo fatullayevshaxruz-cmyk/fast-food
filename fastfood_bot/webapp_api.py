@@ -873,25 +873,45 @@ async def api_branches_list(request):
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
 
-async def api_order_confirm_payment(request):
+async def api_order_payment_status(request):
     """
-    POST /api/order/confirm-payment
-    Mijoz Payme yoki Click ilovasida to'lovni amalga oshirgach,
-    to'lovni tasdiqlash va buyurtmani tegishli filial kanaliga yo'naltirish endpointi.
+    GET /api/order/payment-status?order_id=123
+    Buyurtmaning haqiqiy to'lov holatini tekshiradi.
+    Faqat va faqat Click yoki Payme rasmiy webhooki orqali payment_status == 'paid'
+    bo'lgandagina 'paid': True qaytaradi! Hech qanday soxta tasdiqlashga yo'l qo'ymaydi.
     """
     try:
-        data = await request.json()
-        order_id = int(data.get("order_id", 0) or 0)
+        order_id = int(request.query.get("order_id", 0) or 0)
+        if not order_id and request.method == "POST":
+            data = await request.json()
+            order_id = int(data.get("order_id", 0) or 0)
+
         if not order_id:
             return add_cors_headers(web.json_response({"error": "order_id required"}, status=400))
 
-        bot = request.app.get("bot")
-        from utils.order_dispatcher import dispatch_paid_order_to_channel
-        tx_id = f"confirmed:{order_id}"
-        ok = await dispatch_paid_order_to_channel(bot, order_id, transaction_id=tx_id)
-        return add_cors_headers(web.json_response({"success": ok, "order_id": order_id, "payment_status": "paid"}))
+        from database.crud import get_order_by_id
+        order = await get_order_by_id(order_id)
+        if not order:
+            return add_cors_headers(web.json_response({"error": "Order not found"}, status=404))
+
+        order_d = dict(order)
+        pay_st = str(order_d.get("payment_status") or "unpaid")
+        is_paid = (pay_st == "paid")
+
+        # Agar webhook orqali allaqachon to'langan bo'lsa, kanalga yuborilganini ham kafolatlaymiz
+        if is_paid:
+            bot = request.app.get("bot")
+            from utils.order_dispatcher import dispatch_paid_order_to_channel
+            asyncio.create_task(dispatch_paid_order_to_channel(bot, order_id))
+
+        return add_cors_headers(web.json_response({
+            "order_id": order_id,
+            "payment_status": pay_st,
+            "paid": is_paid,
+            "status": order_d.get("status") or "pending",
+        }))
     except Exception as e:
-        logging.error(f"/api/order/confirm-payment error: {e}", exc_info=True)
+        logging.error(f"/api/order/payment-status error: {e}", exc_info=True)
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
 
@@ -899,8 +919,9 @@ def register_webapp_api(app: web.Application):
     app.router.add_options('/api/user', options_handler)
     app.router.add_get('/api/user', api_user_profile)
 
-    app.router.add_options('/api/order/confirm-payment', options_handler)
-    app.router.add_post('/api/order/confirm-payment', api_order_confirm_payment)
+    app.router.add_options('/api/order/payment-status', options_handler)
+    app.router.add_get('/api/order/payment-status', api_order_payment_status)
+    app.router.add_post('/api/order/payment-status', api_order_payment_status)
 
     app.router.add_options('/api/branches', options_handler)
     app.router.add_get('/api/branches', api_branches_list)

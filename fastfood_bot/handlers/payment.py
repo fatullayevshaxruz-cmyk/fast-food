@@ -527,24 +527,41 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
 
 
 async def check_payment_callback(call: types.CallbackQuery):
-    """Mijoz Click yoki Payme ilovasida to'lov qilib 'To'lovni tekshirish' bosganda."""
+    """
+    Mijoz botda 'To'lovni tekshirish' tugmasini bosganda.
+    Haqiqiy to'lov holatini bazadan tekshiradi:
+    Toki Click yoki Payme rasmiy webhooki to'lovni tasdiqlamagan bo'lsa,
+    kanalga ASLO yuborilmaydi!
+    """
     try:
         order_id = int(call.data.split("_")[2])
     except Exception:
         await call.answer("Buyurtma topilmadi", show_alert=True)
         return
 
-    from utils.order_dispatcher import dispatch_paid_order_to_channel
-    tx_id = f"bot_user_check:{order_id}"
-    ok = await dispatch_paid_order_to_channel(call.bot, order_id, transaction_id=tx_id)
-    if ok:
-        await call.answer("✅ To'lovingiz tasdiqlandi! Buyurtma oshxonaga yetkazildi.", show_alert=True)
+    from database.crud import get_order_by_id
+    order = await get_order_by_id(order_id)
+    if not order:
+        await call.answer("⚠️ Buyurtma topilmadi!", show_alert=True)
+        return
+
+    order_d = dict(order)
+    payment_status = str(order_d.get("payment_status") or "unpaid")
+
+    if payment_status == "paid":
+        from utils.order_dispatcher import dispatch_paid_order_to_channel
+        await dispatch_paid_order_to_channel(call.bot, order_id)
+        await call.answer("✅ To'lovingiz tasdiqlangan! Buyurtma oshxonada tayyorlanmoqda.", show_alert=True)
         try:
             await call.message.edit_reply_markup(reply_markup=None)
         except Exception:
             pass
     else:
-        await call.answer("⚠️ To'lov hali tasdiqlanmadi. Iltimos ilovada to'lovni bajaring.", show_alert=True)
+        await call.answer(
+            "❌ To'lov hali hisobingizdan yechilmadi yoki Click/Payme tomonidan tasdiqlanmadi.\n\n"
+            "Iltimos, avval Click yoki Payme ilovasida to'lovni bajaring!",
+            show_alert=True,
+        )
 
 
 # ── Handlerlarni ro'yxatdan o'tkazish ────────────────────────────────

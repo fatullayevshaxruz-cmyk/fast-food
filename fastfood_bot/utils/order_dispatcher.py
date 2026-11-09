@@ -53,10 +53,18 @@ async def dispatch_paid_order_to_channel(
         return False
 
     order = dict(order_row)
+    current_status = str(order.get("payment_status") or "unpaid")
+
+    # Qat'iy tekshiruv: Toki to'lov rasman tasdiqlanmagan bo'lsa (payment_status != 'paid' va transaction_id yo'q),
+    # kanalga mutlaqo yuborilmaydi!
+    if current_status != "paid" and not transaction_id:
+        log.warning(f"dispatch_paid_order_to_channel: Buyurtma #{order_id} hali to'lanmagan!")
+        return False
 
     # 1. To'lov holatini 'paid' ga o'tkazish
     try:
-        await update_order_payment_status(order_id, "paid", transaction_id=transaction_id)
+        if current_status != "paid" or transaction_id:
+            await update_order_payment_status(order_id, "paid", transaction_id=transaction_id)
     except Exception as e:
         log.warning(f"To'lov holatini yangilashda xato: {e}")
 
@@ -145,3 +153,4 @@ async def dispatch_paid_order_to_channel(
 
     log.info(f"✅ Buyurtma #{order_id} to'lovi tasdiqlandi va filial kanaliga yo'naltirildi.")
     return True
+

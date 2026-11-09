@@ -827,6 +827,30 @@
         return () => clearInterval(interval);
       }, [fetchUserOrders]);
 
+      // ── Kodning o'zi to'lov amalga oshirilganini avtomatik aniqlashi (Auto Payment Detection) ──
+      useEffect(() => {
+        if (!orderSuccessModal || !orderSuccessModal.paymentUrl || orderSuccessModal.isPaidConfirmed) return;
+        const targetOrdId = orderSuccessModal.orderId;
+        let isMounted = true;
+        const interval = setInterval(async () => {
+          try {
+            const res = await secureFetch(`${API_BASE}/api/order/payment-status?order_id=${targetOrdId}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.paid && isMounted) {
+                hapticNotify('success');
+                setOrderSuccessModal((prev) => (prev ? { ...prev, isPaidConfirmed: true } : null));
+                fetchUserOrders();
+              }
+            }
+          } catch (e) {}
+        }, 2500);
+        return () => {
+          isMounted = false;
+          clearInterval(interval);
+        };
+      }, [orderSuccessModal, fetchUserOrders]);
+
       // Load real menu & user data from backend
       useEffect(() => {
         async function fetchInitialData() {
@@ -2472,50 +2496,42 @@
                               ord.status !== 'completed' &&
                               ord.status !== 'cancelled' && (
                                 <div className="pt-2 space-y-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      hapticImpact('medium');
-                                      const isClick = String(ord.payment_method || '').toLowerCase().includes('click');
-                                      const link =
-                                        ord.payment_url ||
-                                        (isClick
-                                          ? getClickLink(ord.id, ord.total_amount)
-                                          : getPaymeLink(ord.id, ord.total_amount));
-                                      if (window.Telegram?.WebApp?.openLink) {
-                                        window.Telegram.WebApp.openLink(link);
-                                      } else {
-                                        window.open(link, '_blank');
-                                      }
-                                    }}
-                                    className="w-full py-2.5 px-3 rounded-xl bg-neutral-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-sm"
-                                  >
-                                    <span>
-                                      {String(ord.payment_method || '').toLowerCase().includes('click')
-                                        ? '🔹 Click ilovasida to\'lash'
-                                        : '💳 Payme ilovasida to\'lash'}
-                                    </span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      hapticImpact('medium');
-                                      try {
-                                        await secureFetch(`${API_BASE}/api/order/confirm-payment`, {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ order_id: ord.id }),
-                                        });
-                                        alert('To\'lov tasdiqlandi! Buyurtmangiz oshxona kanaliga yetkazildi.');
-                                        fetchUserOrders();
-                                      } catch (e) {
-                                        alert('Xatolik yuz berdi');
-                                      }
-                                    }}
-                                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
-                                  >
-                                    <span>✅ To'lov qildim (Oshxonaga yuborish)</span>
-                                  </button>
+                                  {ord.payment_status === 'paid' ? (
+                                    <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5">
+                                      <span>✅ To'langan (Oshxonaga qabul qilindi)</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          hapticImpact('medium');
+                                          const isClick = String(ord.payment_method || '').toLowerCase().includes('click');
+                                          const link =
+                                            ord.payment_url ||
+                                            (isClick
+                                              ? getClickLink(ord.id, ord.total_amount)
+                                              : getPaymeLink(ord.id, ord.total_amount));
+                                          if (window.Telegram?.WebApp?.openLink) {
+                                            window.Telegram.WebApp.openLink(link);
+                                          } else {
+                                            window.open(link, '_blank');
+                                          }
+                                        }}
+                                        className="w-full py-2.5 px-3 rounded-xl bg-neutral-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-sm"
+                                      >
+                                        <span>
+                                          {String(ord.payment_method || '').toLowerCase().includes('click')
+                                            ? '🔹 Click ilovasida to\'lash'
+                                            : '💳 Payme ilovasida to\'lash'}
+                                        </span>
+                                      </button>
+                                      <div className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-medium flex items-center justify-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping inline-block flex-shrink-0"></span>
+                                        <span>To'lov kutilmoqda (Kod avtomatik aniqlaydi)</span>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               )}
                           </div>
@@ -2543,66 +2559,66 @@
           {orderSuccessModal && (
             <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center space-y-4 animate-ios-in shadow-2xl">
-                <div className="w-16 h-16 rounded-full bg-[#E50914]/10 text-[#E50914] flex items-center justify-center text-3xl mx-auto">
-                  {orderSuccessModal.paymentUrl ? '💳' : '⏳'}
-                </div>
-                <h3 className="text-lg font-extrabold text-neutral-900">
-                  {orderSuccessModal.paymentUrl
-                    ? 'Buyurtmangiz qabul qilindi!'
-                    : 'Buyurtmangiz kafega yuborildi!'}
-                </h3>
-                <p className="text-xs text-neutral-500 leading-relaxed">
-                  Buyurtma <b>#{orderSuccessModal.orderId}</b> (<b>{formatPrice(orderSuccessModal.total)} so'm</b>) qabul qilindi.
-                  {orderSuccessModal.paymentUrl
-                    ? ' To\'lovni to\'g\'ridan-to\'g\'ri Click yoki Payme ilovasiga o\'tib amalga oshirishingiz mumkin:'
-                    : ' Kafe buyurtmani qabul qilishi bilan «Заказ» bo\'limida holati darhol yangilanadi!'}
-                </p>
+                {orderSuccessModal.isPaidConfirmed ? (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl mx-auto shadow-inner">
+                      ✅
+                    </div>
+                    <h3 className="text-lg font-extrabold text-neutral-900">
+                      To'lov muvaffaqiyatli qabul qilindi!
+                    </h3>
+                    <p className="text-xs text-neutral-600 leading-relaxed">
+                      Buyurtma <b>#{orderSuccessModal.orderId}</b> to'lovi to'liq tasdiqlandi. Buyurtmangiz oshxona filialiga yuborildi va tayyorlanmoqda!
+                    </p>
+                    <div className="py-2.5 px-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 border border-emerald-200">
+                      <span>🍳 Oshxonada tayyorlanmoqda</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-[#E50914]/10 text-[#E50914] flex items-center justify-center text-3xl mx-auto">
+                      {orderSuccessModal.paymentUrl ? '💳' : '⏳'}
+                    </div>
+                    <h3 className="text-lg font-extrabold text-neutral-900">
+                      {orderSuccessModal.paymentUrl
+                        ? "To'lov kutilmoqda..."
+                        : 'Buyurtmangiz kafega yuborildi!'}
+                    </h3>
+                    <p className="text-xs text-neutral-500 leading-relaxed">
+                      Buyurtma <b>#{orderSuccessModal.orderId}</b> (<b>{formatPrice(orderSuccessModal.total)} so'm</b>) qabul qilindi.
+                      {orderSuccessModal.paymentUrl
+                        ? " To'lovni ilova orqali bajaring. Kod to'lovni avtomatik aniqlagach, buyurtma darhol oshxonaga yo'naltiriladi:"
+                        : ' Kafe buyurtmani qabul qilishi bilan «Заказ» bo\'limida holati darhol yangilanadi!'}
+                    </p>
 
-                {orderSuccessModal.paymentUrl && (
-                  <div className="space-y-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hapticImpact('medium');
-                        if (window.Telegram?.WebApp?.openLink) {
-                          window.Telegram.WebApp.openLink(orderSuccessModal.paymentUrl);
-                        } else {
-                          window.open(orderSuccessModal.paymentUrl, '_blank');
-                        }
-                      }}
-                      className="w-full py-3.5 rounded-2xl bg-[#E50914] text-white font-extrabold text-xs shadow-[0_6px_20px_rgba(229,9,20,0.3)] flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                    >
-                      {orderSuccessModal.paymentMethod === 'click' ? (
-                        <>
-                          <span>🔹 Click ilovasida to'lash</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>💳 Payme ilovasida to'lash</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        hapticImpact('medium');
-                        try {
-                          await secureFetch(`${API_BASE}/api/order/confirm-payment`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ order_id: orderSuccessModal.orderId }),
-                          });
-                        } catch (e) {}
-                        alert('To\'lov tasdiqlandi! Buyurtmangiz oshxona kanaliga yetkazildi.');
-                        setOrderSuccessModal(null);
-                        setActiveTab('orders');
-                        fetchUserOrders();
-                      }}
-                      className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-                    >
-                      <span>✅ To'lov qildim (Oshxonaga yuborish)</span>
-                    </button>
-                  </div>
+                    {orderSuccessModal.paymentUrl && (
+                      <div className="space-y-2.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            hapticImpact('medium');
+                            if (window.Telegram?.WebApp?.openLink) {
+                              window.Telegram.WebApp.openLink(orderSuccessModal.paymentUrl);
+                            } else {
+                              window.open(orderSuccessModal.paymentUrl, '_blank');
+                            }
+                          }}
+                          className="w-full py-3.5 rounded-2xl bg-[#E50914] text-white font-extrabold text-xs shadow-[0_6px_20px_rgba(229,9,20,0.3)] flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                        >
+                          {orderSuccessModal.paymentMethod === 'click' ? (
+                            <span>🔹 Click ilovasida to'lash</span>
+                          ) : (
+                            <span>💳 Payme ilovasida to'lash</span>
+                          )}
+                        </button>
+
+                        <div className="py-2.5 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium flex items-center justify-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping inline-block flex-shrink-0"></span>
+                          <span>Kod to'lovni avtomatik tekshirmoqda...</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <button
@@ -2613,9 +2629,9 @@
                     fetchUserOrders();
                   }}
                   className={`w-full py-3.5 rounded-2xl font-bold text-xs transition-colors ${
-                    orderSuccessModal.paymentUrl
-                      ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                      : 'bg-[#E50914] text-white'
+                    orderSuccessModal.isPaidConfirmed || !orderSuccessModal.paymentUrl
+                      ? 'bg-[#E50914] text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                   }`}
                 >
                   📦 Buyurtma holatini kuzatish
