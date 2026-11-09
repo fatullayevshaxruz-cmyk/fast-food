@@ -85,7 +85,7 @@ async def on_startup(dp):
                     "menu_button": {
                         "type": "web_app",
                         "text": "Меню",
-                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=12"},
+                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=13"},
                     }
                 },
                 timeout=aiohttp.ClientTimeout(total=8),

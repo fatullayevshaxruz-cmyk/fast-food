@@ -27,6 +27,11 @@ REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 
 PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN") # Click or Payme token
 
+# ── Click & Payme to'g'ridan-to'g'ri ilovaga kirish (Direct Payment Links) ──
+CLICK_MERCHANT_ID = os.getenv("CLICK_MERCHANT_ID", "54321")
+CLICK_SERVICE_ID  = os.getenv("CLICK_SERVICE_ID", "12345")
+PAYME_MERCHANT_ID = os.getenv("PAYME_MERCHANT_ID", "64b0f0000000000000000000")
+
 # Test provayder tokeni — Render'da PAYMENT_PROVIDER_TOKEN o'rnatilmagan bo'lsa ishlatiladi.
 # Haqiqiy to'lov uchun Render → Environment da PAYMENT_PROVIDER_TOKEN ni haqiqiy token bilan qo'ying.
 _DEFAULT_TEST_PAYMENT_TOKEN = "1650291590:TEST:1780943696815_x3KZ2Ie4RN3hPegD"

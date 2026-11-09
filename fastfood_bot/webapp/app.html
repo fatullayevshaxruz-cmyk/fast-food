@@ -501,6 +501,21 @@
       );
     }
 
+    // ─── Click & Payme Deep Link Helpers ──────────────────────────────
+    function getPaymeLink(orderId, amount) {
+      const merchantId = '64b0f0000000000000000000';
+      const tiyin = Math.round(Number(amount || 0) * 100);
+      const params = `m=${merchantId};ac.order_id=${orderId};a=${tiyin}`;
+      const b64 = btoa(unescape(encodeURIComponent(params)));
+      return `https://checkout.paycom.uz/${b64}`;
+    }
+
+    function getClickLink(orderId, amount) {
+      const serviceId = '12345';
+      const merchantId = '54321';
+      return `https://my.click.uz/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&amount=${amount}&transaction_param=${orderId}`;
+    }
+
     // ─── Reverse Geocode Helper (Always returns human-readable place name, never raw GPS) ───
     async function reverseGeocodePlaceName(la, lo) {
       try {
@@ -1162,27 +1177,23 @@
           });
           const data = await res.json();
 
-          if (data.success && data.invoice_url && tg?.openInvoice) {
-            tg.openInvoice(data.invoice_url, (status) => {
-              setSubmittingOrder(false);
-              if (status === 'paid') {
-                hapticNotify('success');
-                setOrderSuccessModal({
-                  orderId: data.order_id || 'Новый',
-                  total: finalTotal,
-                  payment: paymentMethod.toUpperCase(),
-                });
-                setCart({});
-                fetchUserOrders();
-              }
-            });
-            return;
-          }
-
           if (data.success) {
             hapticNotify('success');
             const newOrdId = data.order_id || Math.floor(100 + Math.random() * 900);
             const newOrdTotal = data.total_amount || finalTotal;
+            const chosenPayUrl = data.payment_url || null;
+
+            // Agar Payme yoki Click tanlangan bo'lsa — to'g'ridan-to'g'ri ilovaga o'tish
+            if (chosenPayUrl) {
+              try {
+                if (window.Telegram?.WebApp?.openLink) {
+                  window.Telegram.WebApp.openLink(chosenPayUrl);
+                } else {
+                  window.open(chosenPayUrl, '_blank');
+                }
+              } catch (openErr) {}
+            }
+
             const createdOrderObj = {
               id: newOrdId,
               status: 'pending',
@@ -1198,6 +1209,7 @@
                 nearestBranchInfo?.nearest_branch?.distance_km ??
                 null,
               payment_method: paymentLabelMap[paymentMethod] || 'Payme',
+              payment_url: chosenPayUrl,
               created_at: new Date().toISOString().replace('T', ' ').slice(0, 16),
               items: cartItems.map((i) => ({
                 product_id: i.id,
@@ -1218,6 +1230,10 @@
               orderId: newOrdId,
               total: newOrdTotal,
               payment: paymentMethod === 'cash' ? 'Наличные' : paymentMethod.toUpperCase(),
+              paymentMethod: paymentMethod,
+              paymentUrl: chosenPayUrl,
+              paymeUrl: data.payme_url || null,
+              clickUrl: data.click_url || null,
             });
             setCart({});
             fetchUserOrders();
@@ -2449,6 +2465,39 @@
                                 Jami: {formatPrice(ord.total_amount)} so'm
                               </span>
                             </div>
+
+                            {/* Direct Payme / Click Payment Action if pending/active */}
+                            {(String(ord.payment_method || '').toLowerCase().includes('payme') ||
+                              String(ord.payment_method || '').toLowerCase().includes('click')) &&
+                              ord.status !== 'completed' &&
+                              ord.status !== 'cancelled' && (
+                                <div className="pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      hapticImpact('medium');
+                                      const isClick = String(ord.payment_method || '').toLowerCase().includes('click');
+                                      const link =
+                                        ord.payment_url ||
+                                        (isClick
+                                          ? getClickLink(ord.id, ord.total_amount)
+                                          : getPaymeLink(ord.id, ord.total_amount));
+                                      if (window.Telegram?.WebApp?.openLink) {
+                                        window.Telegram.WebApp.openLink(link);
+                                      } else {
+                                        window.open(link, '_blank');
+                                      }
+                                    }}
+                                    className="w-full py-2.5 px-3 rounded-xl bg-neutral-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-sm"
+                                  >
+                                    <span>
+                                      {String(ord.payment_method || '').toLowerCase().includes('click')
+                                        ? '🔹 Click ilovasida to\'lash'
+                                        : '💳 Payme ilovasida to\'lash'}
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         );
                       })}
@@ -2473,17 +2522,49 @@
           {/* ─── Order Success Modal ─── */}
           {orderSuccessModal && (
             <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center space-y-4 animate-ios-in">
+              <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center space-y-4 animate-ios-in shadow-2xl">
                 <div className="w-16 h-16 rounded-full bg-[#E50914]/10 text-[#E50914] flex items-center justify-center text-3xl mx-auto">
-                  ⏳
+                  {orderSuccessModal.paymentUrl ? '💳' : '⏳'}
                 </div>
                 <h3 className="text-lg font-extrabold text-neutral-900">
-                  Buyurtmangiz kafega yuborildi!
+                  {orderSuccessModal.paymentUrl
+                    ? 'Buyurtmangiz qabul qilindi!'
+                    : 'Buyurtmangiz kafega yuborildi!'}
                 </h3>
                 <p className="text-xs text-neutral-500 leading-relaxed">
-                  Buyurtma <b>#{orderSuccessModal.orderId}</b> (<b>{formatPrice(orderSuccessModal.total)} so'm</b>) Darxan Burger oshxonasiga yuborildi.
-                  Kafe buyurtmani qabul qilishi bilan <b>«Заказ»</b> bo'limida holati darhol yangilanadi!
+                  Buyurtma <b>#{orderSuccessModal.orderId}</b> (<b>{formatPrice(orderSuccessModal.total)} so'm</b>) qabul qilindi.
+                  {orderSuccessModal.paymentUrl
+                    ? ' To\'lovni to\'g\'ridan-to\'g\'ri Click yoki Payme ilovasiga o\'tib amalga oshirishingiz mumkin:'
+                    : ' Kafe buyurtmani qabul qilishi bilan «Заказ» bo\'limida holati darhol yangilanadi!'}
                 </p>
+
+                {orderSuccessModal.paymentUrl && (
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticImpact('medium');
+                        if (window.Telegram?.WebApp?.openLink) {
+                          window.Telegram.WebApp.openLink(orderSuccessModal.paymentUrl);
+                        } else {
+                          window.open(orderSuccessModal.paymentUrl, '_blank');
+                        }
+                      }}
+                      className="w-full py-3.5 rounded-2xl bg-[#E50914] text-white font-extrabold text-xs shadow-[0_6px_20px_rgba(229,9,20,0.3)] flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    >
+                      {orderSuccessModal.paymentMethod === 'click' ? (
+                        <>
+                          <span>🔹 Click ilovasida to'lash</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>💳 Payme ilovasida to'lash</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
@@ -2491,7 +2572,11 @@
                     setActiveTab('orders');
                     fetchUserOrders();
                   }}
-                  className="w-full py-3.5 rounded-2xl bg-[#E50914] text-white font-bold text-sm"
+                  className={`w-full py-3.5 rounded-2xl font-bold text-xs transition-colors ${
+                    orderSuccessModal.paymentUrl
+                      ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      : 'bg-[#E50914] text-white'
+                  }`}
                 >
                   📦 Buyurtma holatini kuzatish
                 </button>

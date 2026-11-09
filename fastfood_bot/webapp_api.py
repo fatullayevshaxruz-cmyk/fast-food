@@ -659,221 +659,157 @@ async def api_order_create(request):
                 pass
 
         # ── 6. Buyurtmani DB ga saqlash ───────────────────────────────
-        is_online = "Online" in payment_method or "online" in payment_method.lower()
+        pay_low = payment_method.lower()
+        is_click = "click" in pay_low
+        is_payme = "payme" in pay_low
+        is_online = is_click or is_payme or ("online" in pay_low)
 
-        if is_online:
-            # Online to'lov: avval invoice yaratamiz, to'lov muvaffaqiyatli bo'lganda order saved bo'ladi
-            # Telegram Payments API orqali invoice link yaratish
-            from config import PAYMENT_PROVIDER_TOKEN, ONLINE_PAYMENT_ENABLED
-            bot = request.app.get('bot')
-
-            if not bot or not ONLINE_PAYMENT_ENABLED or not PAYMENT_PROVIDER_TOKEN:
-                # Online to'lov yoqilmagan — oddiy naqd buyurtma sifatida qabul qilamiz
-                order_id = await create_order(
-                    user_id=user_id,
-                    total_amount=total_amount,
-                    address=address or "Manzil kiritilmagan",
-                    payment_method="Naqd (Yetkazib berilganda)",
-                    latitude=lat,
-                    longitude=lon,
-                    phone_number=phone,
-                    note=None,
-                    delivery_type=delivery_type,
-                    promo_code=promo_code if discount_amt > 0 else None,
-                    discount_amount=discount_amt,
-                )
-                await add_order_items(order_id, items)
-                await clear_cart(user_id)
-                # Naqd sifatida qabul qilindi — bildirishnomalar yuborilsin
-                is_online = False
-                payment_method = "Naqd (Yetkazib berilganda)"
-            else:
-                # Invoice yaratish va WebApp ga qaytarish
-                try:
-                    from aiogram.types import LabeledPrice
-
-                    if lang == "ru":
-                        inv_title = "🍔 Darxan Burger — Заказ"
-                        inv_desc = f"Товаров: {len(items)} шт.\nИтого: {total_amount:,} сум"
-                    elif lang == "en":
-                        inv_title = "🍔 Darxan Burger — Order"
-                        inv_desc = f"Items: {len(items)}\nTotal: {total_amount:,} sum"
-                    else:
-                        inv_title = "🍔 Darxan Burger Buyurtmasi"
-                        inv_desc = f"Buyurtmangiz: {len(items)} ta mahsulot\nJami: {total_amount:,} so'm"
-
-                    prices = [LabeledPrice(label="Buyurtma", amount=total_amount * 100)]
-                    raw_payload = f"webapp:{user_id}:{delivery_type}:{discount_pct}:{promo_code or ''}"
-                    payload_str = sign_invoice_payload(raw_payload)
-
-                    # Savatni state da saqlash — payment handler uchun
-                    # Avval savatni tozalamasdan qoldiramiz — successful_payment handler oladi
-
-                    invoice_link = await bot.create_invoice_link(
-                        title=inv_title,
-                        description=inv_desc,
-                        payload=payload_str,
-                        provider_token=PAYMENT_PROVIDER_TOKEN,
-                        currency="UZS",
-                        prices=prices,
-                    )
-
-                    # Foydalanuvchiga savatni va buyurtma ma'lumotlarini
-                    # FSM state orqali saqlaymiz (successful_payment handler ishlatadi)
-                    try:
-                        dp = request.app.get('dp')
-                        state = dp.current_state(chat=user_id, user=user_id)
-                        await state.update_data(
-                            delivery_type=delivery_type,
-                            address=address or "Manzil kiritilmagan",
-                            phone=phone,
-                            note=None,
-                            lat=lat,
-                            lon=lon,
-                            discount_percent=discount_pct,
-                            promo_code=promo_code,
-                            payment_method=payment_method,
-                        )
-                    except Exception as e:
-                        logging.warning(f"FSM state saqlashda xatolik: {e}")
-
-                    return add_cors_headers(web.json_response({
-                        'success': True,
-                        'invoice_url': invoice_link,
-                        'total_amount': total_amount
-                    }))
-
-                except Exception as e:
-                    logging.error(f"Invoice yaratishda xatolik: {e}", exc_info=True)
-                    # Fallback: naqd buyurtma sifatida qabul qilish
-                    order_id = await create_order(
-                        user_id=user_id,
-                        total_amount=total_amount,
-                        address=address or "Manzil kiritilmagan",
-                        payment_method="Naqd (Yetkazib berilganda)",
-                        latitude=lat,
-                        longitude=lon,
-                        phone_number=phone,
-                        note=None,
-                        delivery_type=delivery_type,
-                        promo_code=promo_code if discount_amt > 0 else None,
-                        discount_amount=discount_amt,
-                    )
-                    await add_order_items(order_id, items)
-                    await clear_cart(user_id)
-                    # Naqd sifatida qabul qilindi — bildirishnomalar yuborilsin
-                    is_online = False
-                    payment_method = "Naqd (Yetkazib berilganda)"
+        if is_click:
+            canonical_payment_method = "💳 Online to'lov (Click)"
+        elif is_payme:
+            canonical_payment_method = "💳 Online to'lov (Payme)"
         else:
-            # Naqd to'lov — darhol buyurtma yaratish
-            order_id = await create_order(
-                user_id=user_id,
+            canonical_payment_method = payment_method or "Naqd (Yetkazib berilganda)"
+
+        order_id = await create_order(
+            user_id=user_id,
+            total_amount=total_amount,
+            address=address or "Manzil kiritilmagan",
+            payment_method=canonical_payment_method,
+            latitude=lat,
+            longitude=lon,
+            phone_number=phone,
+            note=None,
+            delivery_type=delivery_type,
+            promo_code=promo_code if discount_amt > 0 else None,
+            discount_amount=discount_amt,
+            branch_id=branch_id,
+            branch_name=branch_name,
+            distance_km=distance_km,
+        )
+        await add_order_items(order_id, items)
+        await clear_cart(user_id)
+
+        # ── 7. Click va Payme to'lov havolalarini yaratish ───────────
+        from utils.payment_links import generate_click_link, generate_payme_link
+        click_url = generate_click_link(order_id, total_amount)
+        payme_url = generate_payme_link(order_id, total_amount)
+        chosen_payment_url = click_url if is_click else (payme_url if is_payme else None)
+
+        # ── 8. Telegram bot orqali eng yaqin filialga yo'naltirish ────
+        bot = request.app.get('bot')
+        if bot:
+            class SimpleUser:
+                def __init__(self, uid, name, username=None):
+                    self.id = uid
+                    self.full_name = name
+                    self.username = username
+
+            full_name = user_row['full_name'] if user_row else "Mijoz"
+            username = user_row['username'] if user_row else None
+            tg_user = SimpleUser(user_id, full_name, username)
+
+            from utils.geo_routing import route_order_to_nearest_branch
+            asyncio.create_task(route_order_to_nearest_branch(
+                bot=bot,
+                order_id=order_id,
                 total_amount=total_amount,
-                address=address or "Manzil kiritilmagan",
-                payment_method=payment_method,
-                latitude=lat,
-                longitude=lon,
-                phone_number=phone,
+                user=tg_user,
+                items=items,
+                phone=phone,
+                address=address,
+                client_lat=lat,
+                client_lon=lon,
                 note=None,
                 delivery_type=delivery_type,
+                payment_method=canonical_payment_method,
                 promo_code=promo_code if discount_amt > 0 else None,
-                discount_amount=discount_amt,
-                branch_id=branch_id,
-                branch_name=branch_name,
-                distance_km=distance_km,
+                discount_pct=discount_pct,
+                discount_amt=discount_amt,
+                precomputed_branch=nearest_branch,
+            ))
+
+            receipt = "".join(
+                get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
+                         total=i['price'] * i['quantity']) + "\n"
+                for i in items
             )
-            await add_order_items(order_id, items)
-            await clear_cart(user_id)
 
-        # ── 7. Telegram bot orqali eng yaqin filialga yo'naltirish ────
-        # Online to'lov uchun bu qadam o'tkazib yuboriladi —
-        # bildirishnoma successful_payment handler tomonidan yuboriladi
-        if not is_online:
-            bot = request.app.get('bot')
-            if bot:
-                class SimpleUser:
-                    def __init__(self, uid, name, username=None):
-                        self.id = uid
-                        self.full_name = name
-                        self.username = username
-
-                full_name = user_row['full_name'] if user_row else "Mijoz"
-                username = user_row['username'] if user_row else None
-                tg_user = SimpleUser(user_id, full_name, username)
-
-                from utils.geo_routing import route_order_to_nearest_branch
-                asyncio.create_task(route_order_to_nearest_branch(
-                    bot=bot,
-                    order_id=order_id,
-                    total_amount=total_amount,
-                    user=tg_user,
-                    items=items,
-                    phone=phone,
-                    address=address,
-                    client_lat=lat,
-                    client_lon=lon,
-                    note=None,
-                    delivery_type=delivery_type,
-                    payment_method=payment_method,
-                    promo_code=promo_code if discount_amt > 0 else None,
-                    discount_pct=discount_pct,
-                    discount_amt=discount_amt,
-                    precomputed_branch=nearest_branch,
-                ))
-
-                receipt = "".join(
-                    get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
-                             total=i['price'] * i['quantity']) + "\n"
-                    for i in items
+            discount_text = (
+                get_text(
+                    "promo_line", lang,
+                    code=promo_code or "PROMO",
+                    pct=discount_pct,
+                    items_total=items_total,
+                    amt=discount_amt,
+                    after_discount=after_discount,
                 )
+                if discount_amt > 0 else ""
+            )
 
-                discount_text = (
-                    get_text(
-                        "promo_line", lang,
-                        code=promo_code or "PROMO",
-                        pct=discount_pct,
-                        items_total=items_total,
-                        amt=discount_amt,
-                        after_discount=after_discount,
+            if delivery_type == "eat_in":
+                success_text = get_text("order_success_eat_in", lang,
+                                        order_id=order_id,
+                                        address=address,
+                                        receipt=receipt,
+                                        discount=discount_text,
+                                        total=after_discount,
+                                        note="")
+            else:
+                success_text = get_text("order_success_delivery", lang,
+                                        order_id=order_id,
+                                        receipt=receipt,
+                                        discount=discount_text,
+                                        delivery_fee=delivery_fee_val,
+                                        total=total_amount,
+                                        note="")
+
+            try:
+                from keyboards.main_menu import get_admin_main_menu, get_user_main_menu
+                is_admin = str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
+                main_markup = get_admin_main_menu(lang) if is_admin else get_user_main_menu(lang)
+
+                if is_online:
+                    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                    pay_kb = InlineKeyboardMarkup(row_width=1)
+                    if is_click:
+                        pay_kb.add(InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url))
+                        pay_kb.add(InlineKeyboardButton("💳 Payme orqali to'lash", url=payme_url))
+                    else:
+                        pay_kb.add(InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url))
+                        pay_kb.add(InlineKeyboardButton("🔹 Click orqali to'lash", url=click_url))
+
+                    online_instructions = (
+                        "\n\n👇 <b>To'lovni amalga oshirish uchun quyidagi tugmani bosing:</b>"
+                        if lang == "uz"
+                        else ("\n\n👇 <b>Нажмите кнопку ниже для быстрой оплаты:</b>" if lang == "ru"
+                              else "\n\n👇 <b>Tap the button below to pay directly:</b>")
                     )
-                    if discount_amt > 0 else ""
-                )
 
-                if delivery_type == "eat_in":
-                    success_text = get_text("order_success_eat_in", lang,
-                                            order_id=order_id,
-                                            address=address,
-                                            receipt=receipt,
-                                            discount=discount_text,
-                                            total=after_discount,
-                                            note="")
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=success_text + online_instructions,
+                        reply_markup=pay_kb,
+                        parse_mode="HTML"
+                    )
                 else:
-                    success_text = get_text("order_success_delivery", lang,
-                                            order_id=order_id,
-                                            receipt=receipt,
-                                            discount=discount_text,
-                                            delivery_fee=delivery_fee_val,
-                                            total=total_amount,
-                                            note="")
-
-                try:
-                    from keyboards.main_menu import get_admin_main_menu, get_user_main_menu
-                    is_admin = str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
-                    markup = get_admin_main_menu(lang) if is_admin else get_user_main_menu(lang)
-                    
                     await bot.send_message(
                         chat_id=user_id,
                         text=success_text,
-                        reply_markup=markup,
+                        reply_markup=main_markup,
                         parse_mode="HTML"
                     )
-                except Exception as e:
-                    logging.error(f"Mijozga bot orqali xabar yuborishda xato: {e}")
+            except Exception as e:
+                logging.error(f"Mijozga bot orqali xabar yuborishda xato: {e}")
 
         return add_cors_headers(web.json_response({
             'success': True,
-            'order_id': order_id if not is_online else 0,
+            'order_id': order_id,
             'total_amount': total_amount,
+            'payment_method': 'click' if is_click else ('payme' if is_payme else 'cash'),
+            'payment_url': chosen_payment_url,
+            'payme_url': payme_url,
+            'click_url': click_url,
             'nearest_branch': nearest_branch,
             'branch_name': branch_name,
             'distance_km': distance_km,

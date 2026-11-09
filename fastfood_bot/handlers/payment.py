@@ -217,42 +217,118 @@ async def process_payment_online(message: types.Message, state: FSMContext):
             await state.finish()
             return
 
-        prices = [LabeledPrice(label="Buyurtma", amount=total_amount * 100)]
-        payload = _build_payload(user_id, data)
-        await state.update_data(payment_method=ONLINE_METHOD)
+        address = data.get("address") or "Manzil kiritilmagan"
+        phone = data.get("phone")
+        note = data.get("note")
+        promo_code = data.get("promo_code")
 
-        if lang == "ru":
-            inv_title = "🍔 Darxan Burger — Заказ"
-            inv_desc = f"Товаров: {len(items)} шт.\nИтого: {total_amount:,} сум"
-        elif lang == "en":
-            inv_title = "🍔 Darxan Burger — Order"
-            inv_desc = f"Items: {len(items)}\nTotal: {total_amount:,} sum"
-        else:
-            inv_title = "🍔 Darxan Burger Buyurtmasi"
-            inv_desc = f"Buyurtmangiz: {len(items)} ta mahsulot\nJami: {total_amount:,} so'm"
+        # ── Buyurtmani bazada yaratish ─────────────────────────────
+        order_id = await create_order(
+            user_id=user_id,
+            total_amount=total_amount,
+            address=address,
+            payment_method=ONLINE_METHOD,
+            latitude=data.get("lat"),
+            longitude=data.get("lon"),
+            phone_number=phone,
+            note=note,
+            delivery_type=delivery_type,
+            promo_code=promo_code,
+            discount_amount=discount_amt,
+        )
+        await add_order_items(order_id, items)
+        await clear_cart(user_id)
+        await state.finish()
 
-        await message.bot.send_invoice(
-            chat_id=user_id,
-            title=inv_title,
-            description=inv_desc,
-            payload=payload,
-            provider_token=PAYMENT_PROVIDER_TOKEN,
-            currency="UZS",
-            prices=prices,
-            start_parameter="fastfood_payment",
-            need_name=False,
-            need_phone_number=False,
-            need_email=False,
-            need_shipping_address=False,
-            is_flexible=False,
-            protect_content=False,
+        # ── Click va Payme to'lov havolalari (Deep Links) ──────────
+        from utils.payment_links import generate_click_link, generate_payme_link
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+
+        click_url = generate_click_link(order_id, total_amount)
+        payme_url = generate_payme_link(order_id, total_amount)
+
+        # Filial kanaliga xabar yuborish
+        from utils.geo_routing import route_order_to_nearest_branch
+        asyncio.create_task(route_order_to_nearest_branch(
+            bot=message.bot,
+            order_id=order_id,
+            total_amount=total_amount,
+            user=message.from_user,
+            items=items,
+            phone=phone,
+            address=address,
+            client_lat=data.get("lat"),
+            client_lon=data.get("lon"),
+            note=note,
+            delivery_type=delivery_type,
+            payment_method=ONLINE_METHOD,
+            promo_code=promo_code if discount_amt > 0 else None,
+            discount_pct=discount_pct,
+            discount_amt=discount_amt,
+        ))
+
+        # Chek (til bo'yicha)
+        receipt = "".join(
+            get_text("item_line", lang, name=get_product_name(i, lang), qty=i['quantity'],
+                     total=i['price'] * i['quantity']) + "\n"
+            for i in items
         )
 
-        from aiogram.types import ReplyKeyboardRemove
+        note_text = f"\n  📝 <i>{note}</i>" if note else ""
+        discount_text = (
+            get_text(
+                "promo_line", lang,
+                code=promo_code or "PROMO",
+                pct=discount_pct,
+                items_total=items_total,
+                amt=discount_amt,
+                after_discount=after_discount,
+            )
+            if discount_amt > 0 else ""
+        )
+
+        if delivery_type == "eat_in":
+            success_text = get_text("order_success_eat_in", lang,
+                                    order_id=order_id,
+                                    address=address,
+                                    receipt=receipt,
+                                    discount=discount_text,
+                                    total=after_discount,
+                                    note=note_text)
+        else:
+            success_text = get_text("order_success_delivery", lang,
+                                    order_id=order_id,
+                                    receipt=receipt,
+                                    discount=discount_text,
+                                    delivery_fee=delivery_fee,
+                                    total=total_amount,
+                                    note=note_text)
+
+        pay_kb = InlineKeyboardMarkup(row_width=1)
+        pay_kb.add(
+            InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url),
+            InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url),
+        )
+
+        pay_prompt = (
+            "\n\n👇 <b>To'lovni amalga oshirish uchun qulay ilovani tanlang:</b>"
+            if lang == "uz"
+            else ("\n\n👇 <b>Выберите удобное приложение для быстрой оплаты:</b>" if lang == "ru"
+                  else "\n\n👇 <b>Choose your preferred app for instant payment:</b>")
+        )
+
+        # Foydalanuvchiga chek va to'lov havolalarini yuborish
         await message.answer(
-            get_text("invoice_sent", lang),
-            reply_markup=ReplyKeyboardRemove(),
+            success_text + pay_prompt,
+            reply_markup=pay_kb,
             parse_mode="HTML",
+        )
+
+        # Asosiy menyu klaviaturasini qayta chiqarish
+        menu_kb = await _get_menu_for_user(user_id)
+        await message.answer(
+            "🍔 Asosiy menyu:" if lang == "uz" else ("🍔 Главное меню:" if lang == "ru" else "🍔 Main menu:"),
+            reply_markup=menu_kb,
         )
 
     except Exception as e:
