@@ -361,7 +361,7 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
         )
         approval_kb = get_cafe_approval_keyboard(order_id)
         try:
-            await asyncio.wait_for(
+            sent_msg = await asyncio.wait_for(
                 _send_to_channel(
                     bot, channel_to_send,
                     cafe_channel_msg,
@@ -371,6 +371,10 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
                 ),
                 timeout=_CHANNEL_TIMEOUT
             )
+            # Mijoz 1 daqiqa ichida bekor qilsa, shu xabar yangilanadi
+            from utils.order_cancel import register_channel_message, mark_if_already_cancelled
+            register_channel_message(order_id, sent_msg)
+            await mark_if_already_cancelled(bot, order_id)
         except Exception as e:
             log.error(f"ADMIN_CHANNEL_ID ({channel_to_send}) ga yuborishda xato: {e}")
 
@@ -507,11 +511,13 @@ async def _send_to_channel(bot, channel_id, caption: str, photo_urls: list,
                     keyin asosiy matn + reply_markup;
                     agar reply_markup bo'lmasa: media_group (birinchisida caption).
     Keyin agar send_location=True va koordinatlar bo'lsa lokatsiya yuboriladi.
+    Qaytaradi: reply_markup biriktirilgan asosiy xabar (yoki None).
     """
+    main_msg = None
     if not photo_urls:
-        await bot.send_message(channel_id, caption, parse_mode="HTML", reply_markup=reply_markup)
+        main_msg = await bot.send_message(channel_id, caption, parse_mode="HTML", reply_markup=reply_markup)
     elif len(photo_urls) == 1:
-        await _safe_send_photo(bot, channel_id, photo_urls[0], caption, reply_markup=reply_markup)
+        main_msg = await _safe_send_photo(bot, channel_id, photo_urls[0], caption, reply_markup=reply_markup)
     else:
         photos_to_send = photo_urls[:10]
         if reply_markup is not None:
@@ -525,7 +531,7 @@ async def _send_to_channel(bot, channel_id, caption: str, photo_urls: list,
             except Exception:
                 pass
             # 2) Asosiy buyurtma ma'lumoti + Inline tugmalarni yuboramiz
-            await bot.send_message(channel_id, caption, parse_mode="HTML", reply_markup=reply_markup)
+            main_msg = await bot.send_message(channel_id, caption, parse_mode="HTML", reply_markup=reply_markup)
         else:
             media = types.MediaGroup()
             for idx, url in enumerate(photos_to_send):
@@ -545,14 +551,16 @@ async def _send_to_channel(bot, channel_id, caption: str, photo_urls: list,
         except Exception:
             pass
 
+    return main_msg
+
 
 async def _safe_send_photo(bot, channel_id, photo_url: str, caption: str, reply_markup=None):
     """Rasmni xavfsiz yuborish — ishlamasa faqat matn."""
     try:
-        await bot.send_photo(
+        return await bot.send_photo(
             channel_id, photo=photo_url,
             caption=caption, parse_mode="HTML",
             reply_markup=reply_markup
         )
     except Exception:
-        await bot.send_message(channel_id, caption, parse_mode="HTML", reply_markup=reply_markup)
+        return await bot.send_message(channel_id, caption, parse_mode="HTML", reply_markup=reply_markup)

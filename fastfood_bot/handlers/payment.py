@@ -325,7 +325,7 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         )
 
         # Foydalanuvchiga chek va to'lov havolalarini yuborish
-        await message.answer(
+        pay_msg = await message.answer(
             success_text + pay_prompt,
             reply_markup=pay_kb,
             parse_mode="HTML",
@@ -337,6 +337,11 @@ async def process_payment_online(message: types.Message, state: FSMContext):
             "🍔 Asosiy menyu:" if lang == "uz" else ("🍔 Главное меню:" if lang == "ru" else "🍔 Main menu:"),
             reply_markup=menu_kb,
         )
+
+        # ❌ 1 daqiqalik "Buyurtmani bekor qilish" tugmasi
+        from utils.order_cancel import send_customer_cancel_button
+        await send_customer_cancel_button(message.bot, user_id, order_id, lang,
+                                          related_message_ids=[pay_msg.message_id])
 
     except Exception as e:
         log.error(f"Invoice yuborishda xatolik: {e}", exc_info=True)
@@ -453,9 +458,9 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
         after_discount = items_total - discount_amt
         delivery_fee   = max(0, total_amount - after_discount) if delivery_type == "delivery" else 0
 
-        branch_id   = data.get("branch_id")
-        branch_name = data.get("branch_name")
-        distance_km = data.get("distance_km")
+        branch_id   = state_data.get("branch_id")
+        branch_name = state_data.get("branch_name")
+        distance_km = state_data.get("distance_km")
         if (not branch_id or not branch_name) and lat is not None and lon is not None:
             try:
                 from utils.geo_routing import find_nearest_branch
@@ -585,6 +590,14 @@ async def check_payment_callback(call: types.CallbackQuery):
 
     order_d = dict(order)
     payment_status = str(order_d.get("payment_status") or "unpaid")
+
+    if order_d.get("status") == "cancelled" and payment_status != "paid":
+        await call.answer("❌ Bu buyurtma bekor qilingan.", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return
 
     if payment_status == "paid":
         from utils.order_dispatcher import dispatch_paid_order_to_channel

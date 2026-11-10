@@ -264,6 +264,10 @@ async def payme_webhook_handler(request: web.Request) -> web.Response:
             return web.json_response(
                 {"id": rpc_id, "error": {"code": -31051, "message": "Buyurtma allaqachon to'langan"}},
             )
+        if order_dict.get("status") == "cancelled" and method in ("CheckPerformTransaction", "CreateTransaction"):
+            return web.json_response(
+                {"id": rpc_id, "error": {"code": -31052, "message": "Buyurtma bekor qilingan"}},
+            )
 
         expected_tiyin = int(order_dict["total_amount"]) * 100
         incoming_tiyin = int(params.get("amount") or 0)

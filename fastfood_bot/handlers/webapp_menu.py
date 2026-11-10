@@ -305,14 +305,21 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
                 InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"),
             )
             pay_prompt = "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni bajaring:"
-            await message.answer(success_text + pay_prompt, reply_markup=pay_kb, parse_mode="HTML")
+            pay_msg = await message.answer(success_text + pay_prompt, reply_markup=pay_kb, parse_mode="HTML")
             await message.answer("🍔 Asosiy menyu:", reply_markup=_get_menu_for_user(user_id, lang))
+            related_ids = [pay_msg.message_id]
         else:
             await message.answer(
                 success_text,
                 reply_markup=_get_menu_for_user(user_id, lang),
                 parse_mode="HTML",
             )
+            related_ids = []
+
+        # ❌ 1 daqiqalik "Buyurtmani bekor qilish" tugmasi
+        from utils.order_cancel import send_customer_cancel_button
+        await send_customer_cancel_button(message.bot, user_id, order_id, lang,
+                                          related_message_ids=related_ids)
 
         log.info(
             f"WebApp buyurtma yaratildi: #{order_id}, user={user_id}, "

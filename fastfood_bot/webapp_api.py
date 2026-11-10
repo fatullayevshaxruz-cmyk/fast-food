@@ -798,12 +798,13 @@ async def api_order_create(request):
                         )
                     )
 
-                    await bot.send_message(
+                    pay_msg = await bot.send_message(
                         chat_id=user_id,
                         text=success_text + online_instructions,
                         reply_markup=pay_kb,
                         parse_mode="HTML"
                     )
+                    related_ids = [pay_msg.message_id]
                 else:
                     await bot.send_message(
                         chat_id=user_id,
@@ -811,6 +812,12 @@ async def api_order_create(request):
                         reply_markup=main_markup,
                         parse_mode="HTML"
                     )
+                    related_ids = []
+
+                # ❌ 1 daqiqalik "Buyurtmani bekor qilish" tugmasi
+                from utils.order_cancel import send_customer_cancel_button
+                await send_customer_cancel_button(bot, user_id, order_id, lang,
+                                                  related_message_ids=related_ids)
             except Exception as e:
                 logging.error(f"Mijozga bot orqali xabar yuborishda xato: {e}")
 

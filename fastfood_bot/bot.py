@@ -119,6 +119,8 @@ if __name__ == '__main__':
     register_menu_handlers(dp)
     register_cart_handlers(dp)
     register_order_handlers(dp)
+    from utils.order_cancel import register_order_cancel_handlers
+    register_order_cancel_handlers(dp)  # ❌ Mijoz 1 daqiqa ichida bekor qilishi
     register_admin_handlers(dp)
     register_profile_handlers(dp)
     register_dynamic_menu_handlers(dp)

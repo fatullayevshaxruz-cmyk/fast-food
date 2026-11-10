@@ -568,6 +568,10 @@ async def finish_order(message: types.Message, state: FSMContext,
             parse_mode="HTML"
         )
 
+        # ❌ 1 daqiqalik "Buyurtmani bekor qilish" tugmasi
+        from utils.order_cancel import send_customer_cancel_button
+        await send_customer_cancel_button(message.bot, user_id, order_id, lang)
+
     except Exception as e:
         import traceback
         traceback.print_exc()
