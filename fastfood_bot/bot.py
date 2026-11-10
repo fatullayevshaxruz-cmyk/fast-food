@@ -203,6 +203,10 @@ if __name__ == '__main__':
         app['dp'] = dp
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
+        async def terms_handler(request):
+            return web.FileResponse(os.path.join(webapp_dir, 'terms.html'))
+        app.router.add_get('/terms', terms_handler)
+        app.router.add_get('/oferta', terms_handler)
         app.router.add_get('/api/menu', api_menu_handler)   # 🌐 WebApp menyu API
         app.router.add_options('/api/menu', api_menu_handler)  # CORS preflight
 

@@ -311,6 +311,19 @@ async def payme_webhook_handler(request: web.Request) -> web.Response:
                 return web.json_response(
                     {"id": rpc_id, "error": {"code": -31003, "message": "Tranzaksiya topilmadi"}},
                 )
+            
+            # Agar allaqachon bajarilgan bo'lsa (idempotency)
+            if order.get("payment_status") == "paid":
+                perform_time = int(time.time() * 1000)
+                return web.json_response({
+                    "id": rpc_id,
+                    "result": {
+                        "transaction": str(order["id"]),
+                        "perform_time": perform_time,
+                        "state": 2,
+                    },
+                })
+
             await conn.execute(
                 "UPDATE orders SET payment_status = 'paid' WHERE id = $1",
                 order["id"],
@@ -325,14 +338,82 @@ async def payme_webhook_handler(request: web.Request) -> web.Response:
         except Exception as disp_err:
             log.error(f"Payme dispatch order error: {disp_err}")
 
+        perform_time = int(time.time() * 1000)
         return web.json_response({
             "id": rpc_id,
             "result": {
                 "transaction": str(order["id"]),
-                "perform_time": int(os.times().elapsed * 1000) if hasattr(os, "times") else 1,
+                "perform_time": perform_time,
                 "state": 2,
             },
         })
+
+    if method == "CheckTransaction":
+        payme_tx_id = str(params.get("id") or "")
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            order = await conn.fetchrow(
+                "SELECT * FROM orders WHERE transaction_id = $1 LIMIT 1",
+                payme_tx_id,
+            )
+            if not order:
+                return web.json_response(
+                    {"id": rpc_id, "error": {"code": -31003, "message": "Tranzaksiya topilmadi"}},
+                )
+            
+            order_dict = dict(order)
+            state = 2 if order_dict.get("payment_status") == "paid" else (
+                -1 if order_dict.get("status") == "cancelled" else 1
+            )
+            create_time = int(time.time() * 1000)
+            perform_time = create_time if state == 2 else 0
+            cancel_time = create_time if state == -1 else 0
+            reason = 1 if state == -1 else None
+
+            return web.json_response({
+                "id": rpc_id,
+                "result": {
+                    "create_time": create_time,
+                    "perform_time": perform_time,
+                    "cancel_time": cancel_time,
+                    "transaction": str(order_dict["id"]),
+                    "state": state,
+                    "reason": reason,
+                },
+            })
+
+    if method == "CancelTransaction":
+        payme_tx_id = str(params.get("id") or "")
+        reason = params.get("reason")
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            order = await conn.fetchrow(
+                "SELECT * FROM orders WHERE transaction_id = $1 LIMIT 1",
+                payme_tx_id,
+            )
+            if not order:
+                return web.json_response(
+                    {"id": rpc_id, "error": {"code": -31003, "message": "Tranzaksiya topilmadi"}},
+                )
+            
+            order_dict = dict(order)
+            current_pay_status = order_dict.get("payment_status")
+            cancel_state = -2 if current_pay_status == "paid" else -1
+
+            await conn.execute(
+                "UPDATE orders SET status = 'cancelled', payment_status = 'cancelled' WHERE id = $1",
+                order_dict["id"],
+            )
+
+            cancel_time = int(time.time() * 1000)
+            return web.json_response({
+                "id": rpc_id,
+                "result": {
+                    "transaction": str(order_dict["id"]),
+                    "cancel_time": cancel_time,
+                    "state": cancel_state,
+                },
+            })
 
     return web.json_response(
         {"id": rpc_id, "error": {"code": -32601, "message": "Method not found"}},
