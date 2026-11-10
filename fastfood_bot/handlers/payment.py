@@ -126,21 +126,21 @@ def _parse_payload(payload: str) -> dict:
 # ── To'lov usulini so'rash ────────────────────────────────────────────
 
 async def ask_payment_method(message: types.Message, state: FSMContext):
-    from config import ONLINE_PAYMENT_ENABLED
+    from utils.payment_links import is_online_payment_available
     lang = await get_user_language(message.from_user.id)
 
     await OrderStates.waiting_for_payment_method.set()
 
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 
-    # 💳 Karta (online to'lov) faqat yoqilgan va token mavjud bo'lganda ko'rsatiladi
-    if ONLINE_PAYMENT_ENABLED and _has_payment_token():
+    # 💳 Karta (online to'lov) faqat Payme yoki Click haqiqiy ID'lari sozlangan bo'lsa ko'rsatiladi
+    if is_online_payment_available():
         markup.row(
             KeyboardButton(get_text("btn_pay_cash", lang)),
             KeyboardButton(get_text("btn_pay_online", lang)),
         )
     else:
-        log.warning("Online to'lov o'chiq: ONLINE_PAYMENT_ENABLED yoki PAYMENT_PROVIDER_TOKEN yo'q")
+        log.info("Online to'lov yashirildi: PAYME_MERCHANT_ID / CLICK_MERCHANT_ID sozlanmagan")
         markup.add(KeyboardButton(get_text("btn_pay_cash", lang)))
 
     markup.add(KeyboardButton(get_text("btn_cancel", lang)))
@@ -162,6 +162,20 @@ async def process_payment_cash(message: types.Message, state: FSMContext):
 
 async def process_payment_online(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
+
+    # Eski klaviaturasi qolgan mijozlar uchun: online to'lov sozlanmagan bo'lsa buyurtma yaratilmaydi
+    from utils.payment_links import is_online_payment_available
+    if not is_online_payment_available():
+        await message.answer(
+            "⚠️ Online to'lov vaqtincha mavjud emas. Iltimos, naqd to'lovni tanlang."
+            if lang == "uz" else
+            ("⚠️ Онлайн-оплата временно недоступна. Пожалуйста, выберите оплату наличными."
+             if lang == "ru" else
+             "⚠️ Online payment is temporarily unavailable. Please choose cash."),
+        )
+        await ask_payment_method(message, state)
+        return
+
     try:
         user_id = message.from_user.id
         data = await state.get_data()
@@ -259,12 +273,10 @@ async def process_payment_online(message: types.Message, state: FSMContext):
         await clear_cart(user_id)
         await state.finish()
 
-        # ── Click va Payme to'lov havolalari (Deep Links) ──────────
-        from utils.payment_links import generate_click_link, generate_payme_link
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+        # ── Click va Payme to'lov havolalari (Deep Links) — faqat sozlanganlari ──
+        from utils.payment_links import build_pay_keyboard
 
-        click_url = generate_click_link(order_id, total_amount)
-        payme_url = generate_payme_link(order_id, total_amount)
+        pay_kb = build_pay_keyboard(order_id, total_amount)
 
         # ── DIQQAT: Toki to'lov amalga oshirilmaguncha filial kanaliga YUBORILMAYDI! ──
         # To'lov Payme/Click webhook yoki 'To'lovni tekshirish' tugmasi orqali
@@ -306,13 +318,6 @@ async def process_payment_online(message: types.Message, state: FSMContext):
                                     delivery_fee=delivery_fee,
                                     total=total_amount,
                                     note=note_text)
-
-        pay_kb = InlineKeyboardMarkup(row_width=1)
-        pay_kb.add(
-            InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url),
-            InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url),
-            InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"),
-        )
 
         pay_prompt = (
             "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni amalga oshiring.\n"

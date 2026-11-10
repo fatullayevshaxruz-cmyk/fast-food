@@ -71,3 +71,75 @@ def get_order_payment_links(order_id: int, amount: float) -> Dict[str, str]:
         "payme": generate_payme_link(order_id, amount),
     }
 
+
+# ── Sozlanganlik holati ───────────────────────────────────────────────
+
+def is_payme_enabled() -> bool:
+    from config import PAYME_ENABLED
+    return bool(PAYME_ENABLED)
+
+
+def is_click_enabled() -> bool:
+    from config import CLICK_ENABLED
+    return bool(CLICK_ENABLED)
+
+
+def is_online_payment_available() -> bool:
+    return is_payme_enabled() or is_click_enabled()
+
+
+def is_payment_method_available(payment_method: str) -> bool:
+    """
+    Mijoz tanlagan to'lov usuli (matn) hozir qabul qilinadimi:
+      - naqd → har doim True
+      - 'click' → Click sozlangan bo'lsa
+      - 'payme' → Payme sozlangan bo'lsa
+      - umumiy 'online' → kamida bittasi sozlangan bo'lsa
+    """
+    low = str(payment_method or "").lower()
+    want_click = "click" in low
+    want_payme = "payme" in low
+    if want_click:
+        return is_click_enabled()
+    if want_payme:
+        return is_payme_enabled()
+    if "online" in low:
+        return is_online_payment_available()
+    return True
+
+
+def get_payment_config() -> Dict[str, bool]:
+    """WebApp uchun: qaysi to'lov usullari ko'rsatilishi mumkin."""
+    return {
+        "cash": True,
+        "payme": is_payme_enabled(),
+        "click": is_click_enabled(),
+    }
+
+
+def build_pay_keyboard(order_id: int, amount: float, prefer: Optional[str] = None):
+    """
+    Faqat SOZLANGAN to'lov tizimlari uchun tugmalar bilan inline klaviatura.
+    prefer='click' bo'lsa Click tugmasi birinchi turadi.
+    Hech biri sozlanmagan bo'lsa None qaytaradi.
+    """
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    buttons = []
+    if is_payme_enabled():
+        buttons.append(("payme", InlineKeyboardButton(
+            "💳 Payme ilovasida to'lash", url=generate_payme_link(order_id, amount))))
+    if is_click_enabled():
+        buttons.append(("click", InlineKeyboardButton(
+            "🔹 Click ilovasida to'lash", url=generate_click_link(order_id, amount))))
+    if not buttons:
+        return None
+    if prefer == "click":
+        buttons.sort(key=lambda b: 0 if b[0] == "click" else 1)
+
+    kb = InlineKeyboardMarkup(row_width=1)
+    for _, btn in buttons:
+        kb.add(btn)
+    kb.add(InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"))
+    return kb
+

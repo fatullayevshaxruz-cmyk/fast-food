@@ -106,6 +106,15 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
             from utils.helpers import resolve_human_address
             address = await resolve_human_address(address, lat, lon)
 
+        # ── 0-A. Sozlanmagan online to'lov tizimini rad etish ─────────
+        from utils.payment_links import is_payment_method_available
+        if not is_payment_method_available(payment_method):
+            await message.answer(
+                "⚠️ Tanlangan online to'lov usuli vaqtincha mavjud emas. "
+                "Iltimos, naqd to'lovni tanlab qayta buyurtma bering."
+            )
+            return
+
         # ── 0. Dublikat buyurtma (Replay / Flood) himoyasi ────────────
         if not check_and_record_order_idempotency(user_id, items_raw, delivery_type, address):
             return
@@ -294,16 +303,8 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
                                     note="")
 
         if is_online:
-            from utils.payment_links import generate_click_link, generate_payme_link
-            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-            click_url = generate_click_link(order_id, total_amount)
-            payme_url = generate_payme_link(order_id, total_amount)
-            pay_kb = InlineKeyboardMarkup(row_width=1)
-            pay_kb.add(
-                InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url),
-                InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url),
-                InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"),
-            )
+            from utils.payment_links import build_pay_keyboard
+            pay_kb = build_pay_keyboard(order_id, total_amount, prefer="click" if is_click else None)
             pay_prompt = "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni bajaring:"
             pay_msg = await message.answer(success_text + pay_prompt, reply_markup=pay_kb, parse_mode="HTML")
             await message.answer("🍔 Asosiy menyu:", reply_markup=_get_menu_for_user(user_id, lang))

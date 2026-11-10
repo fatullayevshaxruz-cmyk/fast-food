@@ -538,6 +538,14 @@ async def api_order_create(request):
         promo_code     = sanitize_text(data.get("promo_code") or "", max_len=30) or None
         lat, lon       = validate_coordinates(data.get("lat"), data.get("lon"))
 
+        # ── Sozlanmagan online to'lov tizimini rad etish (buyurtma yaratilmaydi) ──
+        from utils.payment_links import is_payment_method_available
+        if not is_payment_method_available(payment_method):
+            return add_cors_headers(web.json_response({
+                'error': "Tanlangan online to'lov usuli vaqtincha mavjud emas. Iltimos, naqd to'lovni tanlang.",
+                'payment_unavailable': True,
+            }, status=400))
+
         if delivery_type == "delivery":
             address = await resolve_human_address(address, lat, lon)
 
@@ -690,10 +698,11 @@ async def api_order_create(request):
         await add_order_items(order_id, items)
         await clear_cart(user_id)
 
-        # ── 7. Click va Payme to'lov havolalarini yaratish ───────────
-        from utils.payment_links import generate_click_link, generate_payme_link
-        click_url = generate_click_link(order_id, total_amount)
-        payme_url = generate_payme_link(order_id, total_amount)
+        # ── 7. Click va Payme to'lov havolalarini yaratish (faqat sozlanganlari) ──
+        from utils.payment_links import (generate_click_link, generate_payme_link,
+                                         is_click_enabled, is_payme_enabled, build_pay_keyboard)
+        click_url = generate_click_link(order_id, total_amount) if is_click_enabled() else None
+        payme_url = generate_payme_link(order_id, total_amount) if is_payme_enabled() else None
         chosen_payment_url = click_url if is_click else (payme_url if is_payme else None)
 
         # ── 8. Filial kanaliga yo'naltirish (Faqat Naqd uchun!) ────────
@@ -774,16 +783,8 @@ async def api_order_create(request):
                 main_markup = get_admin_main_menu(lang) if is_admin else get_user_main_menu(lang)
 
                 if is_online:
-                    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-                    pay_kb = InlineKeyboardMarkup(row_width=1)
-                    if is_click:
-                        pay_kb.add(InlineKeyboardButton("🔹 Click ilovasida to'lash", url=click_url))
-                        pay_kb.add(InlineKeyboardButton("💳 Payme orqali to'lash", url=payme_url))
-                    else:
-                        pay_kb.add(InlineKeyboardButton("💳 Payme ilovasida to'lash", url=payme_url))
-                        pay_kb.add(InlineKeyboardButton("🔹 Click orqali to'lash", url=click_url))
-
-                    pay_kb.add(InlineKeyboardButton("🔄 To'lovni tekshirish", callback_data=f"chk_pay_{order_id}"))
+                    pay_kb = build_pay_keyboard(order_id, total_amount,
+                                                prefer="click" if is_click else None)
 
                     online_instructions = (
                         "\n\n⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni amalga oshiring.\n"
@@ -880,6 +881,16 @@ async def api_branches_list(request):
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
 
+async def api_payment_config(request):
+    """
+    GET /api/payment-config
+    WebApp qaysi to'lov usullarini ko'rsatishi mumkinligini qaytaradi.
+    Masalan: {"cash": true, "payme": false, "click": false}
+    """
+    from utils.payment_links import get_payment_config
+    return add_cors_headers(web.json_response(get_payment_config()))
+
+
 async def api_order_payment_status(request):
     """
     GET /api/order/payment-status?order_id=123
@@ -932,6 +943,9 @@ def register_webapp_api(app: web.Application):
 
     app.router.add_options('/api/branches', options_handler)
     app.router.add_get('/api/branches', api_branches_list)
+
+    app.router.add_options('/api/payment-config', options_handler)
+    app.router.add_get('/api/payment-config', api_payment_config)
 
     app.router.add_options('/api/branches/nearest', options_handler)
     app.router.add_get('/api/branches/nearest', api_branches_nearest)

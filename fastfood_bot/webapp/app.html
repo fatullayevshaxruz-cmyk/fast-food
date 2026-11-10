@@ -219,8 +219,8 @@
     ];
 
     // ─── 2. Payment Methods Component ("Оплата / Способы оплаты") ──────
-    function PaymentMethodsSection({ selected, onSelect }) {
-      const paymentOptions = [
+    function PaymentMethodsSection({ selected, onSelect, available }) {
+      const allPaymentOptions = [
         {
           id: 'cash',
           title: 'Наличные',
@@ -297,6 +297,11 @@
           ),
         },
       ];
+
+      // Faqat serverda sozlangan to'lov usullari ko'rsatiladi (/api/payment-config)
+      const paymentOptions = allPaymentOptions.filter(
+        (opt) => opt.id === 'cash' || (available && available[opt.id])
+      );
 
       return (
         <div className="bg-white rounded-[24px] px-5 py-5">
@@ -502,19 +507,8 @@
     }
 
     // ─── Click & Payme Deep Link Helpers ──────────────────────────────
-    function getPaymeLink(orderId, amount) {
-      const merchantId = '64b0f0000000000000000000';
-      const tiyin = Math.round(Number(amount || 0) * 100);
-      const params = `m=${merchantId};ac.order_id=${orderId};a=${tiyin}`;
-      const b64 = btoa(unescape(encodeURIComponent(params)));
-      return `https://checkout.paycom.uz/${b64}`;
-    }
-
-    function getClickLink(orderId, amount) {
-      const serviceId = '12345';
-      const merchantId = '54321';
-      return `https://my.click.uz/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&amount=${amount}&transaction_param=${orderId}`;
-    }
+    // Havolalar faqat serverda (haqiqiy merchant ID bilan) yaratiladi va
+    // buyurtma javobida `payment_url` sifatida keladi. Bu yerda soxta ID ishlatilmaydi.
 
     // ─── Reverse Geocode Helper (Always returns human-readable place name, never raw GPS) ───
     async function reverseGeocodePlaceName(la, lo) {
@@ -665,8 +659,27 @@
       const [demoOtpHint, setDemoOtpHint] = useState('');
       const [authNotice, setAuthNotice] = useState('');
 
-      // 2. Payment Method State ("Payme" active by default with Crimson Red border)
-      const [paymentMethod, setPaymentMethod] = useState('payme');
+      // 2. Payment Method State — server qaysi usullar sozlanganini aytguncha faqat Naqd
+      const [paymentMethod, setPaymentMethod] = useState('cash');
+      const [paymentConfig, setPaymentConfig] = useState({ cash: true, payme: false, click: false });
+
+      useEffect(() => {
+        (async () => {
+          try {
+            const res = await fetch(`${API_BASE}/api/payment-config`);
+            if (!res.ok) return;
+            const cfg = await res.json();
+            const normalized = { cash: true, payme: !!cfg.payme, click: !!cfg.click };
+            setPaymentConfig(normalized);
+            // Avvalgidek Payme standart bo'lsin (agar sozlangan bo'lsa)
+            setPaymentMethod((prev) =>
+              prev !== 'cash' && normalized[prev]
+                ? prev
+                : normalized.payme ? 'payme' : normalized.click ? 'click' : 'cash'
+            );
+          } catch (e) {}
+        })();
+      }, []);
 
       // Catalog, Cart, User & Orders State
       const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
@@ -1690,6 +1703,7 @@
                 <PaymentMethodsSection
                   selected={paymentMethod}
                   onSelect={setPaymentMethod}
+                  available={paymentConfig}
                 />
 
                 {/* Spacer when OTP Keypad is visible so nothing is hidden */}
@@ -2186,6 +2200,7 @@
                     <PaymentMethodsSection
                       selected={paymentMethod}
                       onSelect={setPaymentMethod}
+                  available={paymentConfig}
                     />
 
                     {/* Order Breakdown & Submit */}
@@ -2502,16 +2517,12 @@
                                     </div>
                                   ) : (
                                     <>
+                                      {ord.payment_url && (
                                       <button
                                         type="button"
                                         onClick={() => {
                                           hapticImpact('medium');
-                                          const isClick = String(ord.payment_method || '').toLowerCase().includes('click');
-                                          const link =
-                                            ord.payment_url ||
-                                            (isClick
-                                              ? getClickLink(ord.id, ord.total_amount)
-                                              : getPaymeLink(ord.id, ord.total_amount));
+                                          const link = ord.payment_url;
                                           if (window.Telegram?.WebApp?.openLink) {
                                             window.Telegram.WebApp.openLink(link);
                                           } else {
@@ -2526,6 +2537,7 @@
                                             : '💳 Payme ilovasida to\'lash'}
                                         </span>
                                       </button>
+                                      )}
                                       <div className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-medium flex items-center justify-center gap-1.5">
                                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping inline-block flex-shrink-0"></span>
                                         <span>To'lov kutilmoqda (Kod avtomatik aniqlaydi)</span>

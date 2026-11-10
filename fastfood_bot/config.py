@@ -28,9 +28,18 @@ REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN") # Click or Payme token
 
 # ── Click & Payme to'g'ridan-to'g'ri ilovaga kirish (Direct Payment Links) ──
-CLICK_MERCHANT_ID = os.getenv("CLICK_MERCHANT_ID", "54321")
-CLICK_SERVICE_ID  = os.getenv("CLICK_SERVICE_ID", "12345")
-PAYME_MERCHANT_ID = os.getenv("PAYME_MERCHANT_ID", "64b0f0000000000000000000")
+# DIQQAT: Bu qiymatlar faqat Render → Environment (yoki .env) dan olinadi.
+# Kiritilmagan bo'lsa — tegishli to'lov tugmasi botda ham, WebApp'da ham YASHIRILADI.
+CLICK_MERCHANT_ID = (os.getenv("CLICK_MERCHANT_ID") or "").strip()
+CLICK_SERVICE_ID  = (os.getenv("CLICK_SERVICE_ID") or "").strip()
+PAYME_MERCHANT_ID = (os.getenv("PAYME_MERCHANT_ID") or "").strip()
+
+# Avval kodda turgan soxta namuna qiymatlar — haqiqiy deb hisoblanmaydi
+_PLACEHOLDER_IDS = {"", "54321", "12345", "64b0f0000000000000000000"}
+
+PAYME_ENABLED = PAYME_MERCHANT_ID not in _PLACEHOLDER_IDS
+CLICK_ENABLED = (CLICK_MERCHANT_ID not in _PLACEHOLDER_IDS
+                 and CLICK_SERVICE_ID not in _PLACEHOLDER_IDS)
 
 # Test provayder tokeni — Render'da PAYMENT_PROVIDER_TOKEN o'rnatilmagan bo'lsa ishlatiladi.
 # Haqiqiy to'lov uchun Render → Environment da PAYMENT_PROVIDER_TOKEN ni haqiqiy token bilan qo'ying.
@@ -53,6 +62,11 @@ MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm
 # Online to'lov (karta) — standart holatda YOQILGAN
 # .env / Render da ONLINE_PAYMENT_ENABLED=0 qilib o'chirish mumkin
 ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "1") == "1"
+if not ONLINE_PAYMENT_ENABLED:
+    PAYME_ENABLED = False
+    CLICK_ENABLED = False
+# Hech bo'lmasa bitta haqiqiy to'lov tizimi sozlangan bo'lsagina online to'lov ko'rsatiladi
+ONLINE_PAYMENT_ENABLED = PAYME_ENABLED or CLICK_ENABLED
 
 # ── Restoran joylashuvi (Buxoro sh., 1-filial: Abu Ali ibn Sino ko'chasi) ──
 RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "39.783420").replace(",", "."))
